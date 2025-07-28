@@ -123,8 +123,14 @@ async def simple_health_check():
     return {
         "status": "healthy",
         "service": "reservation-system",
-        "message": "Service is running"
+        "message": "Service is running",
+        "version": "1.0.0"
     }
+
+@app.get("/ping")
+async def ping():
+    """Ultra simple ping endpoint"""
+    return {"pong": "ok"}
 
 
 @app.exception_handler(HTTPException)
