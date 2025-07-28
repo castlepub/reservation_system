@@ -41,7 +41,9 @@ async def startup_event():
         from app.core.security import get_password_hash
         from app.models.user import User, UserRole
         from app.models.reservation import ReservationType
+        from app.models.settings import WorkingHours, DayOfWeek, RestaurantSettings
         from sqlalchemy import text
+        from datetime import time
         
         db = SessionLocal()
         try:
@@ -109,6 +111,10 @@ app.include_router(admin.router, prefix="/api")
 # Import and include dashboard router
 from app.api import dashboard
 app.include_router(dashboard.router, prefix="/api")
+
+# Import and include settings router
+from app.api import settings
+app.include_router(settings.router, prefix="/api")
 
 # Mount static files
 static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")

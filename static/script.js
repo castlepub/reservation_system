@@ -51,11 +51,17 @@ function setupEventListeners() {
     document.getElementById('addNoteForm').addEventListener('submit', handleAddNote);
 
     // Date and party size changes
-    document.getElementById('date').addEventListener('change', checkAvailability);
+    document.getElementById('date').addEventListener('change', function() {
+        updateTimeSlotsForDate(this, 'time');
+        checkAvailability();
+    });
     document.getElementById('partySize').addEventListener('change', checkAvailability);
 
     // Admin date and party size changes
-    document.getElementById('adminDate').addEventListener('change', checkAvailabilityAdmin);
+    document.getElementById('adminDate').addEventListener('change', function() {
+        updateTimeSlotsForDate(this, 'adminTime');
+        checkAvailabilityAdmin();
+    });
     document.getElementById('adminPartySize').addEventListener('change', checkAvailabilityAdmin);
 
     // Search functionality
@@ -534,11 +540,12 @@ async function handleAdminReservationSubmit(e) {
             loadDashboardData(); // Refresh dashboard data
         } else {
             const error = await response.json();
-            throw new Error(error.detail || 'Failed to create reservation');
+            console.error('Admin reservation creation failed:', error);
+            throw new Error(error.detail || JSON.stringify(error) || 'Failed to create reservation');
         }
     } catch (error) {
         console.error('Error creating reservation:', error);
-        showMessage(error.message, 'error');
+        showMessage(error.message || 'Failed to create reservation', 'error');
     }
 }
 
@@ -620,11 +627,12 @@ async function handleReservationSubmit(e) {
             hideReservationForm();
         } else {
             const error = await response.json();
-            throw new Error(error.detail || 'Failed to create reservation');
+            console.error('Reservation creation failed:', error);
+            throw new Error(error.detail || JSON.stringify(error) || 'Failed to create reservation');
         }
     } catch (error) {
         console.error('Error creating reservation:', error);
-        showMessage(error.message, 'error');
+        showMessage(error.message || 'Failed to create reservation', 'error');
     } finally {
         hideLoading();
     }
@@ -755,7 +763,7 @@ function populateTimeSlots(selectId = 'time') {
         timeSelect.removeChild(timeSelect.lastChild);
     }
     
-    // Generate time slots from 11:00 to 22:30
+    // Generate time slots from 11:00 to 22:30 (default fallback)
     for (let hour = 11; hour <= 22; hour++) {
         for (let minute = 0; minute < 60; minute += 30) {
             const timeString = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
@@ -764,6 +772,49 @@ function populateTimeSlots(selectId = 'time') {
             option.textContent = timeString;
             timeSelect.appendChild(option);
         }
+    }
+}
+
+async function updateTimeSlotsForDate(dateInput, timeSelectId) {
+    const selectedDate = new Date(dateInput.value);
+    if (!selectedDate || isNaN(selectedDate)) return;
+    
+    const dayOfWeek = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][selectedDate.getDay()];
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/settings/working-hours/${dayOfWeek}/time-slots`);
+        if (response.ok) {
+            const data = await response.json();
+            const timeSelect = document.getElementById(timeSelectId);
+            
+            // Clear existing options except the first
+            while (timeSelect.options.length > 1) {
+                timeSelect.removeChild(timeSelect.lastChild);
+            }
+            
+            if (data.time_slots && data.time_slots.length > 0) {
+                data.time_slots.forEach(timeSlot => {
+                    const option = document.createElement('option');
+                    option.value = timeSlot;
+                    option.textContent = timeSlot;
+                    timeSelect.appendChild(option);
+                });
+            } else {
+                // Restaurant is closed
+                const option = document.createElement('option');
+                option.value = '';
+                option.textContent = data.message || 'Restaurant is closed';
+                option.disabled = true;
+                timeSelect.appendChild(option);
+            }
+        } else {
+            // Fallback to default time slots
+            populateTimeSlots(timeSelectId);
+        }
+    } catch (error) {
+        console.error('Error loading time slots:', error);
+        // Fallback to default time slots
+        populateTimeSlots(timeSelectId);
     }
 }
 
