@@ -68,6 +68,11 @@ function setupEventListeners() {
     });
     document.getElementById('adminPartySize').addEventListener('change', checkAvailabilityAdmin);
 
+    // Settings event listeners
+    document.getElementById('saveWorkingHours')?.addEventListener('click', saveWorkingHours);
+    document.getElementById('addSpecialDay')?.addEventListener('click', addSpecialDay);
+    document.getElementById('saveAllSettings')?.addEventListener('click', saveAllSettings);
+
     // Search functionality
     document.getElementById('customerSearch')?.addEventListener('input', filterCustomers);
     document.getElementById('todaySearch')?.addEventListener('input', filterTodayReservations);
@@ -598,6 +603,8 @@ function showTab(tabName) {
         loadCustomers();
     } else if (tabName === 'today') {
         loadTodayReservations();
+    } else if (tabName === 'settings') {
+        loadSettingsData();
     } else if (tabName === 'add-reservation') {
         loadRooms(); // Load rooms for the form
         populateTimeSlots('adminTime'); // Populate time slots for admin form
@@ -911,4 +918,320 @@ function formatTime(timeString) {
         minute: '2-digit',
         hour12: true
     });
+} 
+
+// Settings Functions
+async function loadSettingsData() {
+    try {
+        await Promise.all([
+            loadWorkingHours(),
+            loadRestaurantSettings(),
+            loadSpecialDays()
+        ]);
+    } catch (error) {
+        console.error('Error loading settings:', error);
+        showMessage('Error loading settings data', 'error');
+    }
+}
+
+async function loadWorkingHours() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/settings/working-hours`, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            updateWorkingHoursDisplay(data);
+        } else {
+            throw new Error('Failed to load working hours');
+        }
+    } catch (error) {
+        console.error('Error loading working hours:', error);
+        showMessage('Error loading working hours', 'error');
+    }
+}
+
+function updateWorkingHoursDisplay(weeklySchedule) {
+    const container = document.getElementById('workingHoursContainer');
+    const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    
+    container.innerHTML = '';
+    
+    days.forEach((day, index) => {
+        const dayData = weeklySchedule[day] || {
+            is_open: true,
+            open_time: '11:00',
+            close_time: '23:00'
+        };
+        
+        const dayElement = document.createElement('div');
+        dayElement.className = `working-hours-day ${!dayData.is_open ? 'closed' : ''}`;
+        dayElement.innerHTML = `
+            <div class="day-name">${dayNames[index]}</div>
+            <div class="day-toggle">
+                <label>
+                    <input type="checkbox" ${dayData.is_open ? 'checked' : ''} 
+                           onchange="toggleDayOpen('${day}', this.checked)">
+                    Open
+                </label>
+            </div>
+            <div class="time-inputs" style="display: ${dayData.is_open ? 'flex' : 'none'}">
+                <input type="time" value="${dayData.open_time || '11:00'}" 
+                       id="${day}-open" class="time-input">
+                <span>to</span>
+                <input type="time" value="${dayData.close_time || '23:00'}" 
+                       id="${day}-close" class="time-input">
+            </div>
+            <div class="closed-text" style="display: ${dayData.is_open ? 'none' : 'block'}">
+                <span class="text-muted">Closed</span>
+            </div>
+        `;
+        container.appendChild(dayElement);
+    });
+}
+
+function toggleDayOpen(day, isOpen) {
+    const dayElement = document.querySelector(`.working-hours-day:has(#${day}-open)`);
+    const timeInputs = dayElement.querySelector('.time-inputs');
+    const closedText = dayElement.querySelector('.closed-text');
+    
+    if (isOpen) {
+        dayElement.classList.remove('closed');
+        timeInputs.style.display = 'flex';
+        closedText.style.display = 'none';
+    } else {
+        dayElement.classList.add('closed');
+        timeInputs.style.display = 'none';
+        closedText.style.display = 'block';
+    }
+}
+
+async function saveWorkingHours() {
+    try {
+        const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+        const workingHoursData = {};
+        
+        for (const day of days) {
+            const isOpenCheckbox = document.querySelector(`input[onchange*="${day}"]`);
+            const openTimeInput = document.getElementById(`${day}-open`);
+            const closeTimeInput = document.getElementById(`${day}-close`);
+            
+            workingHoursData[day] = {
+                is_open: isOpenCheckbox?.checked || false,
+                open_time: openTimeInput?.value || '11:00',
+                close_time: closeTimeInput?.value || '23:00'
+            };
+        }
+
+        for (const [day, hours] of Object.entries(workingHoursData)) {
+            const response = await fetch(`${API_BASE_URL}/api/settings/working-hours/${day}`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${authToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(hours)
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to save working hours for ${day}`);
+            }
+        }
+
+        showMessage('Working hours saved successfully', 'success');
+    } catch (error) {
+        console.error('Error saving working hours:', error);
+        showMessage('Error saving working hours', 'error');
+    }
+}
+
+async function loadRestaurantSettings() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/settings/restaurant`, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (response.ok) {
+            const settings = await response.json();
+            updateRestaurantSettingsDisplay(settings);
+        }
+    } catch (error) {
+        console.error('Error loading restaurant settings:', error);
+    }
+}
+
+function updateRestaurantSettingsDisplay(settings) {
+    // Set default values if settings exist
+    settings.forEach(setting => {
+        const element = document.getElementById(getSettingElementId(setting.setting_key));
+        if (element) {
+            element.value = setting.setting_value;
+        }
+    });
+}
+
+function getSettingElementId(settingKey) {
+    const mapping = {
+        'restaurant_name': 'restaurantName',
+        'restaurant_phone': 'restaurantPhone', 
+        'restaurant_address': 'restaurantAddress',
+        'max_party_size': 'maxPartySize',
+        'min_advance_hours': 'minAdvanceHours',
+        'max_advance_days': 'maxAdvanceDays'
+    };
+    return mapping[settingKey] || settingKey;
+}
+
+async function saveAllSettings() {
+    try {
+        const settingsData = [
+            { setting_key: 'restaurant_name', setting_value: document.getElementById('restaurantName').value },
+            { setting_key: 'restaurant_phone', setting_value: document.getElementById('restaurantPhone').value },
+            { setting_key: 'restaurant_address', setting_value: document.getElementById('restaurantAddress').value },
+            { setting_key: 'max_party_size', setting_value: document.getElementById('maxPartySize').value },
+            { setting_key: 'min_advance_hours', setting_value: document.getElementById('minAdvanceHours').value },
+            { setting_key: 'max_advance_days', setting_value: document.getElementById('maxAdvanceDays').value }
+        ];
+
+        for (const setting of settingsData) {
+            const response = await fetch(`${API_BASE_URL}/api/settings/restaurant/${setting.setting_key}`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${authToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    setting_key: setting.setting_key,
+                    setting_value: setting.setting_value,
+                    description: `Restaurant ${setting.setting_key.replace('_', ' ')}`
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to save setting: ${setting.setting_key}`);
+            }
+        }
+
+        // Also save working hours
+        await saveWorkingHours();
+        
+        showMessage('All settings saved successfully', 'success');
+    } catch (error) {
+        console.error('Error saving settings:', error);
+        showMessage('Error saving settings', 'error');
+    }
+}
+
+async function loadSpecialDays() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/settings/special-days`, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (response.ok) {
+            const specialDays = await response.json();
+            updateSpecialDaysDisplay(specialDays);
+        }
+    } catch (error) {
+        console.error('Error loading special days:', error);
+        // It's OK if this fails - feature might not be implemented yet
+    }
+}
+
+function updateSpecialDaysDisplay(specialDays) {
+    const container = document.getElementById('specialDaysContainer');
+    container.innerHTML = '';
+    
+    if (specialDays.length === 0) {
+        container.innerHTML = '<div class="loading-text">No special days configured</div>';
+        return;
+    }
+    
+    specialDays.forEach(day => {
+        const dayElement = document.createElement('div');
+        dayElement.className = 'special-day-item';
+        dayElement.innerHTML = `
+            <div class="special-day-info">
+                <div class="special-day-date">${new Date(day.date).toLocaleDateString()}</div>
+                <div class="special-day-reason">${day.reason}</div>
+            </div>
+            <button class="btn btn-sm btn-danger" onclick="removeSpecialDay('${day.id}')">
+                <i class="fas fa-trash"></i>
+            </button>
+        `;
+        container.appendChild(dayElement);
+    });
+}
+
+async function addSpecialDay() {
+    const dateInput = document.getElementById('specialDate');
+    const reasonInput = document.getElementById('specialReason');
+    
+    if (!dateInput.value || !reasonInput.value) {
+        showMessage('Please enter both date and reason', 'error');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/settings/special-days`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                date: dateInput.value,
+                reason: reasonInput.value
+            })
+        });
+
+        if (response.ok) {
+            dateInput.value = '';
+            reasonInput.value = '';
+            loadSpecialDays();
+            showMessage('Special day added successfully', 'success');
+        } else {
+            throw new Error('Failed to add special day');
+        }
+    } catch (error) {
+        console.error('Error adding special day:', error);
+        showMessage('Error adding special day', 'error');
+    }
+}
+
+async function removeSpecialDay(dayId) {
+    if (!confirm('Are you sure you want to remove this special day?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/settings/special-days/${dayId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (response.ok) {
+            loadSpecialDays();
+            showMessage('Special day removed successfully', 'success');
+        } else {
+            throw new Error('Failed to remove special day');
+        }
+    } catch (error) {
+        console.error('Error removing special day:', error);
+        showMessage('Error removing special day', 'error');
+    }
 } 

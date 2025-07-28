@@ -398,39 +398,79 @@
                 <!-- Settings Tab -->
                 <div id="settingsTab" class="tab-content">
                     <div class="tab-header">
-                        <h3>System Settings</h3>
+                        <h3>Restaurant Settings</h3>
                     </div>
                     <div class="settings-content">
+                        <!-- Working Hours Section -->
+                        <div class="setting-group">
+                            <h4>Weekly Operating Hours</h4>
+                            <div id="workingHoursContainer" class="working-hours-container">
+                                <!-- Will be populated by JavaScript -->
+                                <div class="loading-text">Loading working hours...</div>
+                            </div>
+                            <div class="setting-actions">
+                                <button id="saveWorkingHours" class="btn btn-primary">
+                                    <i class="fas fa-save"></i> Save Working Hours
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Restaurant Information -->
                         <div class="setting-group">
                             <h4>Restaurant Information</h4>
                             <div class="form-group">
                                 <label>Restaurant Name</label>
-                                <input type="text" value="The Castle Pub" class="form-control">
+                                <input type="text" id="restaurantName" value="The Castle Pub" class="form-control">
                             </div>
                             <div class="form-group">
-                                <label>Operating Hours</label>
-                                <div class="form-row">
-                                    <input type="time" value="11:00" class="form-control">
-                                    <span>to</span>
-                                    <input type="time" value="23:00" class="form-control">
-                                </div>
+                                <label>Phone Number</label>
+                                <input type="tel" id="restaurantPhone" value="+49 30 12345600" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>Address</label>
+                                <textarea id="restaurantAddress" class="form-control" rows="2">Kastanienallee 85, 10435 Berlin, Germany</textarea>
                             </div>
                         </div>
                         
+                        <!-- Reservation Settings -->
                         <div class="setting-group">
                             <h4>Reservation Settings</h4>
                             <div class="form-group">
                                 <label>Maximum Party Size</label>
-                                <input type="number" value="20" class="form-control">
+                                <input type="number" id="maxPartySize" value="20" class="form-control" min="1" max="50">
                             </div>
                             <div class="form-group">
                                 <label>Minimum Hours in Advance</label>
-                                <input type="number" value="2" class="form-control">
+                                <input type="number" id="minAdvanceHours" value="2" class="form-control" min="0" max="168">
+                            </div>
+                            <div class="form-group">
+                                <label>Maximum Days in Advance</label>
+                                <input type="number" id="maxAdvanceDays" value="90" class="form-control" min="1" max="365">
+                            </div>
+                        </div>
+
+                        <!-- Special Days / Holidays -->
+                        <div class="setting-group">
+                            <h4>Special Days & Holidays</h4>
+                            <div class="form-group">
+                                <label>Add Closed Day</label>
+                                <div class="special-day-form">
+                                    <input type="date" id="specialDate" class="form-control">
+                                    <input type="text" id="specialReason" placeholder="Reason (e.g., Holiday, Private Event)" class="form-control">
+                                    <button type="button" id="addSpecialDay" class="btn btn-secondary">
+                                        <i class="fas fa-plus"></i> Add
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="specialDaysContainer" class="special-days-list">
+                                <!-- Will be populated by JavaScript -->
                             </div>
                         </div>
 
                         <div class="setting-actions">
-                            <button class="btn btn-primary">Save Settings</button>
+                            <button id="saveAllSettings" class="btn btn-primary btn-large">
+                                <i class="fas fa-save"></i> Save All Settings
+                            </button>
                         </div>
                     </div>
                 </div>

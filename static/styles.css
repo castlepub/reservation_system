@@ -941,3 +941,111 @@ main {
         font-size: 12pt;
     }
 } 
+
+/* Enhanced Settings Styles */
+.settings-content {
+    max-width: 1000px;
+}
+
+/* Working Hours Styles */
+.working-hours-container {
+    margin-bottom: 1rem;
+}
+
+.working-hours-day {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem;
+    border: 1px solid #e1e5e9;
+    border-radius: 6px;
+    margin-bottom: 0.5rem;
+    background: #f8f9fa;
+}
+
+.working-hours-day.closed {
+    background: #fff3cd;
+    border-color: #ffeaa7;
+}
+
+.day-name {
+    min-width: 100px;
+    font-weight: 600;
+    color: #333;
+}
+
+.day-toggle {
+    margin: 0 1rem;
+}
+
+.time-inputs {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.time-inputs input[type="time"] {
+    width: 100px;
+    padding: 0.375rem 0.5rem;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+}
+
+.time-inputs span {
+    font-weight: 500;
+    color: #666;
+}
+
+/* Special Days Styles */
+.special-day-form {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.special-day-form input {
+    flex: 1;
+    min-width: 150px;
+}
+
+.special-days-list {
+    margin-top: 1rem;
+}
+
+.special-day-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem;
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    border-radius: 6px;
+    margin-bottom: 0.5rem;
+}
+
+.special-day-info {
+    flex: 1;
+}
+
+.special-day-date {
+    font-weight: 600;
+    color: #333;
+}
+
+.special-day-reason {
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.btn-large {
+    padding: 0.75rem 2rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.loading-text {
+    text-align: center;
+    color: #666;
+    font-style: italic;
+    padding: 1rem;
+} 
