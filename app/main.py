@@ -49,18 +49,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers
-app.include_router(auth.router, prefix="/api")
-app.include_router(public.router)
-app.include_router(admin.router, prefix="/api")
+# TEMPORARILY DISABLED FOR DEBUGGING
+# # Include routers
+# app.include_router(auth.router, prefix="/api")
+# app.include_router(public.router)
+# app.include_router(admin.router, prefix="/api")
 
-# Mount static files
+# # Mount static files
+# static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
+# if os.path.exists(static_dir):
+#     app.mount("/static", StaticFiles(directory=static_dir), name="static")
+#     print(f"✓ Static files mounted from: {os.path.abspath(static_dir)}")
+# else:
+#     print(f"⚠ Static directory not found: {os.path.abspath(static_dir)}")
+
+# Temporary static dir reference for debug endpoint
 static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
-if os.path.exists(static_dir):
-    app.mount("/static", StaticFiles(directory=static_dir), name="static")
-    print(f"✓ Static files mounted from: {os.path.abspath(static_dir)}")
-else:
-    print(f"⚠ Static directory not found: {os.path.abspath(static_dir)}")
 
 @app.get("/")
 async def root():
