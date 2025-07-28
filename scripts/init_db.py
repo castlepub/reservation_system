@@ -43,16 +43,20 @@ def init_db():
         # Create sample rooms
         rooms_data = [
             {
-                "name": "Main Hall",
-                "description": "The main dining area with a cozy atmosphere"
+                "name": "Front Room",
+                "description": "Welcoming entrance area with street-side windows"
             },
             {
-                "name": "Beer Garden",
-                "description": "Outdoor seating area perfect for warm evenings"
+                "name": "Middle Room", 
+                "description": "Central dining area with traditional pub atmosphere"
             },
             {
-                "name": "Private Room",
-                "description": "Intimate private dining room for special occasions"
+                "name": "Back Room",
+                "description": "Quieter seating area perfect for intimate conversations"
+            },
+            {
+                "name": "Biergarten",
+                "description": "Outdoor seating area with authentic German beer garden experience"
             }
         ]
         
@@ -71,24 +75,33 @@ def init_db():
         print("\nCreating tables...")
         # Create sample tables for each room
         tables_data = {
-            "Main Hall": [
-                {"name": "T1", "capacity": 4, "combinable": True, "x": 10, "y": 10, "width": 80, "height": 60},
-                {"name": "T2", "capacity": 4, "combinable": True, "x": 100, "y": 10, "width": 80, "height": 60},
-                {"name": "T3", "capacity": 6, "combinable": True, "x": 190, "y": 10, "width": 100, "height": 70},
-                {"name": "T4", "capacity": 2, "combinable": True, "x": 10, "y": 80, "width": 60, "height": 50},
-                {"name": "T5", "capacity": 2, "combinable": True, "x": 80, "y": 80, "width": 60, "height": 50},
-                {"name": "T6", "capacity": 8, "combinable": True, "x": 150, "y": 90, "width": 120, "height": 80},
+            "Front Room": [
+                {"name": "F1", "capacity": 4, "combinable": True, "x": 10, "y": 10, "width": 80, "height": 60},
+                {"name": "F2", "capacity": 4, "combinable": True, "x": 100, "y": 10, "width": 80, "height": 60},
+                {"name": "F3", "capacity": 2, "combinable": True, "x": 190, "y": 10, "width": 60, "height": 50},
+                {"name": "F4", "capacity": 6, "combinable": True, "x": 10, "y": 80, "width": 100, "height": 70},
             ],
-            "Beer Garden": [
-                {"name": "BG1", "capacity": 4, "combinable": True, "x": 10, "y": 10, "width": 80, "height": 60},
-                {"name": "BG2", "capacity": 4, "combinable": True, "x": 100, "y": 10, "width": 80, "height": 60},
-                {"name": "BG3", "capacity": 6, "combinable": True, "x": 190, "y": 10, "width": 100, "height": 70},
-                {"name": "BG4", "capacity": 8, "combinable": True, "x": 10, "y": 80, "width": 120, "height": 80},
-                {"name": "BG5", "capacity": 10, "combinable": True, "x": 140, "y": 80, "width": 150, "height": 90},
+            "Middle Room": [
+                {"name": "M1", "capacity": 4, "combinable": True, "x": 10, "y": 10, "width": 80, "height": 60},
+                {"name": "M2", "capacity": 4, "combinable": True, "x": 100, "y": 10, "width": 80, "height": 60},
+                {"name": "M3", "capacity": 6, "combinable": True, "x": 190, "y": 10, "width": 100, "height": 70},
+                {"name": "M4", "capacity": 8, "combinable": True, "x": 10, "y": 80, "width": 120, "height": 80},
+                {"name": "M5", "capacity": 2, "combinable": True, "x": 140, "y": 80, "width": 60, "height": 50},
+                {"name": "M6", "capacity": 2, "combinable": True, "x": 210, "y": 80, "width": 60, "height": 50},
             ],
-            "Private Room": [
-                {"name": "PR1", "capacity": 12, "combinable": False, "x": 10, "y": 10, "width": 200, "height": 120},
-                {"name": "PR2", "capacity": 8, "combinable": False, "x": 10, "y": 140, "width": 150, "height": 100},
+            "Back Room": [
+                {"name": "B1", "capacity": 4, "combinable": True, "x": 10, "y": 10, "width": 80, "height": 60},
+                {"name": "B2", "capacity": 6, "combinable": True, "x": 100, "y": 10, "width": 100, "height": 70},
+                {"name": "B3", "capacity": 8, "combinable": True, "x": 10, "y": 80, "width": 120, "height": 80},
+                {"name": "B4", "capacity": 10, "combinable": False, "x": 140, "y": 10, "width": 150, "height": 120},
+            ],
+            "Biergarten": [
+                {"name": "BG1", "capacity": 6, "combinable": True, "x": 10, "y": 10, "width": 100, "height": 70},
+                {"name": "BG2", "capacity": 6, "combinable": True, "x": 120, "y": 10, "width": 100, "height": 70},
+                {"name": "BG3", "capacity": 8, "combinable": True, "x": 230, "y": 10, "width": 120, "height": 80},
+                {"name": "BG4", "capacity": 8, "combinable": True, "x": 10, "y": 90, "width": 120, "height": 80},
+                {"name": "BG5", "capacity": 10, "combinable": True, "x": 140, "y": 90, "width": 150, "height": 90},
+                {"name": "BG6", "capacity": 12, "combinable": False, "x": 300, "y": 90, "width": 180, "height": 100},
             ]
         }
         
