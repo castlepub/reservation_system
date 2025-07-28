@@ -1,6 +1,8 @@
 // API Configuration
 const API_BASE_URL = window.location.origin;
 let authToken = localStorage.getItem('authToken');
+let dashboardStats = null;
+let chartInstance = null;
 
 // DOM Elements
 const sections = {
@@ -28,6 +30,7 @@ function initializeApp() {
     // Check if user is already logged in
     if (authToken) {
         showAdminDashboard();
+        loadDashboardData();
     }
 }
 
@@ -44,29 +47,642 @@ function setupEventListeners() {
     // Forms
     document.getElementById('reservationForm').addEventListener('submit', handleReservationSubmit);
     document.getElementById('adminLoginForm').addEventListener('submit', handleAdminLogin);
+    document.getElementById('adminReservationForm').addEventListener('submit', handleAdminReservationSubmit);
+    document.getElementById('addNoteForm').addEventListener('submit', handleAddNote);
 
     // Date and party size changes
     document.getElementById('date').addEventListener('change', checkAvailability);
     document.getElementById('partySize').addEventListener('change', checkAvailability);
+
+    // Admin date and party size changes
+    document.getElementById('adminDate').addEventListener('change', checkAvailabilityAdmin);
+    document.getElementById('adminPartySize').addEventListener('change', checkAvailabilityAdmin);
+
+    // Search functionality
+    document.getElementById('customerSearch')?.addEventListener('input', filterCustomers);
+    document.getElementById('todaySearch')?.addEventListener('input', filterTodayReservations);
+    document.getElementById('reservationTypeFilter')?.addEventListener('change', filterTodayReservations);
+}
+
+// Dashboard Functions
+async function loadDashboardData() {
+    try {
+        await Promise.all([
+            loadDashboardStats(),
+            loadDashboardNotes(),
+            loadCustomers(),
+            loadTodayReservations()
+        ]);
+    } catch (error) {
+        console.error('Error loading dashboard data:', error);
+        showMessage('Error loading dashboard data', 'error');
+    }
+}
+
+async function loadDashboardStats() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/dashboard/stats`, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (response.ok) {
+            dashboardStats = await response.json();
+            updateStatsDisplay();
+            updateWeeklyChart();
+            updateGuestNotes();
+        } else {
+            throw new Error('Failed to load dashboard stats');
+        }
+    } catch (error) {
+        console.error('Error loading dashboard stats:', error);
+        showMessage('Error loading dashboard statistics', 'error');
+    }
+}
+
+function updateStatsDisplay() {
+    if (!dashboardStats) return;
+
+    document.getElementById('todayReservations').textContent = dashboardStats.total_reservations_today;
+    document.getElementById('todayGuests').textContent = dashboardStats.total_guests_today;
+    document.getElementById('weekReservations').textContent = dashboardStats.total_reservations_week;
+    document.getElementById('weekGuests').textContent = dashboardStats.total_guests_week;
+}
+
+function updateWeeklyChart() {
+    if (!dashboardStats || !dashboardStats.weekly_forecast) return;
+
+    const canvas = document.getElementById('weeklyChart');
+    const ctx = canvas.getContext('2d');
+
+    // Destroy existing chart if it exists
+    if (chartInstance) {
+        chartInstance.destroy();
+    }
+
+    // Simple chart implementation
+    const data = dashboardStats.weekly_forecast;
+    const maxValue = Math.max(...data.map(d => Math.max(d.reservations, d.guests)));
+    
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Chart settings
+    const margin = 40;
+    const chartWidth = canvas.width - margin * 2;
+    const chartHeight = canvas.height - margin * 2;
+    const barWidth = chartWidth / (data.length * 2);
+    
+    // Draw axes
+    ctx.strokeStyle = '#e2e8f0';
+    ctx.lineWidth = 1;
+    
+    // Y axis
+    ctx.beginPath();
+    ctx.moveTo(margin, margin);
+    ctx.lineTo(margin, margin + chartHeight);
+    ctx.stroke();
+    
+    // X axis
+    ctx.beginPath();
+    ctx.moveTo(margin, margin + chartHeight);
+    ctx.lineTo(margin + chartWidth, margin + chartHeight);
+    ctx.stroke();
+    
+    // Draw bars
+    data.forEach((day, index) => {
+        const x = margin + (index * barWidth * 2);
+        const reservationHeight = (day.reservations / maxValue) * chartHeight;
+        const guestHeight = (day.guests / maxValue) * chartHeight;
+        
+        // Reservations bar
+        ctx.fillStyle = '#667eea';
+        ctx.fillRect(x, margin + chartHeight - reservationHeight, barWidth * 0.8, reservationHeight);
+        
+        // Guests bar
+        ctx.fillStyle = '#764ba2';
+        ctx.fillRect(x + barWidth, margin + chartHeight - guestHeight, barWidth * 0.8, guestHeight);
+        
+        // Day label
+        ctx.fillStyle = '#4a5568';
+        ctx.font = '12px Inter';
+        ctx.textAlign = 'center';
+        const dayName = day.day_name.substring(0, 3);
+        ctx.fillText(dayName, x + barWidth, margin + chartHeight + 20);
+    });
+    
+    // Legend
+    ctx.fillStyle = '#667eea';
+    ctx.fillRect(margin, 10, 15, 15);
+    ctx.fillStyle = '#4a5568';
+    ctx.font = '12px Inter';
+    ctx.textAlign = 'left';
+    ctx.fillText('Reservations', margin + 20, 22);
+    
+    ctx.fillStyle = '#764ba2';
+    ctx.fillRect(margin + 120, 10, 15, 15);
+    ctx.fillText('Guests', margin + 140, 22);
+}
+
+function updateGuestNotes() {
+    if (!dashboardStats || !dashboardStats.guest_notes) return;
+
+    const container = document.getElementById('guestNotes');
+    
+    if (dashboardStats.guest_notes.length === 0) {
+        container.innerHTML = '<p class="text-center text-gray-500">No recent guest notes</p>';
+        return;
+    }
+
+    container.innerHTML = dashboardStats.guest_notes.map(note => `
+        <div class="guest-note-item">
+            <div class="guest-note-header">
+                <span class="guest-name">${note.customer_name}</span>
+                <span class="reservation-type-badge type-${note.reservation_type}">${note.reservation_type}</span>
+            </div>
+            <p class="note-content">"${note.notes}"</p>
+            <div class="note-meta">${formatDate(note.date)} • ${note.party_size} guests</div>
+        </div>
+    `).join('');
+}
+
+async function loadDashboardNotes() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/dashboard/notes`, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (response.ok) {
+            const notes = await response.json();
+            updateDashboardNotes(notes);
+        } else {
+            throw new Error('Failed to load dashboard notes');
+        }
+    } catch (error) {
+        console.error('Error loading dashboard notes:', error);
+    }
+}
+
+function updateDashboardNotes(notes) {
+    const container = document.getElementById('dashboardNotes');
+    
+    if (notes.length === 0) {
+        container.innerHTML = '<p class="text-center text-gray-500">No notes yet. Add your first note!</p>';
+        return;
+    }
+
+    container.innerHTML = notes.map(note => `
+        <div class="note-item priority-${note.priority}">
+            <div class="note-header">
+                <span class="note-title">${note.title}</span>
+                <button class="btn btn-sm btn-danger" onclick="deleteNote('${note.id}')">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+            <p class="note-content">${note.content}</p>
+            <div class="note-meta">By ${note.author} • ${formatDateTime(note.created_at)}</div>
+        </div>
+    `).join('');
+}
+
+async function loadCustomers() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/dashboard/customers`, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (response.ok) {
+            const customers = await response.json();
+            updateCustomersTable(customers);
+        } else {
+            throw new Error('Failed to load customers');
+        }
+    } catch (error) {
+        console.error('Error loading customers:', error);
+    }
+}
+
+function updateCustomersTable(customers) {
+    const container = document.getElementById('customersList');
+    
+    if (customers.length === 0) {
+        container.innerHTML = '<p class="text-center">No customers found</p>';
+        return;
+    }
+
+    container.innerHTML = `
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                    <th>Total Reservations</th>
+                    <th>Last Visit</th>
+                    <th>Favorite Room</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${customers.map(customer => `
+                    <tr>
+                        <td>${customer.customer_name}</td>
+                        <td>${customer.email}</td>
+                        <td>${customer.phone}</td>
+                        <td>${customer.total_reservations}</td>
+                        <td>${customer.last_visit ? formatDate(customer.last_visit) : 'Never'}</td>
+                        <td>${customer.favorite_room || 'None'}</td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+}
+
+async function loadTodayReservations() {
+    try {
+        const typeFilter = document.getElementById('reservationTypeFilter')?.value || '';
+        const searchFilter = document.getElementById('todaySearch')?.value || '';
+        
+        const params = new URLSearchParams();
+        if (typeFilter) params.append('reservation_type', typeFilter);
+        if (searchFilter) params.append('search', searchFilter);
+        
+        const response = await fetch(`${API_BASE_URL}/api/dashboard/today?${params}`, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (response.ok) {
+            const reservations = await response.json();
+            updateTodayReservations(reservations);
+        } else {
+            throw new Error('Failed to load today\'s reservations');
+        }
+    } catch (error) {
+        console.error('Error loading today\'s reservations:', error);
+    }
+}
+
+function updateTodayReservations(reservations) {
+    const container = document.getElementById('todayReservationsList');
+    
+    if (reservations.length === 0) {
+        container.innerHTML = '<p class="text-center">No reservations for today</p>';
+        return;
+    }
+
+    container.innerHTML = reservations.map(reservation => `
+        <div class="today-reservation-card">
+            <div class="reservation-header">
+                <div class="customer-info">
+                    <h4>${reservation.customer_name}</h4>
+                    <span class="reservation-type-badge type-${reservation.reservation_type}">
+                        ${reservation.reservation_type}
+                    </span>
+                </div>
+                <div class="reservation-time">${formatTime(reservation.time)}</div>
+            </div>
+            <div class="reservation-details">
+                <div class="detail-item">
+                    <div class="detail-label">Party Size</div>
+                    <div class="detail-value">${reservation.party_size}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Tables</div>
+                    <div class="detail-value">
+                        <div class="table-tags">
+                            ${reservation.table_names.map(table => `<span class="table-tag">${table}</span>`).join('')}
+                        </div>
+                    </div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Status</div>
+                    <div class="detail-value">${reservation.status}</div>
+                </div>
+            </div>
+            ${reservation.notes ? `<div class="customer-notes"><strong>Notes:</strong> ${reservation.notes}</div>` : ''}
+            ${reservation.admin_notes ? `<div class="admin-notes"><strong>Admin Notes:</strong> ${reservation.admin_notes}</div>` : ''}
+        </div>
+    `).join('');
+}
+
+// Modal Functions
+function showAddNoteModal() {
+    document.getElementById('addNoteModal').classList.remove('hidden');
+}
+
+function hideAddNoteModal() {
+    document.getElementById('addNoteModal').classList.add('hidden');
+    document.getElementById('addNoteForm').reset();
+}
+
+async function handleAddNote(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target);
+    const noteData = {
+        title: formData.get('title'),
+        content: formData.get('content'),
+        priority: formData.get('priority')
+    };
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/dashboard/notes`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(noteData)
+        });
+
+        if (response.ok) {
+            hideAddNoteModal();
+            loadDashboardNotes();
+            showMessage('Note added successfully', 'success');
+        } else {
+            throw new Error('Failed to add note');
+        }
+    } catch (error) {
+        console.error('Error adding note:', error);
+        showMessage('Error adding note', 'error');
+    }
+}
+
+async function deleteNote(noteId) {
+    if (!confirm('Are you sure you want to delete this note?')) return;
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/dashboard/notes/${noteId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (response.ok) {
+            loadDashboardNotes();
+            showMessage('Note deleted successfully', 'success');
+        } else {
+            throw new Error('Failed to delete note');
+        }
+    } catch (error) {
+        console.error('Error deleting note:', error);
+        showMessage('Error deleting note', 'error');
+    }
+}
+
+// Filter Functions
+function filterCustomers() {
+    const searchTerm = document.getElementById('customerSearch').value.toLowerCase();
+    const rows = document.querySelectorAll('#customersList tbody tr');
+    
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(searchTerm) ? '' : 'none';
+    });
+}
+
+function filterTodayReservations() {
+    loadTodayReservations(); // Reload with filters
+}
+
+// Print Functions
+function printNameTags() {
+    const reservations = Array.from(document.querySelectorAll('.today-reservation-card'));
+    
+    const printContent = reservations.map(card => {
+        const name = card.querySelector('.customer-info h4').textContent;
+        const time = card.querySelector('.reservation-time').textContent;
+        const tables = Array.from(card.querySelectorAll('.table-tag')).map(tag => tag.textContent).join(', ');
+        
+        return `
+            <div class="name-tag">
+                <h3>${name}</h3>
+                <p><strong>Time:</strong> ${time}</p>
+                <p><strong>Table:</strong> ${tables}</p>
+                <p><strong>The Castle Pub</strong></p>
+            </div>
+        `;
+    }).join('');
+
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+        <html>
+            <head>
+                <title>Name Tags</title>
+                <style>
+                    .name-tag {
+                        width: 8cm; height: 5cm; border: 2px solid #333;
+                        margin: 0.5cm; padding: 0.5cm; page-break-inside: avoid;
+                        display: inline-block; text-align: center; font-family: Arial;
+                    }
+                    .name-tag h3 { margin: 0; font-size: 18pt; }
+                    .name-tag p { margin: 0.2cm 0; font-size: 12pt; }
+                </style>
+            </head>
+            <body>${printContent}</body>
+        </html>
+    `);
+    printWindow.document.close();
+    printWindow.print();
+}
+
+// Admin Reservation Form
+async function handleAdminReservationSubmit(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target);
+    const reservationData = {
+        customer_name: formData.get('customerName'),
+        email: formData.get('email'),
+        phone: formData.get('phone'),
+        party_size: parseInt(formData.get('partySize')),
+        date: formData.get('date'),
+        time: formData.get('time'),
+        room_id: formData.get('room') || null,
+        reservation_type: formData.get('reservationType'),
+        notes: formData.get('notes') || null,
+        admin_notes: formData.get('adminNotes') || null
+    };
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/reservations`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(reservationData)
+        });
+
+        if (response.ok) {
+            const reservation = await response.json();
+            showMessage('Reservation created successfully', 'success');
+            e.target.reset();
+            loadDashboardData(); // Refresh dashboard data
+        } else {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to create reservation');
+        }
+    } catch (error) {
+        console.error('Error creating reservation:', error);
+        showMessage(error.message, 'error');
+    }
+}
+
+async function checkAvailabilityAdmin() {
+    const date = document.getElementById('adminDate').value;
+    const partySize = document.getElementById('adminPartySize').value;
+    
+    if (date && partySize) {
+        await checkAvailability(); // Reuse existing function
+    }
+}
+
+// Tab Management
+function showTab(tabName) {
+    // Hide all tabs
+    document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    
+    // Remove active class from all tab buttons
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // Show selected tab
+    const selectedTab = document.getElementById(tabName + 'Tab');
+    if (selectedTab) {
+        selectedTab.classList.add('active');
+    }
+    
+    // Add active class to clicked tab button
+    event.target.classList.add('active');
+    
+    // Load data for specific tabs
+    if (tabName === 'dashboard') {
+        loadDashboardStats();
+    } else if (tabName === 'customers') {
+        loadCustomers();
+    } else if (tabName === 'today') {
+        loadTodayReservations();
+    } else if (tabName === 'add-reservation') {
+        loadRooms(); // Load rooms for the form
+        populateTimeSlots('adminTime'); // Populate time slots for admin form
+    }
+}
+
+// Existing functions (keeping the original functionality)
+async function handleReservationSubmit(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target);
+    const reservationData = {
+        customer_name: formData.get('customerName'),
+        email: formData.get('email'),
+        phone: formData.get('phone'),
+        party_size: parseInt(formData.get('partySize')),
+        date: formData.get('date'),
+        time: formData.get('time'),
+        room_id: formData.get('room') || null,
+        reservation_type: formData.get('reservationType') || 'dining',
+        notes: formData.get('notes') || null
+    };
+
+    try {
+        showLoading();
+        
+        const response = await fetch(`${API_BASE_URL}/api/reservations`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(reservationData)
+        });
+
+        if (response.ok) {
+            const reservation = await response.json();
+            showMessage('Reservation created successfully! Check your email for confirmation.', 'success');
+            e.target.reset();
+            hideReservationForm();
+        } else {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to create reservation');
+        }
+    } catch (error) {
+        console.error('Error creating reservation:', error);
+        showMessage(error.message, 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+async function handleAdminLogin(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target);
+    
+    try {
+        showLoading();
+        
+        const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+            method: 'POST',
+            body: formData
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            authToken = data.access_token;
+            localStorage.setItem('authToken', authToken);
+            
+            showAdminDashboard();
+            loadDashboardData();
+            showMessage(`Welcome back, ${data.user.username}!`, 'success');
+        } else {
+            const error = await response.json();
+            throw new Error(error.detail || 'Login failed');
+        }
+    } catch (error) {
+        console.error('Login error:', error);
+        showMessage(error.message, 'error');
+    } finally {
+        hideLoading();
+    }
 }
 
 // Navigation Functions
 function showSection(sectionName) {
-    // Hide all sections
     Object.values(sections).forEach(section => {
-        if (section) section.classList.add('hidden');
+        section.classList.add('hidden');
     });
-
-    // Show target section
-    if (sections[sectionName]) {
-        sections[sectionName].classList.remove('hidden');
+    
+    const targetSection = sections[sectionName];
+    if (targetSection) {
+        targetSection.classList.remove('hidden');
     }
-
-    // Update navigation
+    
+    // Update navigation active state
     document.querySelectorAll('.nav-link').forEach(link => {
         link.classList.remove('active');
     });
-    document.querySelector(`[href="#${sectionName}"]`)?.classList.add('active');
+    
+    const activeLink = document.querySelector(`[href="#${sectionName}"]`);
+    if (activeLink) {
+        activeLink.classList.add('active');
+    }
 }
 
 function showReservationForm() {
@@ -87,379 +703,89 @@ function hideAdminLogin() {
 
 function showAdminDashboard() {
     showSection('adminDashboard');
-    loadDashboardData();
-}
-
-// Form Functions
-function setMinDate() {
-    const dateInput = document.getElementById('date');
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    dateInput.min = tomorrow.toISOString().split('T')[0];
-}
-
-function populateTimeSlots() {
-    const timeSelect = document.getElementById('time');
-    timeSelect.innerHTML = '<option value="">Select time</option>';
-    
-    // Generate time slots from 11:00 to 22:30 in 30-minute intervals
-    for (let hour = 11; hour <= 22; hour++) {
-        for (let minute = 0; minute < 60; minute += 30) {
-            if (hour === 22 && minute === 30) break; // Stop at 22:30
-            const time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-            const option = document.createElement('option');
-            option.value = time;
-            option.textContent = time;
-            timeSelect.appendChild(option);
-        }
-    }
-}
-
-async function loadRooms() {
-    try {
-        showLoading();
-        const response = await fetch(`${API_BASE_URL}/api/rooms`);
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const rooms = await response.json();
-        
-        const roomSelect = document.getElementById('room');
-        if (roomSelect) {
-            roomSelect.innerHTML = '<option value="">Any room</option>';
-            
-            rooms.forEach(room => {
-                const option = document.createElement('option');
-                option.value = room.id;
-                option.textContent = room.name;
-                roomSelect.appendChild(option);
-            });
-        }
-    } catch (error) {
-        console.error('Error loading rooms:', error);
-        showMessage('Error loading rooms. Please check if the server is running.', 'error');
-    } finally {
-        hideLoading();
-    }
-}
-
-async function checkAvailability() {
-    const date = document.getElementById('date').value;
-    const partySize = document.getElementById('partySize').value;
-    const roomId = document.getElementById('room').value;
-    
-    if (!date || !partySize) return;
-    
-    try {
-        showLoading();
-        const params = new URLSearchParams({
-            date: date,
-            party_size: partySize
-        });
-        
-        if (roomId) {
-            params.append('room_id', roomId);
-        }
-        
-        const response = await fetch(`${API_BASE_URL}/api/availability?${params}`);
-        const availability = await response.json();
-        
-        // Update time slots based on availability
-        const timeSelect = document.getElementById('time');
-        const availableTimes = availability.available_slots.map(slot => slot.time);
-        
-        Array.from(timeSelect.options).forEach(option => {
-            if (option.value) {
-                const isAvailable = availableTimes.includes(option.value);
-                option.disabled = !isAvailable;
-                option.style.color = isAvailable ? '#2d3748' : '#cbd5e0';
-            }
-        });
-        
-        if (availableTimes.length === 0) {
-            showMessage('No available slots for this date and party size', 'error');
-        }
-    } catch (error) {
-        showMessage('Error checking availability', 'error');
-    } finally {
-        hideLoading();
-    }
-}
-
-async function handleReservationSubmit(e) {
-    e.preventDefault();
-    
-    const formData = new FormData(e.target);
-    const reservationData = {
-        customer_name: formData.get('customerName'),
-        email: formData.get('email'),
-        phone: formData.get('phone'),
-        party_size: parseInt(formData.get('partySize')),
-        date: formData.get('date'),
-        time: formData.get('time'),
-        room_id: formData.get('room') || null,
-        notes: formData.get('notes') || null
-    };
-    
-    try {
-        showLoading();
-        const response = await fetch(`${API_BASE_URL}/api/reservations`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(reservationData)
-        });
-        
-        if (response.ok) {
-            const reservation = await response.json();
-            showMessage('Reservation created successfully! Check your email for confirmation.', 'success');
-            e.target.reset();
-            showSection('home');
-        } else {
-            const error = await response.json();
-            showMessage(error.detail || 'Error creating reservation', 'error');
-        }
-    } catch (error) {
-        showMessage('Error creating reservation', 'error');
-    } finally {
-        hideLoading();
-    }
-}
-
-async function handleAdminLogin(e) {
-    e.preventDefault();
-    
-    const formData = new FormData(e.target);
-    const loginData = {
-        username: formData.get('username'),
-        password: formData.get('password')
-    };
-    
-    try {
-        showLoading();
-        const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded'
-            },
-            body: new URLSearchParams(loginData)
-        });
-        
-        if (response.ok) {
-            const tokenData = await response.json();
-            authToken = tokenData.access_token;
-            localStorage.setItem('authToken', authToken);
-            showMessage('Login successful!', 'success');
-            showAdminDashboard();
-        } else {
-            const error = await response.json();
-            showMessage(error.detail || 'Login failed', 'error');
-        }
-    } catch (error) {
-        showMessage('Error during login', 'error');
-    } finally {
-        hideLoading();
-    }
 }
 
 function logout() {
     authToken = null;
     localStorage.removeItem('authToken');
-    showMessage('Logged out successfully', 'success');
     showSection('home');
-}
-
-// Dashboard Functions
-async function loadDashboardData() {
-    await Promise.all([
-        loadReservations(),
-        loadRoomsForAdmin(),
-        loadTablesForAdmin()
-    ]);
-}
-
-async function loadReservations() {
-    try {
-        const today = new Date().toISOString().split('T')[0];
-        const response = await fetch(`${API_BASE_URL}/api/admin/reservations?date=${today}`, {
-            headers: {
-                'Authorization': `Bearer ${authToken}`
-            }
-        });
-        
-        if (response.ok) {
-            const reservations = await response.json();
-            displayReservations(reservations);
-        }
-    } catch (error) {
-        showMessage('Error loading reservations', 'error');
-    }
-}
-
-function displayReservations(reservations) {
-    const container = document.getElementById('reservationsList');
-    
-    if (reservations.length === 0) {
-        container.innerHTML = '<p class="no-data">No reservations for today</p>';
-        return;
-    }
-    
-    container.innerHTML = reservations.map(reservation => `
-        <div class="reservation-card">
-            <div class="card-header">
-                <h4 class="card-title">${reservation.customer_name}</h4>
-                <span class="card-status status-${reservation.status}">${reservation.status}</span>
-            </div>
-            <div class="card-details">
-                <div class="detail-item">
-                    <span class="detail-label">Time</span>
-                    <span class="detail-value">${reservation.time}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Party Size</span>
-                    <span class="detail-value">${reservation.party_size} people</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Room</span>
-                    <span class="detail-value">${reservation.room_name}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Contact</span>
-                    <span class="detail-value">${reservation.email}<br>${reservation.phone}</span>
-                </div>
-            </div>
-            ${reservation.notes ? `<p><strong>Notes:</strong> ${reservation.notes}</p>` : ''}
-            <div class="card-actions">
-                <button class="btn btn-sm btn-secondary" onclick="editReservation('${reservation.id}')">
-                    <i class="fas fa-edit"></i> Edit
-                </button>
-                <button class="btn btn-sm btn-danger" onclick="cancelReservation('${reservation.id}')">
-                    <i class="fas fa-times"></i> Cancel
-                </button>
-            </div>
-        </div>
-    `).join('');
-}
-
-async function loadRoomsForAdmin() {
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/admin/rooms`, {
-            headers: {
-                'Authorization': `Bearer ${authToken}`
-            }
-        });
-        
-        if (response.ok) {
-            const rooms = await response.json();
-            displayRooms(rooms);
-        }
-    } catch (error) {
-        showMessage('Error loading rooms', 'error');
-    }
-}
-
-function displayRooms(rooms) {
-    const container = document.getElementById('roomsList');
-    
-    if (rooms.length === 0) {
-        container.innerHTML = '<p class="no-data">No rooms found</p>';
-        return;
-    }
-    
-    container.innerHTML = rooms.map(room => `
-        <div class="room-card">
-            <div class="card-header">
-                <h4 class="card-title">${room.name}</h4>
-                <span class="card-status ${room.active ? 'status-confirmed' : 'status-cancelled'}">
-                    ${room.active ? 'Active' : 'Inactive'}
-                </span>
-            </div>
-            <p>${room.description || 'No description'}</p>
-            <div class="card-actions">
-                <button class="btn btn-sm btn-secondary" onclick="editRoom('${room.id}')">
-                    <i class="fas fa-edit"></i> Edit
-                </button>
-            </div>
-        </div>
-    `).join('');
-}
-
-async function loadTablesForAdmin() {
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/admin/tables`, {
-            headers: {
-                'Authorization': `Bearer ${authToken}`
-            }
-        });
-        
-        if (response.ok) {
-            const tables = await response.json();
-            displayTables(tables);
-        }
-    } catch (error) {
-        showMessage('Error loading tables', 'error');
-    }
-}
-
-function displayTables(tables) {
-    const container = document.getElementById('tablesList');
-    
-    if (tables.length === 0) {
-        container.innerHTML = '<p class="no-data">No tables found</p>';
-        return;
-    }
-    
-    container.innerHTML = tables.map(table => `
-        <div class="table-card">
-            <div class="card-header">
-                <h4 class="card-title">${table.name}</h4>
-                <span class="card-status ${table.active ? 'status-confirmed' : 'status-cancelled'}">
-                    ${table.active ? 'Active' : 'Inactive'}
-                </span>
-            </div>
-            <div class="card-details">
-                <div class="detail-item">
-                    <span class="detail-label">Capacity</span>
-                    <span class="detail-value">${table.capacity} seats</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Combinable</span>
-                    <span class="detail-value">${table.combinable ? 'Yes' : 'No'}</span>
-                </div>
-            </div>
-            <div class="card-actions">
-                <button class="btn btn-sm btn-secondary" onclick="editTable('${table.id}')">
-                    <i class="fas fa-edit"></i> Edit
-                </button>
-            </div>
-        </div>
-    `).join('');
-}
-
-// Tab Functions
-function showTab(tabName) {
-    // Hide all tab contents
-    document.querySelectorAll('.tab-content').forEach(content => {
-        content.classList.remove('active');
-    });
-    
-    // Remove active class from all tab buttons
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    
-    // Show selected tab content
-    const tabContent = document.getElementById(`${tabName}Tab`);
-    if (tabContent) {
-        tabContent.classList.add('active');
-    }
-    
-    // Add active class to clicked button
-    event.target.classList.add('active');
+    showMessage('Logged out successfully', 'success');
 }
 
 // Utility Functions
+async function loadRooms() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/rooms`);
+        if (response.ok) {
+            const rooms = await response.json();
+            populateRoomOptions(rooms);
+        }
+    } catch (error) {
+        console.error('Error loading rooms:', error);
+    }
+}
+
+function populateRoomOptions(rooms) {
+    const roomSelects = ['room', 'adminRoom'];
+    
+    roomSelects.forEach(selectId => {
+        const select = document.getElementById(selectId);
+        if (select) {
+            // Keep the first option (Any room)
+            while (select.options.length > 1) {
+                select.removeChild(select.lastChild);
+            }
+            
+            rooms.forEach(room => {
+                const option = document.createElement('option');
+                option.value = room.id;
+                option.textContent = room.name;
+                select.appendChild(option);
+            });
+        }
+    });
+}
+
+function populateTimeSlots(selectId = 'time') {
+    const timeSelect = document.getElementById(selectId);
+    if (!timeSelect) return;
+    
+    // Keep the first option
+    while (timeSelect.options.length > 1) {
+        timeSelect.removeChild(timeSelect.lastChild);
+    }
+    
+    // Generate time slots from 11:00 to 22:30
+    for (let hour = 11; hour <= 22; hour++) {
+        for (let minute = 0; minute < 60; minute += 30) {
+            const timeString = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+            const option = document.createElement('option');
+            option.value = timeString;
+            option.textContent = timeString;
+            timeSelect.appendChild(option);
+        }
+    }
+}
+
+function setMinDate() {
+    const dateInputs = ['date', 'adminDate'];
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const minDate = tomorrow.toISOString().split('T')[0];
+    
+    dateInputs.forEach(inputId => {
+        const input = document.getElementById(inputId);
+        if (input) {
+            input.min = minDate;
+        }
+    });
+}
+
+async function checkAvailability() {
+    // This function can be enhanced to show real-time availability
+    console.log('Checking availability...');
+}
+
 function showLoading() {
     document.getElementById('loadingOverlay').classList.remove('hidden');
 }
@@ -468,61 +794,55 @@ function hideLoading() {
     document.getElementById('loadingOverlay').classList.add('hidden');
 }
 
-function showMessage(message, type = 'success') {
+function showMessage(message, type = 'info') {
     const container = document.getElementById('messageContainer');
-    const messageElement = document.createElement('div');
-    messageElement.className = `message ${type}`;
-    messageElement.innerHTML = `
-        <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message message-${type}`;
+    messageDiv.innerHTML = `
         <span>${message}</span>
+        <button onclick="this.parentElement.remove()" class="message-close">
+            <i class="fas fa-times"></i>
+        </button>
     `;
     
-    container.appendChild(messageElement);
+    container.appendChild(messageDiv);
     
     // Auto-remove after 5 seconds
     setTimeout(() => {
-        messageElement.remove();
+        if (messageDiv.parentElement) {
+            messageDiv.remove();
+        }
     }, 5000);
 }
 
-// Placeholder functions for future implementation
-function showNewReservationForm() {
-    showMessage('New reservation form coming soon!', 'success');
+// Utility formatting functions
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+    });
 }
 
-function showNewRoomForm() {
-    showMessage('New room form coming soon!', 'success');
+function formatDateTime(dateTimeString) {
+    const date = new Date(dateTimeString);
+    return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
 }
 
-function showNewTableForm() {
-    showMessage('New table form coming soon!', 'success');
-}
-
-function editReservation(id) {
-    showMessage(`Edit reservation ${id} coming soon!`, 'success');
-}
-
-function cancelReservation(id) {
-    if (confirm('Are you sure you want to cancel this reservation?')) {
-        showMessage(`Cancel reservation ${id} coming soon!`, 'success');
-    }
-}
-
-function editRoom(id) {
-    showMessage(`Edit room ${id} coming soon!`, 'success');
-}
-
-function editTable(id) {
-    showMessage(`Edit table ${id} coming soon!`, 'success');
-}
-
-function generateReport() {
-    const date = document.getElementById('reportDate').value;
-    if (!date) {
-        showMessage('Please select a date', 'error');
-        return;
-    }
-    
-    showMessage(`Generating report for ${date}...`, 'success');
-    // Implementation for report generation
+function formatTime(timeString) {
+    const [hours, minutes] = timeString.split(':');
+    const date = new Date();
+    date.setHours(parseInt(hours), parseInt(minutes));
+    return date.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+    });
 } 

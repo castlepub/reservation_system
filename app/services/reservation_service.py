@@ -42,6 +42,7 @@ class ReservationService:
             date=reservation_data.date,
             time=reservation_data.time,
             room_id=reservation_data.room_id,
+            reservation_type=reservation_data.reservation_type,
             notes=reservation_data.notes
         )
         
@@ -75,7 +76,9 @@ class ReservationService:
             room_id=str(reservation.room_id),
             room_name=room.name if room else "",
             status=reservation.status,
+            reservation_type=reservation.reservation_type,
             notes=reservation.notes,
+            admin_notes=reservation.admin_notes,
             created_at=reservation.created_at,
             updated_at=reservation.updated_at,
             tables=table_assignments
@@ -115,7 +118,9 @@ class ReservationService:
             room_id=str(reservation.room_id),
             room_name=room.name if room else "",
             status=reservation.status,
+            reservation_type=reservation.reservation_type,
             notes=reservation.notes,
+            admin_notes=reservation.admin_notes,
             created_at=reservation.created_at,
             updated_at=reservation.updated_at,
             tables=table_assignments

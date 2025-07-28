@@ -76,6 +76,10 @@ app.include_router(auth.router, prefix="/api")
 app.include_router(public.router)
 app.include_router(admin.router, prefix="/api")
 
+# Import and include dashboard router
+from app.api import dashboard
+app.include_router(dashboard.router, prefix="/api")
+
 # Mount static files
 static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
 if os.path.exists(static_dir):

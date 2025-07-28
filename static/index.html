@@ -103,6 +103,20 @@
                                 </select>
                             </div>
                             <div class="form-group">
+                                <label for="reservationType">Occasion Type</label>
+                                <select id="reservationType" name="reservationType">
+                                    <option value="dining">Regular Dining</option>
+                                    <option value="fun">Fun Night Out</option>
+                                    <option value="team_event">Team Event</option>
+                                    <option value="birthday">Birthday</option>
+                                    <option value="party">Party</option>
+                                    <option value="special_event">Special Event</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
                                 <label for="room">Room Preference</label>
                                 <select id="room" name="room">
                                     <option value="">Any room</option>
@@ -165,80 +179,259 @@
                 </div>
                 
                 <div class="dashboard-tabs">
-                    <button class="tab-btn active" onclick="showTab('reservations')">
-                        <i class="fas fa-calendar"></i>
-                        Reservations
+                    <button class="tab-btn active" onclick="showTab('dashboard')">
+                        <i class="fas fa-tachometer-alt"></i>
+                        Dashboard
                     </button>
-                    <button class="tab-btn" onclick="showTab('rooms')">
-                        <i class="fas fa-door-open"></i>
-                        Rooms
+                    <button class="tab-btn" onclick="showTab('customers')">
+                        <i class="fas fa-users"></i>
+                        Customers
                     </button>
-                    <button class="tab-btn" onclick="showTab('tables')">
-                        <i class="fas fa-chair"></i>
-                        Tables
+                    <button class="tab-btn" onclick="showTab('today')">
+                        <i class="fas fa-calendar-day"></i>
+                        TODAY
                     </button>
-                    <button class="tab-btn" onclick="showTab('reports')">
-                        <i class="fas fa-chart-bar"></i>
-                        Reports
+                    <button class="tab-btn" onclick="showTab('add-reservation')">
+                        <i class="fas fa-plus-circle"></i>
+                        Add Reservation
+                    </button>
+                    <button class="tab-btn" onclick="showTab('settings')">
+                        <i class="fas fa-cog"></i>
+                        Settings
                     </button>
                 </div>
 
-                <!-- Reservations Tab -->
-                <div id="reservationsTab" class="tab-content active">
-                    <div class="tab-header">
-                        <h3>Today's Reservations</h3>
-                        <button class="btn btn-primary" onclick="showNewReservationForm()">
-                            <i class="fas fa-plus"></i>
-                            New Reservation
-                        </button>
-                    </div>
-                    <div id="reservationsList" class="reservations-list">
-                        <!-- Reservations will be loaded here -->
+                <!-- Dashboard Tab -->
+                <div id="dashboardTab" class="tab-content active">
+                    <div class="dashboard-overview">
+                        <div class="stats-grid">
+                            <div class="stat-card">
+                                <div class="stat-icon">
+                                    <i class="fas fa-calendar-check"></i>
+                                </div>
+                                <div class="stat-info">
+                                    <h3 id="todayReservations">-</h3>
+                                    <p>Today's Reservations</p>
+                                </div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon">
+                                    <i class="fas fa-users"></i>
+                                </div>
+                                <div class="stat-info">
+                                    <h3 id="todayGuests">-</h3>
+                                    <p>Today's Guests</p>
+                                </div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon">
+                                    <i class="fas fa-chart-line"></i>
+                                </div>
+                                <div class="stat-info">
+                                    <h3 id="weekReservations">-</h3>
+                                    <p>This Week</p>
+                                </div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon">
+                                    <i class="fas fa-user-friends"></i>
+                                </div>
+                                <div class="stat-info">
+                                    <h3 id="weekGuests">-</h3>
+                                    <p>Week's Guests</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="dashboard-content">
+                            <div class="chart-section">
+                                <h3>7-Day Forecast</h3>
+                                <canvas id="weeklyChart" width="400" height="200"></canvas>
+                            </div>
+
+                            <div class="notes-section">
+                                <div class="notes-header">
+                                    <h3>Notes & Messages</h3>
+                                    <button class="btn btn-sm btn-primary" onclick="showAddNoteModal()">
+                                        <i class="fas fa-plus"></i> Add Note
+                                    </button>
+                                </div>
+                                <div id="dashboardNotes" class="notes-list">
+                                    <!-- Notes will be loaded here -->
+                                </div>
+                            </div>
+
+                            <div class="guest-notes-section">
+                                <h3>Recent Guest Notes</h3>
+                                <div id="guestNotes" class="guest-notes-list">
+                                    <!-- Guest notes will be loaded here -->
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Rooms Tab -->
-                <div id="roomsTab" class="tab-content">
+                <!-- Customers Tab -->
+                <div id="customersTab" class="tab-content">
                     <div class="tab-header">
-                        <h3>Room Management</h3>
-                        <button class="btn btn-primary" onclick="showNewRoomForm()">
-                            <i class="fas fa-plus"></i>
-                            Add Room
-                        </button>
+                        <h3>Customer Management</h3>
+                        <div class="search-controls">
+                            <input type="text" id="customerSearch" placeholder="Search customers..." class="form-control">
+                        </div>
                     </div>
-                    <div id="roomsList" class="rooms-list">
-                        <!-- Rooms will be loaded here -->
+                    <div id="customersList" class="customers-table">
+                        <!-- Customers table will be loaded here -->
                     </div>
                 </div>
 
-                <!-- Tables Tab -->
-                <div id="tablesTab" class="tab-content">
+                <!-- Today Tab -->
+                <div id="todayTab" class="tab-content">
                     <div class="tab-header">
-                        <h3>Table Management</h3>
-                        <button class="btn btn-primary" onclick="showNewTableForm()">
-                            <i class="fas fa-plus"></i>
-                            Add Table
-                        </button>
-                    </div>
-                    <div id="tablesList" class="tables-list">
-                        <!-- Tables will be loaded here -->
-                    </div>
-                </div>
-
-                <!-- Reports Tab -->
-                <div id="reportsTab" class="tab-content">
-                    <div class="tab-header">
-                        <h3>Daily Reports</h3>
-                        <div class="report-controls">
-                            <input type="date" id="reportDate" class="form-control">
-                            <button class="btn btn-primary" onclick="generateReport()">
-                                <i class="fas fa-download"></i>
-                                Generate Report
+                        <h3>Today's Arrivals</h3>
+                        <div class="today-controls">
+                            <select id="reservationTypeFilter" class="form-control">
+                                <option value="">All Types</option>
+                                <option value="dining">Dining</option>
+                                <option value="fun">Fun</option>
+                                <option value="team_event">Team Event</option>
+                                <option value="birthday">Birthday</option>
+                                <option value="party">Party</option>
+                                <option value="special_event">Special Event</option>
+                            </select>
+                            <input type="text" id="todaySearch" placeholder="Search by name..." class="form-control">
+                            <button class="btn btn-secondary" onclick="printNameTags()">
+                                <i class="fas fa-print"></i> Print Name Tags
                             </button>
                         </div>
                     </div>
-                    <div id="reportContent" class="report-content">
-                        <!-- Report content will be loaded here -->
+                    <div id="todayReservationsList" class="today-reservations">
+                        <!-- Today's reservations will be loaded here -->
+                    </div>
+                </div>
+
+                <!-- Add Reservation Tab -->
+                <div id="add-reservationTab" class="tab-content">
+                    <div class="tab-header">
+                        <h3>Add New Reservation</h3>
+                    </div>
+                    <form id="adminReservationForm" class="admin-reservation-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="adminCustomerName">Customer Name *</label>
+                                <input type="text" id="adminCustomerName" name="customerName" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="adminEmail">Email *</label>
+                                <input type="email" id="adminEmail" name="email" required>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="adminPhone">Phone *</label>
+                                <input type="tel" id="adminPhone" name="phone" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="adminReservationType">Type *</label>
+                                <select id="adminReservationType" name="reservationType" required>
+                                    <option value="dining">Dining</option>
+                                    <option value="fun">Fun</option>
+                                    <option value="team_event">Team Event</option>
+                                    <option value="birthday">Birthday</option>
+                                    <option value="party">Party</option>
+                                    <option value="special_event">Special Event</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="adminDate">Date *</label>
+                                <input type="date" id="adminDate" name="date" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="adminTime">Time *</label>
+                                <select id="adminTime" name="time" required>
+                                    <option value="">Select time</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="adminPartySize">Party Size *</label>
+                                <select id="adminPartySize" name="partySize" required>
+                                    <option value="">Select size</option>
+                                    <option value="1">1 person</option>
+                                    <option value="2">2 people</option>
+                                    <option value="3">3 people</option>
+                                    <option value="4">4 people</option>
+                                    <option value="5">5 people</option>
+                                    <option value="6">6 people</option>
+                                    <option value="7">7 people</option>
+                                    <option value="8">8 people</option>
+                                    <option value="9">9 people</option>
+                                    <option value="10">10 people</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="adminRoom">Room</label>
+                                <select id="adminRoom" name="room">
+                                    <option value="">Any room</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="adminNotes">Customer Notes</label>
+                            <textarea id="adminNotes" name="notes" rows="3"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="adminAdminNotes">Admin Notes (Internal)</label>
+                            <textarea id="adminAdminNotes" name="adminNotes" rows="2"></textarea>
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-check"></i>
+                                Create Reservation
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Settings Tab -->
+                <div id="settingsTab" class="tab-content">
+                    <div class="tab-header">
+                        <h3>System Settings</h3>
+                    </div>
+                    <div class="settings-content">
+                        <div class="setting-group">
+                            <h4>Restaurant Information</h4>
+                            <div class="form-group">
+                                <label>Restaurant Name</label>
+                                <input type="text" value="The Castle Pub" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>Operating Hours</label>
+                                <div class="form-row">
+                                    <input type="time" value="11:00" class="form-control">
+                                    <span>to</span>
+                                    <input type="time" value="23:00" class="form-control">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="setting-group">
+                            <h4>Reservation Settings</h4>
+                            <div class="form-group">
+                                <label>Maximum Party Size</label>
+                                <input type="number" value="20" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>Minimum Hours in Advance</label>
+                                <input type="number" value="2" class="form-control">
+                            </div>
+                        </div>
+
+                        <div class="setting-actions">
+                            <button class="btn btn-primary">Save Settings</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -255,6 +448,42 @@
 
     <!-- Success/Error Messages -->
     <div id="messageContainer" class="message-container"></div>
+
+    <!-- Add Note Modal -->
+    <div id="addNoteModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add Dashboard Note</h3>
+                <button class="modal-close" onclick="hideAddNoteModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="addNoteForm" class="modal-form">
+                <div class="form-group">
+                    <label for="noteTitle">Title *</label>
+                    <input type="text" id="noteTitle" name="title" required>
+                </div>
+                <div class="form-group">
+                    <label for="noteContent">Content *</label>
+                    <textarea id="noteContent" name="content" rows="4" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="notePriority">Priority</label>
+                    <select id="notePriority" name="priority">
+                        <option value="normal">Normal</option>
+                        <option value="high">High</option>
+                        <option value="urgent">Urgent</option>
+                    </select>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="hideAddNoteModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Save Note
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
 
     <script src="/static/script.js?v=1.0"></script>
 </body>
