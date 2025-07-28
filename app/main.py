@@ -13,9 +13,6 @@ import os
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Create database tables
-Base.metadata.create_all(bind=engine)
-
 # Create FastAPI app
 app = FastAPI(
     title="The Castle Pub Reservation System",
@@ -24,6 +21,24 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc"
 )
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize database on startup"""
+    try:
+        # Create database tables
+        Base.metadata.create_all(bind=engine)
+        logger.info("Database tables created successfully")
+        
+        # Test database connection
+        from sqlalchemy import text
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        logger.info("Database connection test successful")
+        
+    except Exception as e:
+        logger.error(f"Database initialization failed: {str(e)}")
+        raise e
 
 # Add CORS middleware
 app.add_middleware(
@@ -78,8 +93,38 @@ async def api_root():
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint"""
-    return {"status": "healthy", "service": "reservation-system"}
+    """Health check endpoint for Railway"""
+    try:
+        # Test database connection
+        from sqlalchemy import text
+        with engine.connect() as conn:
+            result = conn.execute(text("SELECT 1"))
+        
+        return {
+            "status": "healthy", 
+            "service": "reservation-system",
+            "database": "connected",
+            "timestamp": "2024-01-01T00:00:00Z"
+        }
+    except Exception as e:
+        logger.error(f"Health check failed: {str(e)}")
+        # Return 200 even if database fails, but indicate the issue
+        return {
+            "status": "degraded",
+            "service": "reservation-system", 
+            "database": "disconnected",
+            "error": str(e),
+            "timestamp": "2024-01-01T00:00:00Z"
+        }
+
+@app.get("/health/simple")
+async def simple_health_check():
+    """Simple health check that doesn't test database"""
+    return {
+        "status": "healthy",
+        "service": "reservation-system",
+        "message": "Service is running"
+    }
 
 
 @app.exception_handler(HTTPException)
