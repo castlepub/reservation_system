@@ -14,6 +14,7 @@ class ReservationCreate(BaseModel):
     room_id: str
     reservation_type: Optional[ReservationType] = ReservationType.DINING
     notes: Optional[str] = None
+    admin_notes: Optional[str] = None
 
 
 class ReservationUpdate(BaseModel):
@@ -85,7 +86,7 @@ class DashboardNote(BaseModel):
     id: Optional[str] = None
     title: str
     content: str
-    author: str
+    author: Optional[str] = None  # Will be set automatically by backend
     priority: str = "normal"
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
