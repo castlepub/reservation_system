@@ -65,31 +65,15 @@ else:
 @app.get("/")
 async def root():
     """Serve the main HTML page"""
-    logger.info(f"Root endpoint called, static_dir: {static_dir}")
-    index_path = os.path.join(static_dir, "index.html")
-    logger.info(f"Looking for index.html at: {index_path}")
-    
-    if os.path.exists(index_path):
-        logger.info("index.html found, serving it")
-        try:
-            with open(index_path, 'r', encoding='utf-8') as f:
-                html_content = f.read()
-            from fastapi.responses import HTMLResponse
-            return HTMLResponse(content=html_content)
-        except Exception as e:
-            logger.error(f"Error reading index.html: {str(e)}")
-            raise HTTPException(status_code=500, detail=f"Error reading index.html: {str(e)}")
-    else:
-        logger.warning(f"index.html not found at {index_path}")
-        return {
-            "message": "The Castle Pub Reservation System API",
-            "version": "1.0.0",
-            "docs": "/docs",
-            "redoc": "/redoc",
-            "note": f"Static files not found at: {static_dir}",
-            "current_dir": os.getcwd(),
-            "static_exists": os.path.exists(static_dir)
-        }
+    logger.info(f"🏠 Root endpoint called!")
+    return {
+        "message": "The Castle Pub Reservation System",
+        "status": "running",
+        "version": "1.0.0",
+        "docs": "/docs",
+        "frontend": "/static/index.html",
+        "api": "/api"
+    }
 
 @app.get("/api")
 async def api_root():
