@@ -49,35 +49,48 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# TEMPORARILY DISABLED FOR DEBUGGING
-# # Include routers
-# app.include_router(auth.router, prefix="/api")
-# app.include_router(public.router)
-# app.include_router(admin.router, prefix="/api")
+# Include routers
+app.include_router(auth.router, prefix="/api")
+app.include_router(public.router)
+app.include_router(admin.router, prefix="/api")
 
-# # Mount static files
-# static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
-# if os.path.exists(static_dir):
-#     app.mount("/static", StaticFiles(directory=static_dir), name="static")
-#     print(f"✓ Static files mounted from: {os.path.abspath(static_dir)}")
-# else:
-#     print(f"⚠ Static directory not found: {os.path.abspath(static_dir)}")
-
-# Temporary static dir reference for debug endpoint
+# Mount static files
 static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
+if os.path.exists(static_dir):
+    app.mount("/static", StaticFiles(directory=static_dir), name="static")
+    print(f"✓ Static files mounted from: {os.path.abspath(static_dir)}")
+else:
+    print(f"⚠ Static directory not found: {os.path.abspath(static_dir)}")
 
 @app.get("/")
 async def root():
     """Serve the main HTML page"""
     logger.info(f"🏠 Root endpoint called!")
-    return {
-        "message": "The Castle Pub Reservation System",
-        "status": "running",
-        "version": "1.0.0",
-        "docs": "/docs",
-        "frontend": "/static/index.html",
-        "api": "/api"
-    }
+    index_path = os.path.join(static_dir, "index.html")
+    
+    if os.path.exists(index_path):
+        try:
+            with open(index_path, 'r', encoding='utf-8') as f:
+                html_content = f.read()
+            from fastapi.responses import HTMLResponse
+            return HTMLResponse(content=html_content)
+        except Exception as e:
+            logger.error(f"Error reading index.html: {str(e)}")
+            return {
+                "message": "The Castle Pub Reservation System",
+                "status": "running",
+                "version": "1.0.0",
+                "docs": "/docs",
+                "error": f"Could not load frontend: {str(e)}"
+            }
+    else:
+        return {
+            "message": "The Castle Pub Reservation System",
+            "status": "running",
+            "version": "1.0.0",
+            "docs": "/docs",
+            "note": "Frontend not found, API is available"
+        }
 
 @app.get("/api")
 async def api_root():
