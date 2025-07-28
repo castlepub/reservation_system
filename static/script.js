@@ -654,6 +654,16 @@ async function handleReservationSubmit(e) {
         } else {
             const error = await response.json();
             console.error('Reservation creation failed:', error);
+            
+            // Show detailed validation errors for 422
+            if (response.status === 422 && error.detail && Array.isArray(error.detail)) {
+                const errorMessages = error.detail.map(err => {
+                    const field = err.loc?.slice(1).join('.') || 'unknown field';
+                    return `${field}: ${err.msg}`;
+                }).join('\n');
+                throw new Error(`Validation errors:\n${errorMessages}`);
+            }
+            
             throw new Error(error.detail || JSON.stringify(error) || 'Failed to create reservation');
         }
     } catch (error) {

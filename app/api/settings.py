@@ -176,22 +176,26 @@ def update_restaurant_setting(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Update a specific restaurant setting"""
+    """Update or create a specific restaurant setting"""
     setting = db.query(RestaurantSettings).filter(
         RestaurantSettings.setting_key == setting_key
     ).first()
     
     if not setting:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Setting not found"
+        # Create new setting if it doesn't exist
+        setting = RestaurantSettings(
+            setting_key=setting_key,
+            setting_value=setting_data.setting_value or "",
+            description=setting_data.description or f"Restaurant {setting_key.replace('_', ' ')}"
         )
-    
-    if setting_data.setting_value is not None:
-        setting.setting_value = setting_data.setting_value
-    
-    if setting_data.description is not None:
-        setting.description = setting_data.description
+        db.add(setting)
+    else:
+        # Update existing setting
+        if setting_data.setting_value is not None:
+            setting.setting_value = setting_data.setting_value
+        
+        if setting_data.description is not None:
+            setting.description = setting_data.description
     
     db.commit()
     db.refresh(setting)
