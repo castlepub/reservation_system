@@ -36,6 +36,28 @@ async def startup_event():
             conn.execute(text("SELECT 1"))
         logger.info("Database connection test successful")
         
+        # Create admin user if it doesn't exist
+        from app.core.database import SessionLocal
+        from app.core.security import get_password_hash
+        from app.models.user import User, UserRole
+        
+        db = SessionLocal()
+        try:
+            admin_user = db.query(User).filter(User.username == "admin").first()
+            if not admin_user:
+                admin_user = User(
+                    username="admin",
+                    password_hash=get_password_hash("admin123"),
+                    role=UserRole.ADMIN
+                )
+                db.add(admin_user)
+                db.commit()
+                logger.info("✅ Admin user created (username: admin, password: admin123)")
+            else:
+                logger.info("✅ Admin user already exists")
+        finally:
+            db.close()
+        
     except Exception as e:
         logger.error(f"Database initialization failed: {str(e)}")
         raise e
