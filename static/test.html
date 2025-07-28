@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-align: center;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 40px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+        }
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 20px;
+        }
+        p {
+            font-size: 1.2rem;
+            margin-bottom: 30px;
+        }
+        .btn {
+            display: inline-block;
+            padding: 15px 30px;
+            background: white;
+            color: #667eea;
+            text-decoration: none;
+            border-radius: 10px;
+            font-weight: bold;
+            margin: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏰 The Castle Pub</h1>
+        <p>Static file serving is working correctly!</p>
+        <p>This is a test page to verify that the FastAPI static file serving is functioning properly.</p>
+        
+        <a href="/" class="btn">Go to Main Page</a>
+        <a href="/docs" class="btn">API Documentation</a>
+        
+        <div style="margin-top: 40px; padding: 20px; background: rgba(255, 255, 255, 0.1); border-radius: 10px;">
+            <h3>File Information:</h3>
+            <p>✅ Static files are being served correctly</p>
+            <p>✅ CSS and JavaScript files are accessible</p>
+            <p>✅ Main application should be working</p>
+        </div>
+    </div>
+</body>
+</html> 

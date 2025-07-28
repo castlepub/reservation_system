@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>The Castle Pub - Reservation System</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/styles.css?v=1.0">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <i class="fas fa-castle"></i>
+                <span>The Castle Pub</span>
+            </div>
+            <div class="nav-links">
+                <a href="#home" class="nav-link active">Home</a>
+                <a href="#reservations" class="nav-link">Make Reservation</a>
+                <a href="#admin" class="nav-link">Admin</a>
+            </div>
+        </div>
+    </nav>
+
+    <main>
+        <!-- Hero Section -->
+        <section id="home" class="hero">
+            <div class="hero-content">
+                <h1>Welcome to The Castle Pub</h1>
+                <p>Experience the finest dining in a medieval atmosphere</p>
+                <div class="hero-buttons">
+                    <button class="btn btn-primary" onclick="showReservationForm()">
+                        <i class="fas fa-calendar-plus"></i>
+                        Make a Reservation
+                    </button>
+                    <button class="btn btn-secondary" onclick="showAdminLogin()">
+                        <i class="fas fa-user-shield"></i>
+                        Admin Access
+                    </button>
+                </div>
+            </div>
+            <div class="hero-image">
+                <div class="castle-illustration">
+                    <i class="fas fa-castle"></i>
+                </div>
+            </div>
+        </section>
+
+        <!-- Reservation Form Section -->
+        <section id="reservations" class="reservation-section hidden">
+            <div class="container">
+                <h2>Make Your Reservation</h2>
+                <div class="reservation-form-container">
+                    <form id="reservationForm" class="reservation-form">
+                        <div class="form-group">
+                            <label for="customerName">Full Name *</label>
+                            <input type="text" id="customerName" name="customerName" required>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="email">Email *</label>
+                                <input type="email" id="email" name="email" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="phone">Phone *</label>
+                                <input type="tel" id="phone" name="phone" required>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="date">Date *</label>
+                                <input type="date" id="date" name="date" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="time">Time *</label>
+                                <select id="time" name="time" required>
+                                    <option value="">Select time</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="partySize">Party Size *</label>
+                                <select id="partySize" name="partySize" required>
+                                    <option value="">Select size</option>
+                                    <option value="1">1 person</option>
+                                    <option value="2">2 people</option>
+                                    <option value="3">3 people</option>
+                                    <option value="4">4 people</option>
+                                    <option value="5">5 people</option>
+                                    <option value="6">6 people</option>
+                                    <option value="7">7 people</option>
+                                    <option value="8">8 people</option>
+                                    <option value="9">9 people</option>
+                                    <option value="10">10 people</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="room">Room Preference</label>
+                                <select id="room" name="room">
+                                    <option value="">Any room</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="notes">Special Requests</label>
+                            <textarea id="notes" name="notes" rows="3" placeholder="Birthday celebration, dietary restrictions, etc."></textarea>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-secondary" onclick="hideReservationForm()">Cancel</button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-check"></i>
+                                Confirm Reservation
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+        <!-- Admin Login Section -->
+        <section id="admin" class="admin-section hidden">
+            <div class="container">
+                <h2>Admin Access</h2>
+                <div class="admin-login-container">
+                    <form id="adminLoginForm" class="admin-login-form">
+                        <div class="form-group">
+                            <label for="username">Username</label>
+                            <input type="text" id="username" name="username" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="password">Password</label>
+                            <input type="password" id="password" name="password" required>
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-secondary" onclick="hideAdminLogin()">Cancel</button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-sign-in-alt"></i>
+                                Login
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+        <!-- Admin Dashboard -->
+        <section id="adminDashboard" class="admin-dashboard hidden">
+            <div class="container">
+                <div class="dashboard-header">
+                    <h2>Admin Dashboard</h2>
+                    <button class="btn btn-secondary" onclick="logout()">
+                        <i class="fas fa-sign-out-alt"></i>
+                        Logout
+                    </button>
+                </div>
+                
+                <div class="dashboard-tabs">
+                    <button class="tab-btn active" onclick="showTab('reservations')">
+                        <i class="fas fa-calendar"></i>
+                        Reservations
+                    </button>
+                    <button class="tab-btn" onclick="showTab('rooms')">
+                        <i class="fas fa-door-open"></i>
+                        Rooms
+                    </button>
+                    <button class="tab-btn" onclick="showTab('tables')">
+                        <i class="fas fa-chair"></i>
+                        Tables
+                    </button>
+                    <button class="tab-btn" onclick="showTab('reports')">
+                        <i class="fas fa-chart-bar"></i>
+                        Reports
+                    </button>
+                </div>
+
+                <!-- Reservations Tab -->
+                <div id="reservationsTab" class="tab-content active">
+                    <div class="tab-header">
+                        <h3>Today's Reservations</h3>
+                        <button class="btn btn-primary" onclick="showNewReservationForm()">
+                            <i class="fas fa-plus"></i>
+                            New Reservation
+                        </button>
+                    </div>
+                    <div id="reservationsList" class="reservations-list">
+                        <!-- Reservations will be loaded here -->
+                    </div>
+                </div>
+
+                <!-- Rooms Tab -->
+                <div id="roomsTab" class="tab-content">
+                    <div class="tab-header">
+                        <h3>Room Management</h3>
+                        <button class="btn btn-primary" onclick="showNewRoomForm()">
+                            <i class="fas fa-plus"></i>
+                            Add Room
+                        </button>
+                    </div>
+                    <div id="roomsList" class="rooms-list">
+                        <!-- Rooms will be loaded here -->
+                    </div>
+                </div>
+
+                <!-- Tables Tab -->
+                <div id="tablesTab" class="tab-content">
+                    <div class="tab-header">
+                        <h3>Table Management</h3>
+                        <button class="btn btn-primary" onclick="showNewTableForm()">
+                            <i class="fas fa-plus"></i>
+                            Add Table
+                        </button>
+                    </div>
+                    <div id="tablesList" class="tables-list">
+                        <!-- Tables will be loaded here -->
+                    </div>
+                </div>
+
+                <!-- Reports Tab -->
+                <div id="reportsTab" class="tab-content">
+                    <div class="tab-header">
+                        <h3>Daily Reports</h3>
+                        <div class="report-controls">
+                            <input type="date" id="reportDate" class="form-control">
+                            <button class="btn btn-primary" onclick="generateReport()">
+                                <i class="fas fa-download"></i>
+                                Generate Report
+                            </button>
+                        </div>
+                    </div>
+                    <div id="reportContent" class="report-content">
+                        <!-- Report content will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay hidden">
+        <div class="loading-spinner">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>Loading...</p>
+        </div>
+    </div>
+
+    <!-- Success/Error Messages -->
+    <div id="messageContainer" class="message-container"></div>
+
+    <script src="/static/script.js?v=1.0"></script>
+</body>
+</html> 
