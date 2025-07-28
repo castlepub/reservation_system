@@ -55,7 +55,7 @@ app.include_router(public.router)
 app.include_router(admin.router, prefix="/api")
 
 # Mount static files
-static_dir = "static"
+static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
 if os.path.exists(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
     print(f"✓ Static files mounted from: {os.path.abspath(static_dir)}")
@@ -65,19 +65,30 @@ else:
 @app.get("/")
 async def root():
     """Serve the main HTML page"""
+    logger.info(f"Root endpoint called, static_dir: {static_dir}")
     index_path = os.path.join(static_dir, "index.html")
+    logger.info(f"Looking for index.html at: {index_path}")
+    
     if os.path.exists(index_path):
-        with open(index_path, 'r', encoding='utf-8') as f:
-            html_content = f.read()
-        from fastapi.responses import HTMLResponse
-        return HTMLResponse(content=html_content)
+        logger.info("index.html found, serving it")
+        try:
+            with open(index_path, 'r', encoding='utf-8') as f:
+                html_content = f.read()
+            from fastapi.responses import HTMLResponse
+            return HTMLResponse(content=html_content)
+        except Exception as e:
+            logger.error(f"Error reading index.html: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Error reading index.html: {str(e)}")
     else:
+        logger.warning(f"index.html not found at {index_path}")
         return {
             "message": "The Castle Pub Reservation System API",
             "version": "1.0.0",
             "docs": "/docs",
             "redoc": "/redoc",
-            "note": "Static files not found. Please check the static directory."
+            "note": f"Static files not found at: {static_dir}",
+            "current_dir": os.getcwd(),
+            "static_exists": os.path.exists(static_dir)
         }
 
 @app.get("/api")
