@@ -11,7 +11,7 @@ class ReservationCreate(BaseModel):
     party_size: int
     date: date
     time: time
-    room_id: str
+    room_id: Optional[str] = None
     reservation_type: Optional[ReservationType] = ReservationType.DINING
     notes: Optional[str] = None
     admin_notes: Optional[str] = None

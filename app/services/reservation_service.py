@@ -33,6 +33,11 @@ class ReservationService:
         if not table_combo:
             raise ValueError("No suitable tables available for this reservation")
         
+        # If no room_id was specified, use the room of the assigned tables
+        actual_room_id = reservation_data.room_id
+        if not actual_room_id and table_combo:
+            actual_room_id = table_combo[0].room_id
+        
         # Create reservation
         reservation = Reservation(
             customer_name=reservation_data.customer_name,
@@ -41,7 +46,7 @@ class ReservationService:
             party_size=reservation_data.party_size,
             date=reservation_data.date,
             time=reservation_data.time,
-            room_id=reservation_data.room_id,
+            room_id=actual_room_id,
             reservation_type=reservation_data.reservation_type,
             notes=reservation_data.notes
         )
@@ -54,7 +59,7 @@ class ReservationService:
         self.table_service.assign_tables_to_reservation(str(reservation.id), table_ids)
         
         # Get room name for response
-        room = self.db.query(Room).filter(Room.id == reservation.room_id).first()
+        room = self.db.query(Room).filter(Room.id == actual_room_id).first()
         
         # Build response with table assignments
         table_assignments = [
@@ -73,7 +78,7 @@ class ReservationService:
             party_size=reservation.party_size,
             date=reservation.date,
             time=reservation.time,
-            room_id=str(reservation.room_id),
+            room_id=str(actual_room_id),
             room_name=room.name if room else "",
             status=reservation.status,
             reservation_type=reservation.reservation_type,
@@ -255,13 +260,14 @@ class ReservationService:
         if reservation_data.time.hour < settings.OPENING_HOUR or reservation_data.time.hour >= settings.CLOSING_HOUR:
             raise ValueError(f"Reservations are only accepted between {settings.OPENING_HOUR}:00 and {settings.CLOSING_HOUR}:00")
         
-        # Check if room exists and is active
-        room = self.db.query(Room).filter(
-            and_(
-                Room.id == reservation_data.room_id,
-                Room.active == True
-            )
-        ).first()
-        
-        if not room:
-            raise ValueError("Invalid or inactive room") 
+        # Check if room exists and is active (only if room_id is specified)
+        if reservation_data.room_id:
+            room = self.db.query(Room).filter(
+                and_(
+                    Room.id == reservation_data.room_id,
+                    Room.active == True
+                )
+            ).first()
+            
+            if not room:
+                raise ValueError("Invalid or inactive room") 

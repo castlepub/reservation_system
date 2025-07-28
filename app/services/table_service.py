@@ -46,18 +46,58 @@ class TableService:
         
         return available_tables
 
+    def get_available_tables_all_rooms(
+        self, 
+        date: date, 
+        time: time,
+        party_size: int
+    ) -> List[Table]:
+        """Get all available tables across all active rooms for a given date and time"""
+        # Get all active tables from all active rooms
+        from app.models.room import Room
+        tables = self.db.query(Table).join(Room).filter(
+            and_(
+                Table.active == True,
+                Room.active == True
+            )
+        ).all()
+
+        # Get tables that are already reserved for this time
+        reserved_tables = self.db.query(ReservationTable.table_id).join(
+            Reservation
+        ).filter(
+            and_(
+                Reservation.date == date,
+                Reservation.time == time,
+                Reservation.status == "confirmed"
+            )
+        ).all()
+        
+        reserved_table_ids = [rt.table_id for rt in reserved_tables]
+        
+        # Filter out reserved tables
+        available_tables = [t for t in tables if t.id not in reserved_table_ids]
+        
+        return available_tables
+
     def find_best_table_combination(
         self, 
-        room_id: str, 
+        room_id: Optional[str], 
         date: date, 
         time: time,
         party_size: int
     ) -> Optional[List[Table]]:
         """
         Find the best combination of tables for a party size.
+        If room_id is None, searches across all active rooms.
         Returns the combination with smallest excess seats and fewest tables.
         """
-        available_tables = self.get_available_tables(room_id, date, time, party_size)
+        if room_id:
+            # Search in specific room
+            available_tables = self.get_available_tables(room_id, date, time, party_size)
+        else:
+            # Search across all active rooms
+            available_tables = self.get_available_tables_all_rooms(date, time, party_size)
         
         if not available_tables:
             return None
