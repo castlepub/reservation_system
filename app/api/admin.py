@@ -24,6 +24,7 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 
 @router.post("/migrate-database")
+@router.get("/migrate-database") 
 def force_database_migration(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_admin_user)
