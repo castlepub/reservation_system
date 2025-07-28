@@ -558,6 +558,13 @@ async function handleAdminReservationSubmit(e) {
         } else {
             const error = await response.json();
             console.error('Admin reservation creation failed:', error);
+            
+            // Show detailed validation errors
+            if (error.detail && Array.isArray(error.detail)) {
+                const errorMessages = error.detail.map(err => `${err.loc?.join('.')}: ${err.msg}`).join('\n');
+                throw new Error(`Validation errors:\n${errorMessages}`);
+            }
+            
             throw new Error(error.detail || JSON.stringify(error) || 'Failed to create reservation');
         }
     } catch (error) {
@@ -1035,10 +1042,16 @@ async function saveWorkingHours() {
                     'Authorization': `Bearer ${authToken}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(hours)
+                body: JSON.stringify({
+                    is_open: hours.is_open,
+                    open_time: hours.is_open ? hours.open_time : null,
+                    close_time: hours.is_open ? hours.close_time : null
+                })
             });
 
             if (!response.ok) {
+                const error = await response.text();
+                console.error(`Failed to save working hours for ${day}:`, error);
                 throw new Error(`Failed to save working hours for ${day}`);
             }
         }

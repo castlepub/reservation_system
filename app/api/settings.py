@@ -197,3 +197,104 @@ def update_restaurant_setting(
     db.refresh(setting)
     
     return setting 
+
+# Special Days / Holidays Endpoints
+@router.get("/special-days")
+def get_special_days(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get all special days/holidays"""
+    from app.models.settings import RestaurantSettings
+    
+    # For now, store special days as JSON in restaurant settings
+    special_days_setting = db.query(RestaurantSettings).filter(
+        RestaurantSettings.setting_key == "special_days"
+    ).first()
+    
+    if special_days_setting:
+        import json
+        try:
+            special_days = json.loads(special_days_setting.setting_value)
+            return special_days
+        except:
+            return []
+    
+    return []
+
+
+@router.post("/special-days")
+def add_special_day(
+    special_day: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Add a special day/holiday"""
+    from app.models.settings import RestaurantSettings
+    import json
+    import uuid
+    
+    # Get existing special days
+    special_days_setting = db.query(RestaurantSettings).filter(
+        RestaurantSettings.setting_key == "special_days"
+    ).first()
+    
+    if special_days_setting:
+        try:
+            special_days = json.loads(special_days_setting.setting_value)
+        except:
+            special_days = []
+    else:
+        special_days = []
+        special_days_setting = RestaurantSettings(
+            setting_key="special_days",
+            setting_value="[]",
+            description="Special days and holidays when restaurant is closed"
+        )
+        db.add(special_days_setting)
+    
+    # Add new special day with unique ID
+    new_special_day = {
+        "id": str(uuid.uuid4()),
+        "date": special_day.get("date"),
+        "reason": special_day.get("reason")
+    }
+    
+    special_days.append(new_special_day)
+    special_days_setting.setting_value = json.dumps(special_days)
+    
+    db.commit()
+    return new_special_day
+
+
+@router.delete("/special-days/{day_id}")
+def remove_special_day(
+    day_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Remove a special day/holiday"""
+    from app.models.settings import RestaurantSettings
+    import json
+    
+    special_days_setting = db.query(RestaurantSettings).filter(
+        RestaurantSettings.setting_key == "special_days"
+    ).first()
+    
+    if not special_days_setting:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Special day not found"
+        )
+    
+    try:
+        special_days = json.loads(special_days_setting.setting_value)
+        special_days = [day for day in special_days if day.get("id") != day_id]
+        special_days_setting.setting_value = json.dumps(special_days)
+        db.commit()
+        return {"message": "Special day removed successfully"}
+    except:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error removing special day"
+        ) 
