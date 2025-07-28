@@ -116,6 +116,10 @@ app.include_router(dashboard.router, prefix="/api")
 from app.api import settings
 app.include_router(settings.router, prefix="/api")
 
+# Import and include debug router
+from app.api import debug
+app.include_router(debug.router, prefix="/api")
+
 # Mount static files
 static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
 if os.path.exists(static_dir):

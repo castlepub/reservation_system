@@ -21,9 +21,10 @@ def get_dashboard_stats(
     current_user: User = Depends(get_current_user)
 ):
     """Get comprehensive dashboard statistics"""
-    today = date.today()
-    week_start = today - timedelta(days=today.weekday())
-    week_end = week_start + timedelta(days=6)
+    try:
+        today = date.today()
+        week_start = today - timedelta(days=today.weekday())
+        week_end = week_start + timedelta(days=6)
     
     # Today's stats
     today_reservations = db.query(Reservation).filter(
@@ -85,14 +86,21 @@ def get_dashboard_stats(
             "party_size": reservation.party_size
         })
     
-    return DashboardStats(
-        total_reservations_today=total_reservations_today,
-        total_guests_today=total_guests_today,
-        total_reservations_week=total_reservations_week,
-        total_guests_week=total_guests_week,
-        weekly_forecast=weekly_forecast,
-        guest_notes=guest_notes
-    )
+        return DashboardStats(
+            total_reservations_today=total_reservations_today,
+            total_guests_today=total_guests_today,
+            total_reservations_week=total_reservations_week,
+            total_guests_week=total_guests_week,
+            weekly_forecast=weekly_forecast,
+            guest_notes=guest_notes
+        )
+    except Exception as e:
+        import logging
+        logging.error(f"Dashboard stats error: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error loading dashboard stats: {str(e)}"
+        )
 
 
 @router.get("/notes", response_model=List[DashboardNoteSchema])
@@ -203,7 +211,8 @@ def get_today_reservations(
     current_user: User = Depends(get_current_user)
 ):
     """Get today's reservations with filtering"""
-    today = date.today()
+    try:
+        today = date.today()
     
     query = db.query(Reservation).filter(
         and_(
@@ -243,5 +252,12 @@ def get_today_reservations(
             notes=reservation.notes,
             admin_notes=reservation.admin_notes
         ))
-    
-    return today_reservations 
+        
+        return today_reservations
+    except Exception as e:
+        import logging
+        logging.error(f"Today reservations error: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error loading today's reservations: {str(e)}"
+        ) 
