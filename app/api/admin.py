@@ -35,24 +35,46 @@ def force_database_migration(
         Base.metadata.create_all(bind=engine)
         
         # Add missing columns to reservations table if they don't exist
-        try:
-            db.execute(text("SELECT reservation_type FROM reservations LIMIT 1"))
-        except Exception:
-            db.execute(text("ALTER TABLE reservations ADD COLUMN reservation_type VARCHAR DEFAULT 'dining'"))
-            db.commit()
+        # First, rollback any failed transaction
+        db.rollback()
         
-        try:
-            db.execute(text("SELECT admin_notes FROM reservations LIMIT 1"))
-        except Exception:
-            db.execute(text("ALTER TABLE reservations ADD COLUMN admin_notes TEXT"))
-            db.commit()
+        # Check and add reservation_type column
+        column_exists = db.execute(text("""
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name='reservations' AND column_name='reservation_type'
+        """)).fetchone()
+        
+        if not column_exists:
+            try:
+                db.execute(text("ALTER TABLE reservations ADD COLUMN reservation_type VARCHAR DEFAULT 'dining'"))
+                db.commit()
+            except Exception as e:
+                db.rollback()
+                print(f"Warning: Could not add reservation_type column: {e}")
+        
+        # Check and add admin_notes column
+        admin_notes_exists = db.execute(text("""
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name='reservations' AND column_name='admin_notes'
+        """)).fetchone()
+        
+        if not admin_notes_exists:
+            try:
+                db.execute(text("ALTER TABLE reservations ADD COLUMN admin_notes TEXT"))
+                db.commit()
+            except Exception as e:
+                db.rollback()
+                print(f"Warning: Could not add admin_notes column: {e}")
         
         # Update existing reservations to have default reservation_type
         try:
-            db.execute(text("UPDATE reservations SET reservation_type = 'dining' WHERE reservation_type IS NULL"))
+            db.execute(text("UPDATE reservations SET reservation_type = 'dining' WHERE reservation_type IS NULL OR reservation_type = ''"))
             db.commit()
-        except Exception:
-            pass
+        except Exception as e:
+            db.rollback()
+            print(f"Warning: Could not update reservation_type: {e}")
         
         # Seed test data if no reservations exist
         reservation_count = db.query(Reservation).count()
