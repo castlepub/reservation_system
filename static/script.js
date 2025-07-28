@@ -28,9 +28,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function initializeApp() {
     // Check if user is already logged in
+    console.log('Auth token on init:', authToken ? 'Token exists' : 'No token');
     if (authToken) {
+        console.log('Token found, showing admin dashboard');
         showAdminDashboard();
         loadDashboardData();
+    } else {
+        console.log('No token, user needs to login');
     }
 }
 
@@ -87,6 +91,7 @@ async function loadDashboardData() {
 
 async function loadDashboardStats() {
     try {
+        console.log('Loading dashboard stats with token:', authToken ? 'Token exists' : 'No token');
         const response = await fetch(`${API_BASE_URL}/api/dashboard/stats`, {
             headers: {
                 'Authorization': `Bearer ${authToken}`,
@@ -94,12 +99,19 @@ async function loadDashboardStats() {
             }
         });
 
+        console.log('Dashboard stats response status:', response.status);
         if (response.ok) {
             dashboardStats = await response.json();
             updateStatsDisplay();
             updateWeeklyChart();
             updateGuestNotes();
         } else {
+            if (response.status === 401) {
+                console.error('Authentication failed - redirecting to login');
+                showMessage('Session expired. Please login again.', 'error');
+                logout();
+                return;
+            }
             throw new Error('Failed to load dashboard stats');
         }
     } catch (error) {
@@ -651,8 +663,10 @@ async function handleAdminLogin(e) {
             body: formData
         });
 
+        console.log('Login response status:', response.status);
         if (response.ok) {
             const data = await response.json();
+            console.log('Login successful, got token');
             authToken = data.access_token;
             localStorage.setItem('authToken', authToken);
             
@@ -661,6 +675,7 @@ async function handleAdminLogin(e) {
             showMessage(`Welcome back, ${data.user.username}!`, 'success');
         } else {
             const error = await response.json();
+            console.error('Login failed:', error);
             throw new Error(error.detail || 'Login failed');
         }
     } catch (error) {
