@@ -40,6 +40,8 @@ def main():
         
         import uvicorn
         port = int(os.getenv('PORT', 8000))
+        logger.info(f"🔌 PORT environment variable: {os.getenv('PORT')}")
+        logger.info(f"🚪 Starting server on port: {port}")
         
         uvicorn.run(
             "app.main:app",

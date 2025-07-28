@@ -127,6 +127,19 @@ async def ping():
     """Ultra simple ping endpoint"""
     return {"pong": "ok"}
 
+@app.get("/debug")
+async def debug():
+    """Debug endpoint to check Railway configuration"""
+    import os
+    return {
+        "port": os.getenv('PORT', 'NOT_SET'),
+        "railway_environment": os.getenv('RAILWAY_ENVIRONMENT', 'NOT_SET'),
+        "railway_service_name": os.getenv('RAILWAY_SERVICE_NAME', 'NOT_SET'),
+        "current_dir": os.getcwd(),
+        "static_dir_exists": os.path.exists(static_dir),
+        "static_dir_path": static_dir
+    }
+
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request, exc):
