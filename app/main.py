@@ -40,9 +40,35 @@ async def startup_event():
         from app.core.database import SessionLocal
         from app.core.security import get_password_hash
         from app.models.user import User, UserRole
+        from app.models.reservation import ReservationType
+        from sqlalchemy import text
         
         db = SessionLocal()
         try:
+            # Add missing columns to existing tables if they don't exist
+            try:
+                # Check if reservation_type column exists, if not add it
+                db.execute(text("SELECT reservation_type FROM reservations LIMIT 1"))
+            except Exception:
+                logger.info("Adding reservation_type column to reservations table")
+                db.execute(text("ALTER TABLE reservations ADD COLUMN reservation_type VARCHAR DEFAULT 'dining'"))
+                db.commit()
+            
+            try:
+                # Check if admin_notes column exists, if not add it
+                db.execute(text("SELECT admin_notes FROM reservations LIMIT 1"))
+            except Exception:
+                logger.info("Adding admin_notes column to reservations table")
+                db.execute(text("ALTER TABLE reservations ADD COLUMN admin_notes TEXT"))
+                db.commit()
+            
+            # Update existing reservations to have default reservation_type
+            try:
+                db.execute(text("UPDATE reservations SET reservation_type = 'dining' WHERE reservation_type IS NULL"))
+                db.commit()
+            except Exception:
+                pass
+            
             admin_user = db.query(User).filter(User.username == "admin").first()
             if not admin_user:
                 admin_user = User(
@@ -55,6 +81,10 @@ async def startup_event():
                 logger.info("✅ Admin user created (username: admin, password: admin123)")
             else:
                 logger.info("✅ Admin user already exists")
+                
+            logger.info("✅ Database schema updated successfully")
+        except Exception as e:
+            logger.error(f"Database schema update error: {e}")
         finally:
             db.close()
         
