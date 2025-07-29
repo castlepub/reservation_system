@@ -195,6 +195,10 @@
                         <i class="fas fa-plus-circle"></i>
                         Add Reservation
                     </button>
+                    <button class="tab-btn" onclick="showTab('tables')">
+                        <i class="fas fa-table"></i>
+                        Tables
+                    </button>
                     <button class="tab-btn" onclick="showTab('settings')">
                         <i class="fas fa-cog"></i>
                         Settings
@@ -393,6 +397,66 @@
                             </button>
                         </div>
                     </form>
+                </div>
+
+                <!-- Tables Tab -->
+                <div id="tablesTab" class="tab-content">
+                    <div class="tab-header">
+                        <h3>Table Management</h3>
+                        <div class="table-controls">
+                            <select id="roomFilter" class="form-control">
+                                <option value="">All Rooms</option>
+                            </select>
+                            <button class="btn btn-primary" onclick="showAddTableForm()">
+                                <i class="fas fa-plus"></i> Add Table
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div id="tablesGrid" class="tables-grid">
+                        <!-- Tables will be loaded here -->
+                        <div class="loading-text">Loading tables...</div>
+                    </div>
+
+                    <!-- Add Table Form Modal -->
+                    <div id="addTableModal" class="modal hidden">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h4>Add New Table</h4>
+                                <button class="close-btn" onclick="hideAddTableForm()">&times;</button>
+                            </div>
+                            <form id="addTableForm" onsubmit="handleAddTable(event)">
+                                <div class="form-group">
+                                    <label for="tableRoom">Room *</label>
+                                    <select id="tableRoom" name="room_id" required>
+                                        <option value="">Select Room</option>
+                                    </select>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="tableName">Table Name *</label>
+                                        <input type="text" id="tableName" name="name" required placeholder="e.g., T1, F1, BG1">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="tableCapacity">Capacity *</label>
+                                        <input type="number" id="tableCapacity" name="capacity" required min="1" max="20">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label>
+                                        <input type="checkbox" id="tableCombinable" name="combinable" checked>
+                                        Combinable (can be joined with other tables)
+                                    </label>
+                                </div>
+                                <div class="form-actions">
+                                    <button type="button" class="btn btn-secondary" onclick="hideAddTableForm()">Cancel</button>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-save"></i> Add Table
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Settings Tab -->

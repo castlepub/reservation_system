@@ -366,6 +366,41 @@ def update_table(
     return table
 
 
+@router.delete("/tables/{table_id}")
+def delete_table(
+    table_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_staff_user)
+):
+    """Delete a table"""
+    table = db.query(Table).filter(Table.id == table_id).first()
+    if not table:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Table not found"
+        )
+    
+    # Check if table has any active reservations
+    from app.models.reservation import ReservationTable, ReservationStatus
+    active_reservations = db.query(ReservationTable).join(
+        Reservation
+    ).filter(
+        ReservationTable.table_id == table_id,
+        Reservation.status == ReservationStatus.CONFIRMED,
+        Reservation.date >= date.today()
+    ).first()
+    
+    if active_reservations:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot delete table with active reservations"
+        )
+    
+    db.delete(table)
+    db.commit()
+    return {"message": "Table deleted successfully"}
+
+
 # Reservation Management
 @router.get("/reservations", response_model=List[ReservationWithTables])
 def get_reservations(

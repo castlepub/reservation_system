@@ -615,6 +615,8 @@ function showTab(tabName) {
     } else if (tabName === 'add-reservation') {
         loadRooms(); // Load rooms for the form
         populateTimeSlots('adminTime'); // Populate time slots for admin form
+    } else if (tabName === 'tables') {
+        loadTablesData();
     }
 }
 
@@ -1258,3 +1260,261 @@ async function removeSpecialDay(dayId) {
         showMessage('Error removing special day', 'error');
     }
 } 
+
+// Table Management Functions
+async function loadTablesData() {
+    try {
+        // Load rooms for filter
+        await loadRoomsForTables();
+        // Load tables
+        await loadTables();
+    } catch (error) {
+        console.error('Error loading tables data:', error);
+        showMessage('Error loading tables data', 'error');
+    }
+}
+
+async function loadRoomsForTables() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/admin/rooms`, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+        
+        if (response.ok) {
+            const rooms = await response.json();
+            
+            // Populate room filter
+            const roomFilter = document.getElementById('roomFilter');
+            const tableRoom = document.getElementById('tableRoom');
+            
+            // Clear existing options (keep "All Rooms" for filter)
+            while (roomFilter.options.length > 1) {
+                roomFilter.removeChild(roomFilter.lastChild);
+            }
+            
+            // Clear table room select
+            while (tableRoom.options.length > 1) {
+                tableRoom.removeChild(tableRoom.lastChild);
+            }
+            
+            rooms.forEach(room => {
+                // Add to filter
+                const filterOption = document.createElement('option');
+                filterOption.value = room.id;
+                filterOption.textContent = room.name;
+                roomFilter.appendChild(filterOption);
+                
+                // Add to add table form
+                const tableOption = document.createElement('option');
+                tableOption.value = room.id;
+                tableOption.textContent = room.name;
+                tableRoom.appendChild(tableOption);
+            });
+        }
+    } catch (error) {
+        console.error('Error loading rooms for tables:', error);
+    }
+}
+
+async function loadTables(roomId = null) {
+    try {
+        let url = `${API_BASE_URL}/api/admin/tables`;
+        if (roomId) {
+            url += `?room_id=${roomId}`;
+        }
+        
+        const response = await fetch(url, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+        
+        if (response.ok) {
+            const tables = await response.json();
+            displayTables(tables);
+        } else {
+            console.error('Failed to load tables');
+            document.getElementById('tablesGrid').innerHTML = '<div class="error-text">Failed to load tables</div>';
+        }
+    } catch (error) {
+        console.error('Error loading tables:', error);
+        document.getElementById('tablesGrid').innerHTML = '<div class="error-text">Error loading tables</div>';
+    }
+}
+
+function displayTables(tables) {
+    const tablesGrid = document.getElementById('tablesGrid');
+    
+    if (tables.length === 0) {
+        tablesGrid.innerHTML = '<div class="empty-text">No tables found. Add some tables to get started!</div>';
+        return;
+    }
+    
+    // Group tables by room
+    const tablesByRoom = tables.reduce((acc, table) => {
+        const roomName = table.room?.name || 'Unknown Room';
+        if (!acc[roomName]) {
+            acc[roomName] = [];
+        }
+        acc[roomName].push(table);
+        return acc;
+    }, {});
+    
+    let html = '';
+    
+    Object.entries(tablesByRoom).forEach(([roomName, roomTables]) => {
+        html += `
+            <div class="room-section">
+                <h4 class="room-title">${roomName}</h4>
+                <div class="tables-row">
+        `;
+        
+        roomTables.forEach(table => {
+            html += `
+                <div class="table-card">
+                    <div class="table-header">
+                        <h5>${table.name}</h5>
+                        <div class="table-actions">
+                            <button class="btn-small btn-secondary" onclick="editTable('${table.id}')">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn-small btn-danger" onclick="deleteTable('${table.id}', '${table.name}')">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="table-info">
+                        <div class="info-item">
+                            <i class="fas fa-users"></i>
+                            <span>${table.capacity} seats</span>
+                        </div>
+                        <div class="info-item">
+                            <i class="fas fa-${table.combinable ? 'link' : 'unlink'}"></i>
+                            <span>${table.combinable ? 'Combinable' : 'Stand-alone'}</span>
+                        </div>
+                        <div class="info-item">
+                            <i class="fas fa-${table.active ? 'check-circle' : 'times-circle'}"></i>
+                            <span>${table.active ? 'Active' : 'Inactive'}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += `
+                </div>
+            </div>
+        `;
+    });
+    
+    tablesGrid.innerHTML = html;
+}
+
+function showAddTableForm() {
+    document.getElementById('addTableModal').classList.remove('hidden');
+}
+
+function hideAddTableForm() {
+    document.getElementById('addTableModal').classList.add('hidden');
+    document.getElementById('addTableForm').reset();
+}
+
+async function handleAddTable(event) {
+    event.preventDefault();
+    
+    const formData = new FormData(event.target);
+    const tableData = {
+        room_id: formData.get('room_id'),
+        name: formData.get('name'),
+        capacity: parseInt(formData.get('capacity')),
+        combinable: formData.get('combinable') === 'on'
+    };
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/admin/tables`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(tableData)
+        });
+        
+        if (response.ok) {
+            showMessage('Table added successfully', 'success');
+            hideAddTableForm();
+            loadTables(); // Reload tables
+        } else {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to add table');
+        }
+    } catch (error) {
+        console.error('Error adding table:', error);
+        showMessage('Error adding table: ' + error.message, 'error');
+    }
+}
+
+async function deleteTable(tableId, tableName) {
+    if (!confirm(`Are you sure you want to delete table "${tableName}"?`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/admin/tables/${tableId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+        
+        if (response.ok) {
+            showMessage('Table deleted successfully', 'success');
+            loadTables(); // Reload tables
+        } else {
+            throw new Error('Failed to delete table');
+        }
+    } catch (error) {
+        console.error('Error deleting table:', error);
+        showMessage('Error deleting table', 'error');
+    }
+}
+
+// Add event listeners for date changes in both forms
+document.addEventListener('DOMContentLoaded', function() {
+    // Add event listener for public reservation form
+    setTimeout(() => {
+        const dateInput = document.getElementById('date');
+        const timeSelect = document.getElementById('time');
+        
+        if (dateInput && timeSelect) {
+            dateInput.addEventListener('change', function() {
+                if (this.value) {
+                    updateTimeSlotsForDate(this, 'time');
+                }
+            });
+        }
+
+        // Add event listener for admin reservation form
+        const adminDateInput = document.getElementById('adminDate');
+        const adminTimeSelect = document.getElementById('adminTime');
+        
+        if (adminDateInput && adminTimeSelect) {
+            adminDateInput.addEventListener('change', function() {
+                if (this.value) {
+                    updateTimeSlotsForDate(this, 'adminTime');
+                }
+            });
+        }
+
+        // Add event listener for room filter if it exists
+        const roomFilter = document.getElementById('roomFilter');
+        if (roomFilter) {
+            roomFilter.addEventListener('change', function() {
+                const selectedRoom = this.value;
+                loadTables(selectedRoom || null);
+            });
+        }
+    }, 1000);
+}); 
