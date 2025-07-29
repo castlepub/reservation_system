@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import os
@@ -38,8 +38,22 @@ async def test_api():
 
 # Simple auth endpoints for testing
 @app.post("/api/auth/login")
-async def login():
-    return {"message": "Login endpoint reached", "status": "ok"}
+async def login(username: str = Form(...), password: str = Form(...)):
+    # For now, just return a simple response
+    # In the full version, this would validate credentials
+    if username == "admin" and password == "admin123":
+        return {
+            "access_token": "test-token-123",
+            "token_type": "bearer",
+            "user": {
+                "id": "1",
+                "username": "admin",
+                "role": "admin",
+                "created_at": "2024-01-01T00:00:00Z"
+            }
+        }
+    else:
+        return {"error": "Invalid credentials", "status": "error"}
 
 @app.get("/api/auth/test")
 async def test_auth():
