@@ -35,6 +35,61 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+function initializePublicDropdowns() {
+    // Set default party size options (fallback)
+    const publicPartySize = document.getElementById('partySize');
+    if (publicPartySize && publicPartySize.children.length <= 1) {
+        populatePartySizeDropdown(publicPartySize, 20); // Default max 20
+    }
+    
+    // Load rooms for public form (no auth required for public API)
+    loadRoomsPublic();
+    
+    // Set minimum date
+    setMinDate();
+    
+    // Populate time slots
+    populateTimeSlots();
+}
+
+function populatePartySizeDropdown(selectElement, maxSize = 20) {
+    if (!selectElement) return;
+    
+    // Clear existing options except placeholder
+    selectElement.innerHTML = '<option value="">Select size</option>';
+    
+    // Add options up to max size
+    for (let i = 1; i <= maxSize; i++) {
+        const option = document.createElement('option');
+        option.value = i;
+        option.textContent = i === 1 ? '1 person' : `${i} people`;
+        selectElement.appendChild(option);
+    }
+}
+
+async function loadRoomsPublic() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/rooms`);
+        
+        if (response.ok) {
+            const rooms = await response.json();
+            populateRoomOptions(rooms);
+        } else {
+            console.log('No public rooms API available, using fallback');
+            // Add fallback room options
+            populateRoomOptions([
+                { id: "", name: "Any room" }
+            ]);
+        }
+    } catch (error) {
+        console.error('Error loading public rooms:', error);
+        // Add fallback room options
+        populateRoomOptions([
+            { id: "", name: "Any room" }
+        ]);
+    }
+}
+
 function initializeApp() {
     // Check if user is already logged in
     console.log('Auth token on init:', authToken ? 'Token exists' : 'No token');
