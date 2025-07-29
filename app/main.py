@@ -63,44 +63,58 @@ async def startup_event():
         Base.metadata.create_all(bind=engine)
         print("✅ Database tables created")
         
-        # Run migrations
+        # Run migrations in background
         try:
-            run_migrations()
-            print("✅ Database migrations completed")
+            import asyncio
+            asyncio.create_task(run_migrations_async())
         except Exception as e:
             print(f"⚠️ Migration warning: {e}")
         
-        # Create admin user if it doesn't exist
+        # Create admin user in background
         try:
-            from app.core.database import SessionLocal
-            from app.core.security import get_password_hash
-            from app.models.user import User, UserRole
-            
-            db = SessionLocal()
-            try:
-                admin_user = db.query(User).filter(User.username == "admin").first()
-                if not admin_user:
-                    admin_user = User(
-                        username="admin",
-                        password_hash=get_password_hash("admin123"),
-                        role=UserRole.ADMIN
-                    )
-                    db.add(admin_user)
-                    db.commit()
-                    print("✅ Admin user created (username: admin, password: admin123)")
-                else:
-                    print("✅ Admin user already exists")
-            finally:
-                db.close()
+            asyncio.create_task(create_admin_user_async())
         except Exception as e:
             print(f"⚠️ Admin user creation warning: {e}")
         
-        print("✅ Database initialization completed successfully")
+        print("✅ Database initialization started successfully")
         
     except Exception as e:
         print(f"❌ Database initialization error: {e}")
-        # Don't raise the error to allow the app to start
         print("⚠️ Continuing with degraded functionality")
+
+async def run_migrations_async():
+    """Run migrations asynchronously"""
+    try:
+        run_migrations()
+        print("✅ Database migrations completed")
+    except Exception as e:
+        print(f"⚠️ Migration error: {e}")
+
+async def create_admin_user_async():
+    """Create admin user asynchronously"""
+    try:
+        from app.core.database import SessionLocal
+        from app.core.security import get_password_hash
+        from app.models.user import User, UserRole
+        
+        db = SessionLocal()
+        try:
+            admin_user = db.query(User).filter(User.username == "admin").first()
+            if not admin_user:
+                admin_user = User(
+                    username="admin",
+                    password_hash=get_password_hash("admin123"),
+                    role=UserRole.ADMIN
+                )
+                db.add(admin_user)
+                db.commit()
+                print("✅ Admin user created (username: admin, password: admin123)")
+            else:
+                print("✅ Admin user already exists")
+        finally:
+            db.close()
+    except Exception as e:
+        print(f"⚠️ Admin user creation error: {e}")
 
 @app.get("/")
 async def root():
