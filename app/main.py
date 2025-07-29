@@ -152,9 +152,19 @@ async def api_root():
     return {
         "message": "The Castle Pub Reservation System API",
         "version": "1.0.0",
-        "docs": "/docs",
-        "status": "running"
+        "endpoints": {
+            "auth": "/api/auth",
+            "admin": "/api/admin", 
+            "public": "/api/public",
+            "dashboard": "/api/dashboard",
+            "settings": "/api/settings"
+        }
     }
+
+@app.get("/api/test-auth")
+async def test_auth():
+    """Test endpoint to verify auth router is working"""
+    return {"message": "Auth router is working", "status": "ok"}
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request, exc):
@@ -186,90 +196,92 @@ async def initialize_database():
 
 def run_migrations():
     """Run database migrations"""
-    from sqlalchemy import text
-    from app.core.database import SessionLocal
-    
-    db = SessionLocal()
     try:
-        # Check if duration_hours column exists
-        result = db.execute(text("""
-            SELECT column_name 
-            FROM information_schema.columns 
-            WHERE table_name='reservations' AND column_name='duration_hours'
-        """)).fetchone()
+        from sqlalchemy import text
+        from app.core.database import engine
         
-        if not result:
-            print("🔄 Adding duration_hours column to reservations table...")
-            db.execute(text("ALTER TABLE reservations ADD COLUMN duration_hours INTEGER DEFAULT 2 NOT NULL"))
-            db.commit()
-            print("✅ duration_hours column added successfully")
-        else:
-            print("✅ duration_hours column already exists")
-        
-        # Update existing reservations
-        db.execute(text("UPDATE reservations SET duration_hours = 2 WHERE duration_hours IS NULL"))
-        db.commit()
-        print("✅ All existing reservations updated with default duration")
-        
-        # Check if layout tables exist
-        try:
-            db.execute(text("SELECT 1 FROM table_layouts LIMIT 1"))
-            print("✅ table_layouts table exists")
-        except Exception:
-            print("🔄 Creating table_layouts table...")
-            db.execute(text("""
-                CREATE TABLE table_layouts (
-                    id TEXT PRIMARY KEY,
-                    table_id TEXT NOT NULL UNIQUE,
-                    room_id TEXT NOT NULL,
-                    x_position FLOAT NOT NULL,
-                    y_position FLOAT NOT NULL,
-                    width FLOAT DEFAULT 100.0,
-                    height FLOAT DEFAULT 80.0,
-                    shape VARCHAR DEFAULT 'rectangular',
-                    color VARCHAR DEFAULT '#4A90E2',
-                    border_color VARCHAR DEFAULT '#2E5BBA',
-                    text_color VARCHAR DEFAULT '#FFFFFF',
-                    show_capacity BOOLEAN DEFAULT TRUE,
-                    show_name BOOLEAN DEFAULT TRUE,
-                    font_size INTEGER DEFAULT 12,
-                    z_index INTEGER DEFAULT 1,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP
-                )
-            """))
-            db.commit()
-            print("✅ table_layouts table created")
-        
-        try:
-            db.execute(text("SELECT 1 FROM room_layouts LIMIT 1"))
-            print("✅ room_layouts table exists")
-        except Exception:
-            print("🔄 Creating room_layouts table...")
-            db.execute(text("""
-                CREATE TABLE room_layouts (
-                    id TEXT PRIMARY KEY,
-                    room_id TEXT NOT NULL UNIQUE,
-                    width FLOAT DEFAULT 800.0,
-                    height FLOAT DEFAULT 600.0,
-                    background_color VARCHAR DEFAULT '#F5F5F5',
-                    grid_enabled BOOLEAN DEFAULT TRUE,
-                    grid_size INTEGER DEFAULT 20,
-                    grid_color VARCHAR DEFAULT '#E0E0E0',
-                    show_entrance BOOLEAN DEFAULT TRUE,
-                    entrance_position VARCHAR DEFAULT 'top',
-                    show_bar BOOLEAN DEFAULT FALSE,
-                    bar_position VARCHAR DEFAULT 'center',
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP
-                )
-            """))
-            db.commit()
-            print("✅ room_layouts table created")
-        
+        with engine.connect() as conn:
+            # Add duration_hours column to reservations if it doesn't exist
+            try:
+                conn.execute(text("""
+                    ALTER TABLE reservations 
+                    ADD COLUMN IF NOT EXISTS duration_hours INTEGER DEFAULT 2 NOT NULL
+                """))
+                conn.execute(text("""
+                    UPDATE reservations 
+                    SET duration_hours = 2 
+                    WHERE duration_hours IS NULL
+                """))
+                print("✅ Duration hours migration completed")
+            except Exception as e:
+                print(f"⚠️ Duration hours migration warning: {e}")
+            
+            # Add email column to users if it doesn't exist
+            try:
+                conn.execute(text("""
+                    ALTER TABLE users 
+                    ADD COLUMN IF NOT EXISTS email VARCHAR UNIQUE
+                """))
+                print("✅ Email column migration completed")
+            except Exception as e:
+                print(f"⚠️ Email column migration warning: {e}")
+            
+            # Create table_layouts table if it doesn't exist
+            try:
+                conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS table_layouts (
+                        id TEXT PRIMARY KEY,
+                        table_id TEXT NOT NULL UNIQUE,
+                        room_id TEXT NOT NULL,
+                        x_position FLOAT NOT NULL,
+                        y_position FLOAT NOT NULL,
+                        width FLOAT DEFAULT 100.0,
+                        height FLOAT DEFAULT 80.0,
+                        shape VARCHAR DEFAULT 'rectangular',
+                        color VARCHAR DEFAULT '#4A90E2',
+                        border_color VARCHAR DEFAULT '#2E5BBA',
+                        text_color VARCHAR DEFAULT '#FFFFFF',
+                        show_capacity BOOLEAN DEFAULT TRUE,
+                        show_name BOOLEAN DEFAULT TRUE,
+                        font_size INTEGER DEFAULT 12,
+                        z_index INTEGER DEFAULT 1,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (table_id) REFERENCES tables(id) ON DELETE CASCADE,
+                        FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE
+                    )
+                """))
+                print("✅ Table layouts migration completed")
+            except Exception as e:
+                print(f"⚠️ Table layouts migration warning: {e}")
+            
+            # Create room_layouts table if it doesn't exist
+            try:
+                conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS room_layouts (
+                        id TEXT PRIMARY KEY,
+                        room_id TEXT NOT NULL UNIQUE,
+                        width FLOAT DEFAULT 800.0,
+                        height FLOAT DEFAULT 600.0,
+                        background_color VARCHAR DEFAULT '#F5F5F5',
+                        grid_enabled BOOLEAN DEFAULT TRUE,
+                        grid_size INTEGER DEFAULT 20,
+                        grid_color VARCHAR DEFAULT '#E0E0E0',
+                        show_entrance BOOLEAN DEFAULT TRUE,
+                        entrance_position VARCHAR DEFAULT 'top',
+                        show_bar BOOLEAN DEFAULT FALSE,
+                        bar_position VARCHAR DEFAULT 'center',
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE
+                    )
+                """))
+                print("✅ Room layouts migration completed")
+            except Exception as e:
+                print(f"⚠️ Room layouts migration warning: {e}")
+            
+            conn.commit()
+            
     except Exception as e:
-        print(f"⚠️ Migration error: {e}")
-        db.rollback()
-        raise
-    finally:
-        db.close() 
+        print(f"❌ Migration error: {e}")
+        raise 
