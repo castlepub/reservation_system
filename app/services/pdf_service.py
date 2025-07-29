@@ -47,6 +47,20 @@ class PDFService:
                 .header {
                     text-align: center;
                     margin-bottom: 15px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 15px;
+                }
+                
+                .logo {
+                    width: 60px;
+                    height: 60px;
+                    object-fit: contain;
+                }
+                
+                .header-text {
+                    text-align: center;
                 }
                 
                 .restaurant-name {
@@ -133,8 +147,11 @@ class PDFService:
         </head>
         <body>
             <div class="header">
-                <div class="restaurant-name">The Castle Pub</div>
-                <div class="date-time">Daily Reservations - {{ date.strftime('%A, %B %d, %Y') }}</div>
+                <img src="data:image/png;base64,{{ logo_base64 }}" alt="The Castle Pub Logo" class="logo">
+                <div class="header-text">
+                    <div class="restaurant-name">The Castle Pub</div>
+                    <div class="date-time">Daily Reservations - {{ date.strftime('%A, %B %d, %Y') }}</div>
+                </div>
             </div>
             
             {% for reservation in reservations %}
@@ -200,13 +217,27 @@ class PDFService:
         """Generate PDF with daily reservation slips"""
         try:
             from datetime import datetime
+            import base64
+            import os
+            
+            # Load and encode logo
+            logo_base64 = ""
+            logo_path = "static/logo.png"
+            if os.path.exists(logo_path):
+                with open(logo_path, "rb") as logo_file:
+                    logo_data = logo_file.read()
+                    logo_base64 = base64.b64encode(logo_data).decode('utf-8')
+                logger.info("Logo loaded successfully for PDF")
+            else:
+                logger.warning("Logo file not found, PDF will be generated without logo")
             
             # Render HTML template
             template = Template(self.html_template)
             html_content = template.render(
                 reservations=reservations,
                 date=target_date,
-                generated_at=datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                generated_at=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                logo_base64=logo_base64
             )
             
             # For now, return HTML content as bytes (PDF generation disabled for Windows)
@@ -221,13 +252,27 @@ class PDFService:
         """Generate a single reservation slip PDF"""
         try:
             from datetime import datetime
+            import base64
+            import os
+            
+            # Load and encode logo
+            logo_base64 = ""
+            logo_path = "static/logo.png"
+            if os.path.exists(logo_path):
+                with open(logo_path, "rb") as logo_file:
+                    logo_data = logo_file.read()
+                    logo_base64 = base64.b64encode(logo_data).decode('utf-8')
+                logger.info("Logo loaded successfully for PDF")
+            else:
+                logger.warning("Logo file not found, PDF will be generated without logo")
             
             # Render HTML template for single reservation
             template = Template(self.html_template)
             html_content = template.render(
                 reservations=[reservation],
                 date=reservation.date,
-                generated_at=datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                generated_at=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                logo_base64=logo_base64
             )
             
             # For now, return HTML content as bytes (PDF generation disabled for Windows)
