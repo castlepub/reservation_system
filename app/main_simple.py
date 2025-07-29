@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import os
+from datetime import datetime, date
 
 # Create FastAPI app
 app = FastAPI(title="The Castle Pub Reservation System")
@@ -76,4 +77,107 @@ async def login(username: str = Form(...), password: str = Form(...)):
 
 @app.get("/api/auth/test")
 async def test_auth():
-    return {"message": "Auth router is working", "status": "ok"} 
+    return {"message": "Auth router is working", "status": "ok"}
+
+# Dashboard endpoints
+@app.get("/api/dashboard/stats")
+async def dashboard_stats():
+    """Get dashboard statistics"""
+    return {
+        "total_reservations": 0,
+        "today_reservations": 0,
+        "total_customers": 0,
+        "weekly_reservations": [0, 0, 0, 0, 0, 0, 0],
+        "monthly_revenue": 0
+    }
+
+@app.get("/api/dashboard/notes")
+async def dashboard_notes():
+    """Get dashboard notes"""
+    return {
+        "notes": [
+            {
+                "id": "1",
+                "content": "Welcome to The Castle Pub!",
+                "created_at": datetime.now().isoformat(),
+                "updated_at": datetime.now().isoformat()
+            }
+        ]
+    }
+
+@app.get("/api/dashboard/customers")
+async def dashboard_customers():
+    """Get customer list"""
+    return {
+        "customers": [
+            {
+                "id": "1",
+                "name": "Sample Customer",
+                "email": "customer@example.com",
+                "phone": "+1234567890",
+                "total_reservations": 0,
+                "last_visit": None
+            }
+        ]
+    }
+
+@app.get("/api/dashboard/today")
+async def today_reservations():
+    """Get today's reservations"""
+    return {
+        "reservations": [
+            {
+                "id": "1",
+                "customer_name": "Sample Reservation",
+                "email": "reservation@example.com",
+                "phone": "+1234567890",
+                "date": date.today().isoformat(),
+                "time": "19:00",
+                "party_size": 4,
+                "room_name": "Main Room",
+                "status": "confirmed",
+                "created_at": datetime.now().isoformat()
+            }
+        ]
+    }
+
+@app.get("/api/rooms")
+async def get_rooms():
+    """Get rooms list"""
+    return [
+        {
+            "id": "1",
+            "name": "Main Room",
+            "description": "Main dining area",
+            "capacity": 50,
+            "is_active": True
+        },
+        {
+            "id": "2", 
+            "name": "Biergarden",
+            "description": "Outdoor seating area",
+            "capacity": 30,
+            "is_active": True
+        }
+    ]
+
+@app.get("/api/settings/restaurant")
+async def restaurant_settings():
+    """Get restaurant settings"""
+    return {
+        "name": "The Castle Pub",
+        "description": "A cozy pub with great food and atmosphere",
+        "address": "123 Castle Street",
+        "phone": "+1234567890",
+        "email": "info@castlepub.com",
+        "max_party_size": 20,
+        "opening_hours": {
+            "monday": {"open": "11:00", "close": "23:00", "is_open": True},
+            "tuesday": {"open": "11:00", "close": "23:00", "is_open": True},
+            "wednesday": {"open": "11:00", "close": "23:00", "is_open": True},
+            "thursday": {"open": "11:00", "close": "23:00", "is_open": True},
+            "friday": {"open": "11:00", "close": "00:00", "is_open": True},
+            "saturday": {"open": "11:00", "close": "00:00", "is_open": True},
+            "sunday": {"open": "12:00", "close": "22:00", "is_open": True}
+        }
+    } 
