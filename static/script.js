@@ -1858,6 +1858,10 @@ async function showEditReservationForm(reservationId) {
         if (response.ok) {
             const reservation = await response.json();
             
+            // Load rooms and tables for the form
+            await loadRooms();
+            await loadTablesData();
+            
             // Create and show edit modal
             const modal = document.createElement('div');
             modal.id = 'editReservationModal';
@@ -1903,7 +1907,9 @@ async function showEditReservationForm(reservationId) {
                             </div>
                             <div class="form-group">
                                 <label for="editTime">Time *</label>
-                                <input type="time" id="editTime" name="time" value="${reservation.time}" required>
+                                <select id="editTime" name="time" required>
+                                    <option value="${reservation.time}">${reservation.time}</option>
+                                </select>
                             </div>
                         </div>
                         <div class="form-row">
@@ -1921,6 +1927,33 @@ async function showEditReservationForm(reservationId) {
                                     <option value="cancelled" ${reservation.status === 'cancelled' ? 'selected' : ''}>Cancelled</option>
                                     <option value="completed" ${reservation.status === 'completed' ? 'selected' : ''}>Completed</option>
                                 </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="editRoom">Room</label>
+                                <select id="editRoom" name="room">
+                                    <option value="">Any room</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="editTables">Assigned Tables</label>
+                                <div id="editTablesContainer" class="tables-selection">
+                                    <div class="current-tables">
+                                        <strong>Current Tables:</strong>
+                                        <div id="currentTablesList">
+                                            ${reservation.tables ? reservation.tables.map(t => `${t.table_name} (${t.capacity})`).join(', ') : 'None assigned'}
+                                        </div>
+                                    </div>
+                                    <div class="table-selection-controls">
+                                        <button type="button" class="btn btn-sm btn-secondary" onclick="showTableSelectionModal('${reservationId}')">
+                                            <i class="fas fa-edit"></i> Change Tables
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-danger" onclick="clearAssignedTables('${reservationId}')">
+                                            <i class="fas fa-times"></i> Clear Tables
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <div class="form-group">
@@ -1944,23 +1977,41 @@ async function showEditReservationForm(reservationId) {
             document.body.appendChild(modal);
             
             // Populate party size dropdown
-            updateMaxPartySizeOptions(20); // Will be replaced by settings value
-            
-            // Set the current party size
             const partySizeSelect = document.getElementById('editPartySize');
             if (partySizeSelect) {
+                populatePartySizeDropdown(partySizeSelect, 20);
                 partySizeSelect.value = reservation.party_size;
             }
             
-            // Show modal
-            modal.classList.remove('hidden');
+            // Populate room dropdown
+            const roomSelect = document.getElementById('editRoom');
+            if (roomSelect && window.loadedRooms) {
+                window.loadedRooms.forEach(room => {
+                    const option = document.createElement('option');
+                    option.value = room.id;
+                    option.textContent = room.name;
+                    if (reservation.room_id === room.id) {
+                        option.selected = true;
+                    }
+                    roomSelect.appendChild(option);
+                });
+            }
+            
+            // Set up date change handler to update time slots
+            const dateInput = document.getElementById('editDate');
+            const timeSelect = document.getElementById('editTime');
+            if (dateInput && timeSelect) {
+                dateInput.addEventListener('change', function() {
+                    updateTimeSlotsForDate(this, 'editTime');
+                });
+            }
             
         } else {
             throw new Error('Failed to load reservation data');
         }
     } catch (error) {
-        console.error('Error loading reservation for edit:', error);
-        showMessage('Error loading reservation data', 'error');
+        console.error('Error showing edit form:', error);
+        showMessage('Error loading reservation data: ' + error.message, 'error');
     }
 }
 
@@ -1968,6 +2019,177 @@ function hideEditReservationForm() {
     const modal = document.getElementById('editReservationModal');
     if (modal) {
         modal.remove();
+    }
+}
+
+async function showTableSelectionModal(reservationId) {
+    try {
+        // Fetch available tables for the reservation
+        const response = await fetch(`${API_BASE_URL}/api/admin/reservations/${reservationId}/available-tables`, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            const availableTables = data.available_tables;
+            const currentTables = data.current_tables || [];
+            
+            // Create table selection modal
+            const modal = document.createElement('div');
+            modal.id = 'tableSelectionModal';
+            modal.className = 'modal';
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h4>Select Tables for Reservation</h4>
+                        <button class="close-btn" onclick="hideTableSelectionModal()">&times;</button>
+                    </div>
+                    <div class="table-selection-content">
+                        <div class="current-selection">
+                            <h5>Currently Selected:</h5>
+                            <div id="selectedTablesList">
+                                ${currentTables.map(t => `<span class="selected-table">${t.table_name} (${t.capacity})</span>`).join('')}
+                            </div>
+                        </div>
+                        <div class="available-tables">
+                            <h5>Available Tables:</h5>
+                            <div class="tables-grid">
+                                ${availableTables.map(table => `
+                                    <div class="table-option ${currentTables.some(t => t.id === table.id) ? 'selected' : ''}" 
+                                         onclick="toggleTableSelection('${table.id}', '${table.name}', ${table.capacity})">
+                                        <div class="table-name">${table.name}</div>
+                                        <div class="table-capacity">${table.capacity} seats</div>
+                                        <div class="table-room">${table.room_name}</div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn-secondary" onclick="hideTableSelectionModal()">Cancel</button>
+                        <button type="button" class="btn btn-primary" onclick="saveTableSelection('${reservationId}')">
+                            <i class="fas fa-save"></i> Save Table Selection
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+        } else {
+            throw new Error('Failed to load available tables');
+        }
+    } catch (error) {
+        console.error('Error showing table selection modal:', error);
+        showMessage('Error loading available tables: ' + error.message, 'error');
+    }
+}
+
+function hideTableSelectionModal() {
+    const modal = document.getElementById('tableSelectionModal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+function toggleTableSelection(tableId, tableName, capacity) {
+    const tableOption = document.querySelector(`[onclick*="${tableId}"]`);
+    const selectedTablesList = document.getElementById('selectedTablesList');
+    
+    if (tableOption.classList.contains('selected')) {
+        // Remove from selection
+        tableOption.classList.remove('selected');
+        const tableSpan = selectedTablesList.querySelector(`[data-table-id="${tableId}"]`);
+        if (tableSpan) {
+            tableSpan.remove();
+        }
+    } else {
+        // Add to selection
+        tableOption.classList.add('selected');
+        const tableSpan = document.createElement('span');
+        tableSpan.className = 'selected-table';
+        tableSpan.setAttribute('data-table-id', tableId);
+        tableSpan.textContent = `${tableName} (${capacity})`;
+        selectedTablesList.appendChild(tableSpan);
+    }
+}
+
+async function saveTableSelection(reservationId) {
+    try {
+        const selectedTables = Array.from(document.querySelectorAll('#selectedTablesList .selected-table'))
+            .map(span => span.getAttribute('data-table-id'));
+        
+        const response = await fetch(`${API_BASE_URL}/api/admin/reservations/${reservationId}/tables`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                table_ids: selectedTables
+            })
+        });
+        
+        if (response.ok) {
+            showMessage('Table assignment updated successfully', 'success');
+            hideTableSelectionModal();
+            
+            // Update the current tables display in the edit form
+            const currentTablesList = document.getElementById('currentTablesList');
+            if (currentTablesList) {
+                const tableNames = selectedTables.map(tableId => {
+                    const tableOption = document.querySelector(`[onclick*="${tableId}"]`);
+                    if (tableOption) {
+                        const name = tableOption.querySelector('.table-name').textContent;
+                        const capacity = tableOption.querySelector('.table-capacity').textContent;
+                        return `${name} (${capacity})`;
+                    }
+                    return '';
+                }).filter(name => name);
+                currentTablesList.textContent = tableNames.join(', ') || 'None assigned';
+            }
+        } else {
+            throw new Error('Failed to update table assignment');
+        }
+    } catch (error) {
+        console.error('Error saving table selection:', error);
+        showMessage('Error updating table assignment: ' + error.message, 'error');
+    }
+}
+
+async function clearAssignedTables(reservationId) {
+    if (!confirm('Are you sure you want to clear all assigned tables for this reservation?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/admin/reservations/${reservationId}/tables`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                table_ids: []
+            })
+        });
+        
+        if (response.ok) {
+            showMessage('Table assignment cleared successfully', 'success');
+            
+            // Update the current tables display
+            const currentTablesList = document.getElementById('currentTablesList');
+            if (currentTablesList) {
+                currentTablesList.textContent = 'None assigned';
+            }
+        } else {
+            throw new Error('Failed to clear table assignment');
+        }
+    } catch (error) {
+        console.error('Error clearing table assignment:', error);
+        showMessage('Error clearing table assignment: ' + error.message, 'error');
     }
 }
 

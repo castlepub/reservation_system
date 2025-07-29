@@ -11,7 +11,7 @@ from app.services.pdf_service import PDFService
 from app.models.room import Room
 from app.models.table import Table
 from app.models.user import User
-from app.models.reservation import Reservation, ReservationStatus, ReservationType, DashboardNote
+from app.models.reservation import Reservation, ReservationStatus, ReservationType, DashboardNote, ReservationTable
 from app.models.settings import WorkingHours, DayOfWeek, RestaurantSettings
 from app.api.deps import get_current_staff_user, get_current_admin_user
 from app.core.database import Base, engine
@@ -613,32 +613,141 @@ def get_reservation_slip(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_staff_user)
 ):
-    """Generate a single reservation slip with logo"""
+    """Generate a single reservation slip PDF"""
     try:
-        # Get the reservation
         reservation_service = ReservationService(db)
         reservation = reservation_service.get_reservation(reservation_id)
-        
         if not reservation:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Reservation not found"
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Reservation not found")
         
-        # Generate PDF with logo
         pdf_service = PDFService()
         pdf_content = pdf_service.generate_reservation_slip(reservation)
         
         return Response(
-            content=pdf_content,
-            media_type="text/html",  # Changed from application/pdf since we're returning HTML
+            content=pdf_content, 
+            media_type="text/html",
             headers={"Content-Disposition": f"attachment; filename=reservation_slip_{reservation_id}.html"}
         )
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error generating reservation slip: {str(e)}"
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error generating reservation slip: {str(e)}")
+
+@router.get("/reservations/{reservation_id}/available-tables")
+def get_available_tables_for_reservation(
+    reservation_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_staff_user)
+):
+    """Get available tables for a specific reservation (excluding current assignment)"""
+    try:
+        reservation_service = ReservationService(db)
+        reservation = reservation_service.get_reservation(reservation_id)
+        if not reservation:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Reservation not found")
+        
+        # Get all active tables
+        all_tables = db.query(Table).filter(Table.active == True).all()
+        
+        # Get current table assignment
+        current_tables = []
+        if reservation.tables:
+            current_tables = [
+                {
+                    "id": str(table.id),
+                    "table_name": table.name,
+                    "capacity": table.capacity,
+                    "room_name": table.room.name if table.room else "Unknown"
+                }
+                for table in reservation.tables
+            ]
+        
+        # Get available tables (all tables except those reserved for the same time)
+        available_tables = []
+        for table in all_tables:
+            # Check if table is reserved for the same time (excluding current reservation)
+            conflicting_reservations = db.query(Reservation).join(
+                ReservationTable
+            ).filter(
+                ReservationTable.table_id == table.id,
+                Reservation.date == reservation.date,
+                Reservation.time == reservation.time,
+                Reservation.status == "confirmed",
+                Reservation.id != reservation_id
+            ).count()
+            
+            if conflicting_reservations == 0:
+                available_tables.append({
+                    "id": str(table.id),
+                    "name": table.name,
+                    "capacity": table.capacity,
+                    "room_name": table.room.name if table.room else "Unknown"
+                })
+        
+        return {
+            "available_tables": available_tables,
+            "current_tables": current_tables
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error getting available tables: {str(e)}")
+
+@router.put("/reservations/{reservation_id}/tables")
+def update_reservation_tables(
+    reservation_id: str,
+    table_data: dict,  # {"table_ids": ["id1", "id2", ...]}
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_staff_user)
+):
+    """Update table assignment for a reservation"""
+    try:
+        reservation_service = ReservationService(db)
+        reservation = reservation_service.get_reservation(reservation_id)
+        if not reservation:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Reservation not found")
+        
+        table_ids = table_data.get("table_ids", [])
+        
+        # Clear current table assignments
+        db.query(ReservationTable).filter(ReservationTable.reservation_id == reservation_id).delete()
+        
+        # Add new table assignments
+        for table_id in table_ids:
+            # Verify table exists and is available
+            table = db.query(Table).filter(Table.id == table_id, Table.active == True).first()
+            if not table:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Table {table_id} not found or inactive")
+            
+            # Check for conflicts
+            conflicting_reservations = db.query(Reservation).join(
+                ReservationTable
+            ).filter(
+                ReservationTable.table_id == table_id,
+                Reservation.date == reservation.date,
+                Reservation.time == reservation.time,
+                Reservation.status == "confirmed",
+                Reservation.id != reservation_id
+            ).count()
+            
+            if conflicting_reservations > 0:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Table {table.name} is already reserved for this time")
+            
+            # Add table assignment
+            reservation_table = ReservationTable(
+                reservation_id=reservation_id,
+                table_id=table_id
+            )
+            db.add(reservation_table)
+        
+        db.commit()
+        
+        # Return updated reservation
+        updated_reservation = reservation_service.get_reservation(reservation_id)
+        return updated_reservation
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error updating table assignment: {str(e)}")
 
 
 # User Management (Admin only)
