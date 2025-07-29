@@ -102,6 +102,37 @@ function initializeApp() {
     }
 }
 
+async function checkAuth() {
+    if (!authToken) {
+        console.log('No auth token, redirecting to login');
+        return false;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+        
+        if (response.ok) {
+            const user = await response.json();
+            console.log('Auth check successful for user:', user.username);
+            return true;
+        } else {
+            console.log('Auth check failed, clearing token');
+            authToken = null;
+            localStorage.removeItem('authToken');
+            return false;
+        }
+    } catch (error) {
+        console.error('Auth check error:', error);
+        authToken = null;
+        localStorage.removeItem('authToken');
+        return false;
+    }
+}
+
 function setupEventListeners() {
     // Forms
     document.getElementById('reservationForm').addEventListener('submit', handleReservationSubmit);
@@ -823,7 +854,7 @@ async function loadRooms() {
 }
 
 function populateRoomOptions(rooms) {
-    const roomSelects = ['room', 'adminRoom'];
+    const roomSelects = ['room', 'adminRoom', 'newRoom'];
     
     roomSelects.forEach(selectId => {
         const select = document.getElementById(selectId);
@@ -1709,12 +1740,18 @@ function showAddReservationForm() {
     document.getElementById('addReservationModal').classList.remove('hidden');
     
     // Load and populate rooms
-    loadRooms('newRoom');
+    loadRooms();
     
     // Load restaurant settings and update party size
     loadRestaurantSettings().then(() => {
         // Populate time slots
         populateTimeSlots('newTime');
+        
+        // Populate party size dropdown
+        const partySizeSelect = document.getElementById('newPartySize');
+        if (partySizeSelect) {
+            populatePartySizeDropdown(partySizeSelect, 20);
+        }
     });
 }
 
@@ -1756,11 +1793,22 @@ async function handleAddReservation(event) {
             loadAllReservations(); // Reload reservations list
         } else {
             const error = await response.json();
-            throw new Error(error.detail || 'Failed to create reservation');
+            console.error('Reservation creation failed:', error);
+            
+            // Show detailed validation errors for 422
+            if (response.status === 422 && error.detail && Array.isArray(error.detail)) {
+                const errorMessages = error.detail.map(err => {
+                    const field = err.loc?.slice(1).join('.') || 'unknown field';
+                    return `${field}: ${err.msg}`;
+                }).join('\n');
+                throw new Error(`Validation errors:\n${errorMessages}`);
+            }
+            
+            throw new Error(error.detail || JSON.stringify(error) || 'Failed to create reservation');
         }
     } catch (error) {
         console.error('Error creating reservation:', error);
-        showMessage('Error creating reservation: ' + error.message, 'error');
+        showMessage(error.message || 'Failed to create reservation', 'error');
     }
 }
 
