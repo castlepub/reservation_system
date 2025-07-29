@@ -191,9 +191,9 @@
                         <i class="fas fa-calendar-day"></i>
                         TODAY
                     </button>
-                    <button class="tab-btn" onclick="showTab('add-reservation')">
-                        <i class="fas fa-plus-circle"></i>
-                        Add Reservation
+                    <button class="tab-btn" onclick="showTab('reservations')">
+                        <i class="fas fa-calendar-alt"></i>
+                        Reservations
                     </button>
                     <button class="tab-btn" onclick="showTab('tables')">
                         <i class="fas fa-table"></i>
@@ -313,90 +313,118 @@
                     </div>
                 </div>
 
-                <!-- Add Reservation Tab -->
-                <div id="add-reservationTab" class="tab-content">
+                <!-- Reservations Tab -->
+                <div id="reservationsTab" class="tab-content">
                     <div class="tab-header">
-                        <h3>Add New Reservation</h3>
-                    </div>
-                    <form id="adminReservationForm" class="admin-reservation-form">
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="adminCustomerName">Customer Name *</label>
-                                <input type="text" id="adminCustomerName" name="customerName" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="adminEmail">Email *</label>
-                                <input type="email" id="adminEmail" name="email" required>
-                            </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="adminPhone">Phone *</label>
-                                <input type="tel" id="adminPhone" name="phone" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="adminReservationType">Type *</label>
-                                <select id="adminReservationType" name="reservationType" required>
-                                    <option value="dining">Dining</option>
-                                    <option value="fun">Fun</option>
-                                    <option value="team_event">Team Event</option>
-                                    <option value="birthday">Birthday</option>
-                                    <option value="party">Party</option>
-                                    <option value="special_event">Special Event</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="adminDate">Date *</label>
-                                <input type="date" id="adminDate" name="date" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="adminTime">Time *</label>
-                                <select id="adminTime" name="time" required>
-                                    <option value="">Select time</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="adminPartySize">Party Size *</label>
-                                <select id="adminPartySize" name="partySize" required>
-                                    <option value="">Select size</option>
-                                    <option value="1">1 person</option>
-                                    <option value="2">2 people</option>
-                                    <option value="3">3 people</option>
-                                    <option value="4">4 people</option>
-                                    <option value="5">5 people</option>
-                                    <option value="6">6 people</option>
-                                    <option value="7">7 people</option>
-                                    <option value="8">8 people</option>
-                                    <option value="9">9 people</option>
-                                    <option value="10">10 people</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label for="adminRoom">Room</label>
-                                <select id="adminRoom" name="room">
-                                    <option value="">Any room</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label for="adminNotes">Customer Notes</label>
-                            <textarea id="adminNotes" name="notes" rows="3"></textarea>
-                        </div>
-                        <div class="form-group">
-                            <label for="adminAdminNotes">Admin Notes (Internal)</label>
-                            <textarea id="adminAdminNotes" name="adminNotes" rows="2"></textarea>
-                        </div>
-                        <div class="form-actions">
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-check"></i>
-                                Create Reservation
+                        <h3>Reservation Management</h3>
+                        <div class="reservation-controls">
+                            <select id="reservationStatusFilter" class="form-control">
+                                <option value="">All Reservations</option>
+                                <option value="confirmed">Confirmed</option>
+                                <option value="pending">Pending</option>
+                                <option value="cancelled">Cancelled</option>
+                                <option value="completed">Completed</option>
+                            </select>
+                            <input type="date" id="reservationDateFilter" class="form-control">
+                            <button class="btn btn-primary" onclick="showAddReservationForm()">
+                                <i class="fas fa-plus"></i> Add Reservation
                             </button>
                         </div>
-                    </form>
+                    </div>
+                    
+                    <div id="reservationsList" class="reservations-list">
+                        <!-- Reservations will be loaded here -->
+                        <div class="loading-text">Loading reservations...</div>
+                    </div>
+
+                    <!-- Add Reservation Form Modal -->
+                    <div id="addReservationModal" class="modal hidden">
+                        <div class="modal-content large-modal">
+                            <div class="modal-header">
+                                <h4>Add New Reservation</h4>
+                                <button class="close-btn" onclick="hideAddReservationForm()">&times;</button>
+                            </div>
+                            <form id="addReservationForm" onsubmit="handleAddReservation(event)">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="newCustomerName">Customer Name *</label>
+                                        <input type="text" id="newCustomerName" name="customerName" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="newEmail">Email *</label>
+                                        <input type="email" id="newEmail" name="email" required>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="newPhone">Phone *</label>
+                                        <input type="tel" id="newPhone" name="phone" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="newReservationType">Type *</label>
+                                        <select id="newReservationType" name="reservationType" required>
+                                            <option value="dining">Dining</option>
+                                            <option value="fun">Fun</option>
+                                            <option value="team_event">Team Event</option>
+                                            <option value="birthday">Birthday</option>
+                                            <option value="party">Party</option>
+                                            <option value="special_event">Special Event</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="newDate">Date *</label>
+                                        <input type="date" id="newDate" name="date" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="newTime">Time *</label>
+                                        <select id="newTime" name="time" required>
+                                            <option value="">Select time</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="newPartySize">Party Size *</label>
+                                        <select id="newPartySize" name="partySize" required>
+                                            <option value="">Select size</option>
+                                            <option value="1">1 person</option>
+                                            <option value="2">2 people</option>
+                                            <option value="3">3 people</option>
+                                            <option value="4">4 people</option>
+                                            <option value="5">5 people</option>
+                                            <option value="6">6 people</option>
+                                            <option value="7">7 people</option>
+                                            <option value="8">8 people</option>
+                                            <option value="9">9 people</option>
+                                            <option value="10">10 people</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="newRoom">Room</label>
+                                        <select id="newRoom" name="room">
+                                            <option value="">Any room</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="newNotes">Customer Notes</label>
+                                    <textarea id="newNotes" name="notes" rows="2"></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <label for="newAdminNotes">Admin Notes (Internal)</label>
+                                    <textarea id="newAdminNotes" name="adminNotes" rows="2"></textarea>
+                                </div>
+                                <div class="form-actions">
+                                    <button type="button" class="btn btn-secondary" onclick="hideAddReservationForm()">Cancel</button>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-save"></i> Create Reservation
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Tables Tab -->

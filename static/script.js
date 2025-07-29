@@ -610,11 +610,10 @@ function showTab(tabName) {
         loadCustomers();
     } else if (tabName === 'today') {
         loadTodayReservations();
+    } else if (tabName === 'reservations') {
+        loadAllReservations();
     } else if (tabName === 'settings') {
         loadSettingsData();
-    } else if (tabName === 'add-reservation') {
-        loadRooms(); // Load rooms for the form
-        populateTimeSlots('adminTime'); // Populate time slots for admin form
     } else if (tabName === 'tables') {
         loadTablesData();
     }
@@ -1535,4 +1534,177 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
     }, 1000);
-}); 
+});
+
+// Reservation Management Functions
+async function loadAllReservations() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/reservations`, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+        
+        if (response.ok) {
+            const reservations = await response.json();
+            displayReservations(reservations);
+        } else {
+            console.error('Failed to load reservations');
+            document.getElementById('reservationsList').innerHTML = '<div class="error-text">Failed to load reservations</div>';
+        }
+    } catch (error) {
+        console.error('Error loading reservations:', error);
+        document.getElementById('reservationsList').innerHTML = '<div class="error-text">Error loading reservations</div>';
+    }
+}
+
+function displayReservations(reservations) {
+    const reservationsList = document.getElementById('reservationsList');
+    
+    if (reservations.length === 0) {
+        reservationsList.innerHTML = '<div class="empty-text">No reservations found</div>';
+        return;
+    }
+    
+    let html = '<div class="reservations-grid">';
+    
+    reservations.forEach(reservation => {
+        const statusClass = reservation.status.toLowerCase();
+        const date = new Date(reservation.date).toLocaleDateString();
+        const time = reservation.time;
+        
+        html += `
+            <div class="reservation-card ${statusClass}">
+                <div class="reservation-header">
+                    <h5>${reservation.customer_name}</h5>
+                    <span class="status-badge status-${statusClass}">${reservation.status}</span>
+                </div>
+                <div class="reservation-details">
+                    <div class="detail-row">
+                        <i class="fas fa-calendar"></i>
+                        <span>${date} at ${time}</span>
+                    </div>
+                    <div class="detail-row">
+                        <i class="fas fa-users"></i>
+                        <span>${reservation.party_size} people</span>
+                    </div>
+                    <div class="detail-row">
+                        <i class="fas fa-door-open"></i>
+                        <span>${reservation.room_name || 'Any room'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <i class="fas fa-envelope"></i>
+                        <span>${reservation.email}</span>
+                    </div>
+                    <div class="detail-row">
+                        <i class="fas fa-phone"></i>
+                        <span>${reservation.phone}</span>
+                    </div>
+                    ${reservation.notes ? `
+                        <div class="detail-row">
+                            <i class="fas fa-comment"></i>
+                            <span>${reservation.notes}</span>
+                        </div>
+                    ` : ''}
+                </div>
+                <div class="reservation-actions">
+                    <button class="btn-small btn-secondary" onclick="editReservation('${reservation.id}')">
+                        <i class="fas fa-edit"></i> Edit
+                    </button>
+                    <button class="btn-small btn-danger" onclick="cancelReservation('${reservation.id}')">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    reservationsList.innerHTML = html;
+}
+
+function showAddReservationForm() {
+    document.getElementById('addReservationModal').classList.remove('hidden');
+    loadRooms('newRoom');
+    populateTimeSlots('newTime');
+}
+
+function hideAddReservationForm() {
+    document.getElementById('addReservationModal').classList.add('hidden');
+    document.getElementById('addReservationForm').reset();
+}
+
+async function handleAddReservation(event) {
+    event.preventDefault();
+    
+    const formData = new FormData(event.target);
+    const reservationData = {
+        customer_name: formData.get('customerName'),
+        email: formData.get('email'),
+        phone: formData.get('phone'),
+        party_size: parseInt(formData.get('partySize')),
+        date: formData.get('date'),
+        time: formData.get('time'),
+        room_id: formData.get('room') || null,
+        reservation_type: formData.get('reservationType'),
+        notes: formData.get('notes') || null,
+        admin_notes: formData.get('adminNotes') || null
+    };
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/reservations`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(reservationData)
+        });
+        
+        if (response.ok) {
+            showMessage('Reservation created successfully', 'success');
+            hideAddReservationForm();
+            loadAllReservations(); // Reload reservations list
+        } else {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to create reservation');
+        }
+    } catch (error) {
+        console.error('Error creating reservation:', error);
+        showMessage('Error creating reservation: ' + error.message, 'error');
+    }
+}
+
+async function cancelReservation(reservationId) {
+    if (!confirm('Are you sure you want to cancel this reservation?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/reservations/${reservationId}`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                status: 'cancelled'
+            })
+        });
+        
+        if (response.ok) {
+            showMessage('Reservation cancelled successfully', 'success');
+            loadAllReservations(); // Reload reservations list
+        } else {
+            throw new Error('Failed to cancel reservation');
+        }
+    } catch (error) {
+        console.error('Error cancelling reservation:', error);
+        showMessage('Error cancelling reservation', 'error');
+    }
+}
+
+function editReservation(reservationId) {
+    // TODO: Implement edit functionality
+    showMessage('Edit functionality coming soon', 'info');
+} 

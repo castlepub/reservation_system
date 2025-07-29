@@ -22,15 +22,14 @@ class Settings(BaseSettings):
     # Redis (for background tasks)
     REDIS_URL: str = "redis://localhost:6379"
     
-    # Business Logic
-    RESERVATION_TOKEN_EXPIRE_DAYS: int = 30
+    # Reservation settings
     MAX_PARTY_SIZE: int = 20
-    MIN_RESERVATION_HOURS: int = 2  # Minimum hours in advance
-    MAX_RESERVATION_DAYS: int = 90  # Maximum days in advance
+    MIN_RESERVATION_HOURS: int = 0  # Allow same-day bookings
+    MAX_RESERVATION_DAYS: int = 90
     
-    # Operating Hours (24-hour format)
-    OPENING_HOUR: int = 11  # 11:00 AM
-    CLOSING_HOUR: int = 23  # 11:00 PM
+    # Operating hours (will be overridden by database settings)
+    OPENING_HOUR: int = 11
+    CLOSING_HOUR: int = 23
     
     class Config:
         env_file = ".env"
