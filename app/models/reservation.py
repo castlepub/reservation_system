@@ -42,6 +42,20 @@ class Reservation(Base):
     # Relationships
     room = relationship("Room", back_populates="reservations")
     reservation_tables = relationship("ReservationTable", back_populates="reservation", cascade="all, delete-orphan")
+    
+    def __init__(self, **kwargs):
+        # Set default duration if not provided
+        if 'duration_hours' not in kwargs:
+            kwargs['duration_hours'] = 2
+        super().__init__(**kwargs)
+    
+    @property
+    def duration_hours_safe(self):
+        """Safe access to duration_hours with fallback"""
+        try:
+            return self.duration_hours if hasattr(self, 'duration_hours') else 2
+        except:
+            return 2
 
 
 class ReservationTable(Base):

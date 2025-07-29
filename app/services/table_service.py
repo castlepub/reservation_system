@@ -43,19 +43,19 @@ class TableService:
                     and_(
                         Reservation.time <= time,
                         (datetime.combine(date, Reservation.time) + 
-                         timedelta(hours=Reservation.duration_hours)).time() > time
+                         timedelta(hours=getattr(Reservation, 'duration_hours', 2))).time() > time
                     ),
                     # New reservation ends during existing reservation
                     and_(
                         Reservation.time < end_time,
                         (datetime.combine(date, Reservation.time) + 
-                         timedelta(hours=Reservation.duration_hours)).time() >= end_time
+                         timedelta(hours=getattr(Reservation, 'duration_hours', 2))).time() >= end_time
                     ),
                     # New reservation completely contains existing reservation
                     and_(
                         Reservation.time >= time,
                         (datetime.combine(date, Reservation.time) + 
-                         timedelta(hours=Reservation.duration_hours)).time() <= end_time
+                         timedelta(hours=getattr(Reservation, 'duration_hours', 2))).time() <= end_time
                     )
                 )
             )
@@ -103,19 +103,19 @@ class TableService:
                     and_(
                         Reservation.time <= time,
                         (datetime.combine(date, Reservation.time) + 
-                         timedelta(hours=Reservation.duration_hours)).time() > time
+                         timedelta(hours=getattr(Reservation, 'duration_hours', 2))).time() > time
                     ),
                     # New reservation ends during existing reservation
                     and_(
                         Reservation.time < end_time,
                         (datetime.combine(date, Reservation.time) + 
-                         timedelta(hours=Reservation.duration_hours)).time() >= end_time
+                         timedelta(hours=getattr(Reservation, 'duration_hours', 2))).time() >= end_time
                     ),
                     # New reservation completely contains existing reservation
                     and_(
                         Reservation.time >= time,
                         (datetime.combine(date, Reservation.time) + 
-                         timedelta(hours=Reservation.duration_hours)).time() <= end_time
+                         timedelta(hours=getattr(Reservation, 'duration_hours', 2))).time() <= end_time
                     )
                 )
             )

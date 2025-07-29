@@ -24,75 +24,52 @@ app = FastAPI(
 
 @app.on_event("startup")
 async def startup_event():
-    """Initialize database on startup"""
+    """Initialize database and run migrations on startup"""
     try:
-        # Create database tables
+        # Create tables
         Base.metadata.create_all(bind=engine)
-        logger.info("Database tables created successfully")
         
-        # Test database connection
+        # Run duration migration if needed
         from sqlalchemy import text
-        with engine.connect() as conn:
-            conn.execute(text("SELECT 1"))
-        logger.info("Database connection test successful")
-        
-        # Create admin user if it doesn't exist
         from app.core.database import SessionLocal
-        from app.core.security import get_password_hash
-        from app.models.user import User, UserRole
-        from app.models.reservation import ReservationType
-        from app.models.settings import WorkingHours, DayOfWeek, RestaurantSettings
-        from sqlalchemy import text
-        from datetime import time
         
         db = SessionLocal()
         try:
-            # Add missing columns to existing tables if they don't exist
-            try:
-                # Check if reservation_type column exists, if not add it
-                db.execute(text("SELECT reservation_type FROM reservations LIMIT 1"))
-            except Exception:
-                logger.info("Adding reservation_type column to reservations table")
-                db.execute(text("ALTER TABLE reservations ADD COLUMN reservation_type VARCHAR DEFAULT 'dining'"))
-                db.commit()
+            # Check if duration_hours column exists
+            result = db.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name='reservations' AND column_name='duration_hours'
+            """)).fetchone()
             
-            try:
-                # Check if admin_notes column exists, if not add it
-                db.execute(text("SELECT admin_notes FROM reservations LIMIT 1"))
-            except Exception:
-                logger.info("Adding admin_notes column to reservations table")
-                db.execute(text("ALTER TABLE reservations ADD COLUMN admin_notes TEXT"))
-                db.commit()
-            
-            # Update existing reservations to have default reservation_type
-            try:
-                db.execute(text("UPDATE reservations SET reservation_type = 'dining' WHERE reservation_type IS NULL"))
-                db.commit()
-            except Exception:
-                pass
-            
-            admin_user = db.query(User).filter(User.username == "admin").first()
-            if not admin_user:
-                admin_user = User(
-                    username="admin",
-                    password_hash=get_password_hash("admin123"),
-                    role=UserRole.ADMIN
-                )
-                db.add(admin_user)
-                db.commit()
-                logger.info("✅ Admin user created (username: admin, password: admin123)")
-            else:
-                logger.info("✅ Admin user already exists")
+            if not result:
+                print("🔄 Adding duration_hours column to reservations table...")
                 
-            logger.info("✅ Database schema updated successfully")
+                # Add the column with default value 2
+                db.execute(text("ALTER TABLE reservations ADD COLUMN duration_hours INTEGER DEFAULT 2 NOT NULL"))
+                db.commit()
+                
+                print("✅ duration_hours column added successfully")
+            else:
+                print("✅ duration_hours column already exists")
+            
+            # Update existing reservations to have duration_hours = 2 if they don't have it
+            db.execute(text("UPDATE reservations SET duration_hours = 2 WHERE duration_hours IS NULL"))
+            db.commit()
+            
+            print("✅ All existing reservations updated with default duration")
+            
         except Exception as e:
-            logger.error(f"Database schema update error: {e}")
+            print(f"⚠️ Migration warning: {e}")
+            db.rollback()
         finally:
             db.close()
         
+        print("✅ Database initialized successfully")
+        
     except Exception as e:
-        logger.error(f"Database initialization failed: {str(e)}")
-        raise e
+        print(f"❌ Database initialization error: {e}")
+        raise
 
 # Add CORS middleware
 app.add_middleware(
