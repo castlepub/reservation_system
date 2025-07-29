@@ -597,6 +597,7 @@ function showTab(tabName) {
         loadAllReservations();
     } else if (tabName === 'settings') {
         loadSettingsData();
+        loadRestaurantSettings(); // Load restaurant settings for dynamic forms
     } else if (tabName === 'tables') {
         loadTablesData();
     }
@@ -750,6 +751,7 @@ async function loadRooms() {
         if (response.ok) {
             const rooms = await response.json();
             populateRoomOptions(rooms);
+            window.loadedRooms = rooms; // Store for use in loadTablesData
         }
     } catch (error) {
         console.error('Error loading rooms:', error);
@@ -1036,7 +1038,7 @@ async function saveWorkingHours() {
         const workingHoursData = {};
         
         for (const day of days) {
-            const isOpenCheckbox = document.querySelector(`input[onchange*="${day}"]`);
+            const isOpenCheckbox = document.getElementById(`${day}-open-checkbox`);
             const openTimeInput = document.getElementById(`${day}-open`);
             const closeTimeInput = document.getElementById(`${day}-close`);
             
@@ -1047,72 +1049,92 @@ async function saveWorkingHours() {
             };
         }
 
-        for (const [day, hours] of Object.entries(workingHoursData)) {
-            const response = await fetch(`${API_BASE_URL}/api/settings/working-hours/${day}`, {
-                method: 'PUT',
-                headers: {
-                    'Authorization': `Bearer ${authToken}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    is_open: hours.is_open,
-                    open_time: hours.is_open ? hours.open_time : null,
-                    close_time: hours.is_open ? hours.close_time : null
-                })
-            });
+        const response = await fetch(`${API_BASE_URL}/api/settings/working-hours`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(workingHoursData)
+        });
 
-            if (!response.ok) {
-                const error = await response.text();
-                console.error(`Failed to save working hours for ${day}:`, error);
-                throw new Error(`Failed to save working hours for ${day}`);
-            }
+        if (response.ok) {
+            showMessage('Working hours saved successfully', 'success');
+        } else {
+            throw new Error('Failed to save working hours');
         }
-
-        showMessage('Working hours saved successfully', 'success');
     } catch (error) {
         console.error('Error saving working hours:', error);
         showMessage('Error saving working hours', 'error');
     }
 }
 
+// Load restaurant settings and populate forms
 async function loadRestaurantSettings() {
     try {
         const response = await fetch(`${API_BASE_URL}/api/settings/restaurant`, {
             headers: {
-                'Authorization': `Bearer ${authToken}`,
-                'Content-Type': 'application/json'
+                'Authorization': `Bearer ${authToken}`
             }
         });
-
+        
         if (response.ok) {
             const settings = await response.json();
-            updateRestaurantSettingsDisplay(settings);
+            const settingsMap = {};
+            
+            settings.forEach(setting => {
+                settingsMap[setting.setting_key] = setting.setting_value;
+            });
+            
+            // Update max party size in forms
+            updateMaxPartySizeOptions(parseInt(settingsMap.max_party_size) || 20);
+            
+            // Populate settings form
+            populateSettingsForm(settingsMap);
+            
+            return settingsMap;
+        } else {
+            console.error('Failed to load restaurant settings');
+            return {};
         }
     } catch (error) {
         console.error('Error loading restaurant settings:', error);
+        return {};
     }
 }
 
-function updateRestaurantSettingsDisplay(settings) {
-    // Set default values if settings exist
-    settings.forEach(setting => {
-        const element = document.getElementById(getSettingElementId(setting.setting_key));
-        if (element) {
-            element.value = setting.setting_value;
+function updateMaxPartySizeOptions(maxPartySize) {
+    const partySizeSelects = document.querySelectorAll('#partySize, #adminPartySize, #newPartySize');
+    
+    partySizeSelects.forEach(select => {
+        if (select) {
+            // Clear existing options except placeholder
+            select.innerHTML = '<option value="">Select size</option>';
+            
+            // Add options up to max party size
+            for (let i = 1; i <= maxPartySize; i++) {
+                const option = document.createElement('option');
+                option.value = i;
+                option.textContent = i === 1 ? '1 person' : `${i} people`;
+                select.appendChild(option);
+            }
         }
     });
 }
 
-function getSettingElementId(settingKey) {
-    const mapping = {
-        'restaurant_name': 'restaurantName',
-        'restaurant_phone': 'restaurantPhone', 
-        'restaurant_address': 'restaurantAddress',
-        'max_party_size': 'maxPartySize',
-        'min_advance_hours': 'minAdvanceHours',
-        'max_advance_days': 'maxAdvanceDays'
-    };
-    return mapping[settingKey] || settingKey;
+function populateSettingsForm(settings) {
+    // Populate individual setting fields
+    const restaurantName = document.getElementById('restaurantName');
+    const maxPartySize = document.getElementById('maxPartySize');
+    const minAdvanceHours = document.getElementById('minAdvanceHours');
+    const maxReservationDays = document.getElementById('maxReservationDays');
+    const timeSlotDuration = document.getElementById('timeSlotDuration');
+    
+    if (restaurantName) restaurantName.value = settings.restaurant_name || '';
+    if (maxPartySize) maxPartySize.value = settings.max_party_size || '20';
+    if (minAdvanceHours) minAdvanceHours.value = settings.min_advance_hours || '0';
+    if (maxReservationDays) maxReservationDays.value = settings.max_reservation_days || '90';
+    if (timeSlotDuration) timeSlotDuration.value = settings.time_slot_duration || '30';
 }
 
 async function saveAllSettings() {
@@ -1268,6 +1290,13 @@ async function loadTablesData() {
         const rooms = await loadRoomsForTables();
         // Load tables
         const tables = await loadTables();
+        
+        // Populate room filter dropdown
+        populateRoomFilter(rooms);
+        
+        // Populate room dropdown for add table form
+        populateAddTableRoomDropdown(rooms);
+        
         // Display tables
         displayTables(tables, rooms);
     } catch (error) {
@@ -1286,9 +1315,12 @@ async function loadRoomsForTables() {
         
         if (response.ok) {
             const rooms = await response.json();
+            // Store globally for room filtering
+            window.loadedRooms = rooms;
             return rooms;
         } else {
             console.error('Failed to load rooms for tables');
+            showMessage('Failed to load rooms. Please check your admin permissions.', 'error');
             return [];
         }
     } catch (error) {
@@ -1444,43 +1476,64 @@ async function deleteTable(tableId, tableName) {
     }
 }
 
-// Add event listeners for date changes in both forms
-document.addEventListener('DOMContentLoaded', function() {
-    // Add event listener for public reservation form
-    setTimeout(() => {
-        const dateInput = document.getElementById('date');
-        const timeSelect = document.getElementById('time');
+function populateRoomFilter(rooms) {
+    const roomFilter = document.getElementById('roomFilter');
+    if (roomFilter) {
+        // Clear existing options except "All Rooms"
+        roomFilter.innerHTML = '<option value="">All Rooms</option>';
         
-        if (dateInput && timeSelect) {
-            dateInput.addEventListener('change', function() {
-                if (this.value) {
-                    updateTimeSlotsForDate(this, 'time');
-                }
-            });
-        }
-
-        // Add event listener for admin reservation form
-        const adminDateInput = document.getElementById('adminDate');
-        const adminTimeSelect = document.getElementById('adminTime');
+        rooms.forEach(room => {
+            const option = document.createElement('option');
+            option.value = room.id;
+            option.textContent = room.name;
+            roomFilter.appendChild(option);
+        });
         
-        if (adminDateInput && adminTimeSelect) {
-            adminDateInput.addEventListener('change', function() {
-                if (this.value) {
-                    updateTimeSlotsForDate(this, 'adminTime');
-                }
-            });
-        }
+        // Add change event listener
+        roomFilter.addEventListener('change', function() {
+            filterTablesByRoom(this.value);
+        });
+    }
+}
 
-        // Add event listener for room filter if it exists
-        const roomFilter = document.getElementById('roomFilter');
-        if (roomFilter) {
-            roomFilter.addEventListener('change', function() {
-                const selectedRoom = this.value;
-                loadTables(selectedRoom || null);
-            });
+function populateAddTableRoomDropdown(rooms) {
+    const tableRoom = document.getElementById('tableRoom');
+    if (tableRoom) {
+        // Clear existing options
+        tableRoom.innerHTML = '<option value="">Select Room</option>';
+        
+        rooms.forEach(room => {
+            const option = document.createElement('option');
+            option.value = room.id;
+            option.textContent = room.name;
+            tableRoom.appendChild(option);
+        });
+    }
+}
+
+function filterTablesByRoom(roomId) {
+    const tableCards = document.querySelectorAll('.table-card');
+    
+    tableCards.forEach(card => {
+        if (!roomId) {
+            // Show all tables
+            card.style.display = 'block';
+        } else {
+            // Check if table belongs to selected room
+            const roomSpan = card.querySelector('.detail-row span');
+            if (roomSpan && roomSpan.textContent.includes(getRoomNameById(roomId))) {
+                card.style.display = 'block';
+            } else {
+                card.style.display = 'none';
+            }
         }
-    }, 1000);
-});
+    });
+}
+
+function getRoomNameById(roomId) {
+    // This will be populated when rooms are loaded
+    return window.loadedRooms?.find(r => r.id === roomId)?.name || '';
+}
 
 // Reservation Management Functions
 async function loadAllReservations() {

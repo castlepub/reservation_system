@@ -230,8 +230,24 @@ def get_today_reservations(
         # Convert to response format
         today_reservations = []
         for reservation in reservations:
-            # Get table assignments (simplified - assuming room_id maps to table names)
-            table_names = [f"Table {reservation.room_id}"]  # Simplified
+            # Get actual table assignments from reservation_tables
+            from app.models.reservation import ReservationTable
+            from app.models.table import Table
+            
+            reservation_tables = db.query(ReservationTable).filter(
+                ReservationTable.reservation_id == reservation.id
+            ).all()
+            
+            table_names = []
+            if reservation_tables:
+                # Get table names from the table records
+                for rt in reservation_tables:
+                    table = db.query(Table).filter(Table.id == rt.table_id).first()
+                    if table:
+                        table_names.append(table.name)
+            else:
+                # Fallback if no table assignments found
+                table_names = ["TBD"]
             
             today_reservations.append(TodayReservation(
                 id=reservation.id,
