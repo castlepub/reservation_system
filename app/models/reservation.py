@@ -30,6 +30,7 @@ class Reservation(Base):
     party_size = Column(Integer, nullable=False)
     date = Column(Date, nullable=False)
     time = Column(Time, nullable=False)
+    duration_hours = Column(Integer, default=2, nullable=False)  # Duration in hours (2, 3, or 4)
     room_id = Column(Text, ForeignKey("rooms.id"), nullable=False)
     status = Column(Enum(ReservationStatus), default=ReservationStatus.CONFIRMED, nullable=False)
     reservation_type = Column(Enum(ReservationType), default=ReservationType.DINING, nullable=False)

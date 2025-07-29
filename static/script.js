@@ -710,6 +710,7 @@ async function handleReservationSubmit(e) {
         party_size: parseInt(formData.get('partySize')),
         date: formData.get('date'),
         time: formData.get('time'),
+        duration_hours: parseInt(formData.get('duration')),
         room_id: formData.get('room') || null,
         reservation_type: formData.get('reservationType') || 'dining',
         notes: formData.get('notes') || null
@@ -953,8 +954,36 @@ function setMinDate() {
 }
 
 async function checkAvailability() {
-    // This function can be enhanced to show real-time availability
-    console.log('Checking availability...');
+    const date = document.getElementById('date').value;
+    const partySize = document.getElementById('partySize').value;
+    const duration = document.getElementById('duration').value;
+    const room = document.getElementById('room').value;
+    
+    if (date && partySize && duration) {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/availability`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    date: date,
+                    party_size: parseInt(partySize),
+                    duration_hours: parseInt(duration),
+                    room_id: room || null
+                })
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                updateTimeSlotsDisplay(data.available_slots);
+            } else {
+                console.error('Availability check failed');
+            }
+        } catch (error) {
+            console.error('Error checking availability:', error);
+        }
+    }
 }
 
 function showLoading() {
@@ -1771,6 +1800,7 @@ async function handleAddReservation(event) {
         party_size: parseInt(formData.get('partySize')),
         date: formData.get('date'),
         time: formData.get('time'),
+        duration_hours: parseInt(formData.get('duration')),
         room_id: formData.get('room') || null,
         reservation_type: formData.get('reservationType'),
         notes: formData.get('notes') || null,

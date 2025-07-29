@@ -1,7 +1,7 @@
 from typing import List, Tuple, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
-from datetime import date, time
+from datetime import date, time, datetime, timedelta
 import itertools
 from app.models.table import Table
 from app.models.reservation import Reservation, ReservationTable
@@ -17,9 +17,10 @@ class TableService:
         room_id: str, 
         date: date, 
         time: time,
-        party_size: int
+        party_size: int,
+        duration_hours: int = 2
     ) -> List[Table]:
-        """Get all available tables for a given room, date, and time"""
+        """Get all available tables for a given room, date, and time slot"""
         # Get all active tables in the room
         tables = self.db.query(Table).filter(
             and_(
@@ -28,18 +29,43 @@ class TableService:
             )
         ).all()
 
-        # Get tables that are already reserved for this time
-        reserved_tables = self.db.query(ReservationTable.table_id).join(
-            Reservation
-        ).filter(
+        # Get tables that are already reserved for overlapping time slots
+        end_time = (datetime.combine(date, time) + timedelta(hours=duration_hours)).time()
+        
+        # Find reservations that overlap with the requested time slot
+        overlapping_reservations = self.db.query(Reservation).filter(
             and_(
                 Reservation.date == date,
-                Reservation.time == time,
-                Reservation.status == "confirmed"
+                Reservation.status == "confirmed",
+                # Check if the new reservation overlaps with existing ones
+                or_(
+                    # New reservation starts during existing reservation
+                    and_(
+                        Reservation.time <= time,
+                        (datetime.combine(date, Reservation.time) + 
+                         timedelta(hours=Reservation.duration_hours)).time() > time
+                    ),
+                    # New reservation ends during existing reservation
+                    and_(
+                        Reservation.time < end_time,
+                        (datetime.combine(date, Reservation.time) + 
+                         timedelta(hours=Reservation.duration_hours)).time() >= end_time
+                    ),
+                    # New reservation completely contains existing reservation
+                    and_(
+                        Reservation.time >= time,
+                        (datetime.combine(date, Reservation.time) + 
+                         timedelta(hours=Reservation.duration_hours)).time() <= end_time
+                    )
+                )
             )
         ).all()
         
-        reserved_table_ids = [rt.table_id for rt in reserved_tables]
+        # Get table IDs from overlapping reservations
+        reserved_table_ids = set()
+        for reservation in overlapping_reservations:
+            for table in reservation.tables:
+                reserved_table_ids.add(table.id)
         
         # Filter out reserved tables
         available_tables = [t for t in tables if t.id not in reserved_table_ids]
@@ -50,9 +76,10 @@ class TableService:
         self, 
         date: date, 
         time: time,
-        party_size: int
+        party_size: int,
+        duration_hours: int = 2
     ) -> List[Table]:
-        """Get all available tables across all active rooms for a given date and time"""
+        """Get all available tables across all active rooms for a given date and time slot"""
         # Get all active tables from all active rooms
         from app.models.room import Room
         tables = self.db.query(Table).join(Room).filter(
@@ -62,18 +89,43 @@ class TableService:
             )
         ).all()
 
-        # Get tables that are already reserved for this time
-        reserved_tables = self.db.query(ReservationTable.table_id).join(
-            Reservation
-        ).filter(
+        # Get tables that are already reserved for overlapping time slots
+        end_time = (datetime.combine(date, time) + timedelta(hours=duration_hours)).time()
+        
+        # Find reservations that overlap with the requested time slot
+        overlapping_reservations = self.db.query(Reservation).filter(
             and_(
                 Reservation.date == date,
-                Reservation.time == time,
-                Reservation.status == "confirmed"
+                Reservation.status == "confirmed",
+                # Check if the new reservation overlaps with existing ones
+                or_(
+                    # New reservation starts during existing reservation
+                    and_(
+                        Reservation.time <= time,
+                        (datetime.combine(date, Reservation.time) + 
+                         timedelta(hours=Reservation.duration_hours)).time() > time
+                    ),
+                    # New reservation ends during existing reservation
+                    and_(
+                        Reservation.time < end_time,
+                        (datetime.combine(date, Reservation.time) + 
+                         timedelta(hours=Reservation.duration_hours)).time() >= end_time
+                    ),
+                    # New reservation completely contains existing reservation
+                    and_(
+                        Reservation.time >= time,
+                        (datetime.combine(date, Reservation.time) + 
+                         timedelta(hours=Reservation.duration_hours)).time() <= end_time
+                    )
+                )
             )
         ).all()
         
-        reserved_table_ids = [rt.table_id for rt in reserved_tables]
+        # Get table IDs from overlapping reservations
+        reserved_table_ids = set()
+        for reservation in overlapping_reservations:
+            for table in reservation.tables:
+                reserved_table_ids.add(table.id)
         
         # Filter out reserved tables
         available_tables = [t for t in tables if t.id not in reserved_table_ids]
@@ -85,7 +137,8 @@ class TableService:
         room_id: Optional[str], 
         date: date, 
         time: time,
-        party_size: int
+        party_size: int,
+        duration_hours: int = 2
     ) -> Optional[List[Table]]:
         """
         Find the best combination of tables for a party size.
@@ -94,11 +147,11 @@ class TableService:
         """
         if room_id:
             # Search in specific room only
-            available_tables = self.get_available_tables(room_id, date, time, party_size)
+            available_tables = self.get_available_tables(room_id, date, time, party_size, duration_hours)
             return self._find_best_combination_in_tables(available_tables, party_size)
         else:
             # Search across all active rooms with room preference
-            return self._find_best_combination_across_rooms(date, time, party_size)
+            return self._find_best_combination_across_rooms(date, time, party_size, duration_hours)
     
     def _find_best_combination_in_tables(self, available_tables: List[Table], party_size: int) -> Optional[List[Table]]:
         """Find best table combination within a given set of tables"""
@@ -141,7 +194,7 @@ class TableService:
 
         return best_combination
     
-    def _find_best_combination_across_rooms(self, date: date, time: time, party_size: int) -> Optional[List[Table]]:
+    def _find_best_combination_across_rooms(self, date: date, time: time, party_size: int, duration_hours: int = 2) -> Optional[List[Table]]:
         """Find best table combination across all rooms, preferring same-room combinations"""
         from app.models.room import Room
         
@@ -153,7 +206,7 @@ class TableService:
         
         # First, try to find combinations within each room
         for room in active_rooms:
-            room_tables = self.get_available_tables(room.id, date, time, party_size)
+            room_tables = self.get_available_tables(room.id, date, time, party_size, duration_hours)
             room_combo = self._find_best_combination_in_tables(room_tables, party_size)
             
             if room_combo:
@@ -168,7 +221,7 @@ class TableService:
         
         # If no single-room combination found, try cross-room combinations
         if not best_combination:
-            all_tables = self.get_available_tables_all_rooms(date, time, party_size)
+            all_tables = self.get_available_tables_all_rooms(date, time, party_size, duration_hours)
             best_combination = self._find_best_combination_in_tables(all_tables, party_size)
         
         return best_combination
@@ -177,7 +230,8 @@ class TableService:
         self, 
         room_id: str, 
         date: date, 
-        party_size: int
+        party_size: int,
+        duration_hours: int = 2
     ) -> List[TimeSlot]:
         """Get available time slots for a given date and party size"""
         from app.core.config import settings
@@ -189,12 +243,12 @@ class TableService:
             for minute in [0, 30]:  # 30-minute intervals
                 time_slot = time(hour, minute)
                 
-                # Check if tables are available for this time
-                available_tables = self.get_available_tables(room_id, date, time_slot, party_size)
+                # Check if tables are available for this time slot
+                available_tables = self.get_available_tables(room_id, date, time_slot, party_size, duration_hours)
                 
                 if available_tables:
                     # Find best combination
-                    best_combo = self.find_best_table_combination(room_id, date, time_slot, party_size)
+                    best_combo = self.find_best_table_combination(room_id, date, time_slot, party_size, duration_hours)
                     
                     if best_combo:
                         table_assignments = [
@@ -212,7 +266,7 @@ class TableService:
                             available_tables=table_assignments,
                             total_capacity=total_capacity
                         ))
-
+        
         return time_slots
 
     def assign_tables_to_reservation(
