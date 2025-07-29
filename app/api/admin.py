@@ -401,6 +401,99 @@ def delete_table(
     return {"message": "Table deleted successfully"}
 
 
+@router.post("/setup-tables")
+def setup_tables_one_time(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user)
+):
+    """One-time setup: Create all tables for the 4 rooms"""
+    try:
+        # Check if tables already exist
+        existing_tables = db.query(Table).count()
+        if existing_tables > 0:
+            return {"message": f"Tables already exist ({existing_tables} found). Skipping setup."}
+        
+        # Table data for all rooms
+        tables_data = [
+            # Front Room tables
+            {"id": "550e8400-e29b-41d4-a716-446655440101", "room_id": "550e8400-e29b-41d4-a716-446655440001", "name": "F1", "capacity": 4, "combinable": True, "x": 10, "y": 10, "width": 80, "height": 60},
+            {"id": "550e8400-e29b-41d4-a716-446655440102", "room_id": "550e8400-e29b-41d4-a716-446655440001", "name": "F2", "capacity": 4, "combinable": True, "x": 100, "y": 10, "width": 80, "height": 60},
+            {"id": "550e8400-e29b-41d4-a716-446655440103", "room_id": "550e8400-e29b-41d4-a716-446655440001", "name": "F3", "capacity": 2, "combinable": True, "x": 190, "y": 10, "width": 60, "height": 50},
+            {"id": "550e8400-e29b-41d4-a716-446655440104", "room_id": "550e8400-e29b-41d4-a716-446655440001", "name": "F4", "capacity": 6, "combinable": True, "x": 10, "y": 80, "width": 100, "height": 70},
+            
+            # Middle Room tables
+            {"id": "550e8400-e29b-41d4-a716-446655440105", "room_id": "550e8400-e29b-41d4-a716-446655440002", "name": "M1", "capacity": 4, "combinable": True, "x": 10, "y": 10, "width": 80, "height": 60},
+            {"id": "550e8400-e29b-41d4-a716-446655440106", "room_id": "550e8400-e29b-41d4-a716-446655440002", "name": "M2", "capacity": 4, "combinable": True, "x": 100, "y": 10, "width": 80, "height": 60},
+            {"id": "550e8400-e29b-41d4-a716-446655440107", "room_id": "550e8400-e29b-41d4-a716-446655440002", "name": "M3", "capacity": 6, "combinable": True, "x": 190, "y": 10, "width": 100, "height": 70},
+            {"id": "550e8400-e29b-41d4-a716-446655440108", "room_id": "550e8400-e29b-41d4-a716-446655440002", "name": "M4", "capacity": 8, "combinable": True, "x": 10, "y": 80, "width": 120, "height": 80},
+            {"id": "550e8400-e29b-41d4-a716-446655440109", "room_id": "550e8400-e29b-41d4-a716-446655440002", "name": "M5", "capacity": 2, "combinable": True, "x": 140, "y": 80, "width": 60, "height": 50},
+            {"id": "550e8400-e29b-41d4-a716-446655440110", "room_id": "550e8400-e29b-41d4-a716-446655440002", "name": "M6", "capacity": 2, "combinable": True, "x": 210, "y": 80, "width": 60, "height": 50},
+            
+            # Back Room tables
+            {"id": "550e8400-e29b-41d4-a716-446655440111", "room_id": "550e8400-e29b-41d4-a716-446655440003", "name": "B1", "capacity": 4, "combinable": True, "x": 10, "y": 10, "width": 80, "height": 60},
+            {"id": "550e8400-e29b-41d4-a716-446655440112", "room_id": "550e8400-e29b-41d4-a716-446655440003", "name": "B2", "capacity": 6, "combinable": True, "x": 100, "y": 10, "width": 100, "height": 70},
+            {"id": "550e8400-e29b-41d4-a716-446655440113", "room_id": "550e8400-e29b-41d4-a716-446655440003", "name": "B3", "capacity": 8, "combinable": True, "x": 10, "y": 80, "width": 120, "height": 80},
+            {"id": "550e8400-e29b-41d4-a716-446655440114", "room_id": "550e8400-e29b-41d4-a716-446655440003", "name": "B4", "capacity": 10, "combinable": False, "x": 140, "y": 10, "width": 150, "height": 120},
+            
+            # Biergarten tables
+            {"id": "550e8400-e29b-41d4-a716-446655440115", "room_id": "550e8400-e29b-41d4-a716-446655440004", "name": "BG1", "capacity": 6, "combinable": True, "x": 10, "y": 10, "width": 100, "height": 70},
+            {"id": "550e8400-e29b-41d4-a716-446655440116", "room_id": "550e8400-e29b-41d4-a716-446655440004", "name": "BG2", "capacity": 6, "combinable": True, "x": 120, "y": 10, "width": 100, "height": 70},
+            {"id": "550e8400-e29b-41d4-a716-446655440117", "room_id": "550e8400-e29b-41d4-a716-446655440004", "name": "BG3", "capacity": 8, "combinable": True, "x": 230, "y": 10, "width": 120, "height": 80},
+            {"id": "550e8400-e29b-41d4-a716-446655440118", "room_id": "550e8400-e29b-41d4-a716-446655440004", "name": "BG4", "capacity": 8, "combinable": True, "x": 10, "y": 90, "width": 120, "height": 80},
+            {"id": "550e8400-e29b-41d4-a716-446655440119", "room_id": "550e8400-e29b-41d4-a716-446655440004", "name": "BG5", "capacity": 10, "combinable": True, "x": 140, "y": 90, "width": 150, "height": 90},
+            {"id": "550e8400-e29b-41d4-a716-446655440120", "room_id": "550e8400-e29b-41d4-a716-446655440004", "name": "BG6", "capacity": 12, "combinable": False, "x": 300, "y": 90, "width": 180, "height": 100}
+        ]
+        
+        # Create all tables
+        tables_created = []
+        for table_data in tables_data:
+            table = Table(**table_data)
+            db.add(table)
+            tables_created.append(f"{table_data['name']} (capacity: {table_data['capacity']})")
+        
+        # Fix reservation_type column if missing
+        try:
+            # Check if column exists by trying to query it
+            db.execute(text("SELECT reservation_type FROM reservations LIMIT 1"))
+        except Exception:
+            # Column doesn't exist, add it
+            db.execute(text("""
+                DO $$ BEGIN
+                    CREATE TYPE reservationtype AS ENUM (
+                        'dining', 'fun', 'team_event', 'birthday', 'party', 'special_event'
+                    );
+                EXCEPTION
+                    WHEN duplicate_object THEN null;
+                END $$;
+            """))
+            db.execute(text("""
+                ALTER TABLE reservations 
+                ADD COLUMN reservation_type reservationtype 
+                DEFAULT 'dining' NOT NULL
+            """))
+        
+        db.commit()
+        
+        return {
+            "message": f"Successfully created {len(tables_created)} tables!",
+            "tables_created": tables_created,
+            "rooms_setup": {
+                "Front Room": "F1, F2, F3, F4 (2-6 people)",
+                "Middle Room": "M1, M2, M3, M4, M5, M6 (2-8 people)", 
+                "Back Room": "B1, B2, B3, B4 (4-10 people)",
+                "Biergarten": "BG1, BG2, BG3, BG4, BG5, BG6 (6-12 people)"
+            },
+            "reservation_type_column": "Fixed/Added"
+        }
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error setting up tables: {str(e)}"
+        )
+
+
 # Reservation Management
 @router.get("/reservations", response_model=List[ReservationWithTables])
 def get_reservations(
