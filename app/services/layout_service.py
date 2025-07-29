@@ -4,7 +4,7 @@ from sqlalchemy import and_
 from app.models.table_layout import TableLayout, RoomLayout, TableShape
 from app.models.table import Table
 from app.models.room import Room
-from app.models.reservation import Reservation
+from app.models.reservation import Reservation, ReservationTable
 from app.schemas.layout import TableLayoutCreate, TableLayoutUpdate, RoomLayoutCreate, RoomLayoutUpdate
 from datetime import date, datetime, time
 from datetime import timedelta

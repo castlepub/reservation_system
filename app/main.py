@@ -9,6 +9,7 @@ from app.api.layout import router as layout_router
 from app.core.config import settings
 import logging
 import os
+from datetime import datetime
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -57,6 +58,62 @@ async def startup_event():
             db.commit()
             
             print("✅ All existing reservations updated with default duration")
+            
+            # Check if layout tables exist, if not create them
+            try:
+                db.execute(text("SELECT 1 FROM table_layouts LIMIT 1"))
+                print("✅ table_layouts table exists")
+            except Exception:
+                print("🔄 Creating table_layouts table...")
+                db.execute(text("""
+                    CREATE TABLE table_layouts (
+                        id TEXT PRIMARY KEY,
+                        table_id TEXT NOT NULL UNIQUE,
+                        room_id TEXT NOT NULL,
+                        x_position FLOAT NOT NULL,
+                        y_position FLOAT NOT NULL,
+                        width FLOAT DEFAULT 100.0,
+                        height FLOAT DEFAULT 80.0,
+                        shape VARCHAR DEFAULT 'rectangular',
+                        color VARCHAR DEFAULT '#4A90E2',
+                        border_color VARCHAR DEFAULT '#2E5BBA',
+                        text_color VARCHAR DEFAULT '#FFFFFF',
+                        show_capacity BOOLEAN DEFAULT TRUE,
+                        show_name BOOLEAN DEFAULT TRUE,
+                        font_size INTEGER DEFAULT 12,
+                        z_index INTEGER DEFAULT 1,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP
+                    )
+                """))
+                db.commit()
+                print("✅ table_layouts table created")
+            
+            try:
+                db.execute(text("SELECT 1 FROM room_layouts LIMIT 1"))
+                print("✅ room_layouts table exists")
+            except Exception:
+                print("🔄 Creating room_layouts table...")
+                db.execute(text("""
+                    CREATE TABLE room_layouts (
+                        id TEXT PRIMARY KEY,
+                        room_id TEXT NOT NULL UNIQUE,
+                        width FLOAT DEFAULT 800.0,
+                        height FLOAT DEFAULT 600.0,
+                        background_color VARCHAR DEFAULT '#F5F5F5',
+                        grid_enabled BOOLEAN DEFAULT TRUE,
+                        grid_size INTEGER DEFAULT 20,
+                        grid_color VARCHAR DEFAULT '#E0E0E0',
+                        show_entrance BOOLEAN DEFAULT TRUE,
+                        entrance_position VARCHAR DEFAULT 'top',
+                        show_bar BOOLEAN DEFAULT FALSE,
+                        bar_position VARCHAR DEFAULT 'center',
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP
+                    )
+                """))
+                db.commit()
+                print("✅ room_layouts table created")
             
         except Exception as e:
             print(f"⚠️ Migration warning: {e}")
@@ -146,30 +203,32 @@ async def api_root():
     }
 
 
+@app.get("/ping")
+async def ping():
+    """Simple health check endpoint"""
+    return {"status": "ok", "message": "pong"}
+
+
 @app.get("/health")
 async def health_check():
-    """Health check endpoint for Railway"""
+    """Health check with database connection test"""
     try:
         # Test database connection
         from sqlalchemy import text
         with engine.connect() as conn:
-            result = conn.execute(text("SELECT 1"))
+            conn.execute(text("SELECT 1"))
         
         return {
-            "status": "healthy", 
-            "service": "reservation-system",
+            "status": "healthy",
             "database": "connected",
-            "timestamp": "2024-01-01T00:00:00Z"
+            "timestamp": datetime.now().isoformat()
         }
     except Exception as e:
-        logger.error(f"Health check failed: {str(e)}")
-        # Return 200 even if database fails, but indicate the issue
         return {
-            "status": "degraded",
-            "service": "reservation-system", 
+            "status": "unhealthy",
             "database": "disconnected",
             "error": str(e),
-            "timestamp": "2024-01-01T00:00:00Z"
+            "timestamp": datetime.now().isoformat()
         }
 
 @app.get("/health/simple")
@@ -181,11 +240,6 @@ async def simple_health_check():
         "message": "Service is running",
         "version": "1.0.0"
     }
-
-@app.get("/ping")
-async def ping():
-    """Ultra simple ping endpoint"""
-    return {"pong": "ok"}
 
 @app.get("/debug")
 async def debug():
