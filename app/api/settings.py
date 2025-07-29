@@ -143,7 +143,7 @@ def get_restaurant_settings(
                 "description": "Maximum number of people per reservation"
             },
             {
-                "setting_key": "min_reservation_hours",
+                "setting_key": "min_advance_hours",
                 "setting_value": "0",
                 "description": "Minimum hours in advance for reservations (0 = can book today)"
             },

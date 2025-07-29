@@ -1012,11 +1012,17 @@ function updateWorkingHoursDisplay(weeklySchedule) {
                 </label>
             </div>
             <div class="time-inputs" style="display: ${daySchedule.is_open ? 'flex' : 'none'}">
-                <input type="time" value="${daySchedule.open_time || '11:00'}" 
-                       id="${day}-open" class="time-input">
-                <span>to</span>
-                <input type="time" value="${daySchedule.close_time || '23:00'}" 
-                       id="${day}-close" class="time-input">
+                <div class="time-input-group">
+                    <label>Open:</label>
+                    <input type="time" value="${daySchedule.open_time || '11:00'}" 
+                           id="${day}-open" class="time-input" step="1800">
+                </div>
+                <span class="time-separator">to</span>
+                <div class="time-input-group">
+                    <label>Close:</label>
+                    <input type="time" value="${daySchedule.close_time || '23:00'}" 
+                           id="${day}-close" class="time-input" step="1800">
+                </div>
             </div>
             <div class="closed-text" style="display: ${daySchedule.is_open ? 'none' : 'block'}">
                 <span class="text-muted">Closed</span>
