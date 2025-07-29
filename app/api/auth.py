@@ -64,7 +64,8 @@ def register(
     user = User(
         username=user_data.username,
         password_hash=hashed_password,
-        role=user_data.role
+        role=user_data.role,
+        email=user_data.email if hasattr(user_data, 'email') else None
     )
     
     db.add(user)
@@ -75,6 +76,60 @@ def register(
         id=str(user.id),
         username=user.username,
         role=user.role,
+        email=user.email,
+        created_at=user.created_at
+    )
+
+
+@router.post("/create-admin", response_model=UserResponse)
+def create_admin_user(
+    user_data: UserCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Create a new admin user (requires existing admin)"""
+    # Check if current user is admin
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only admins can create new admin users"
+        )
+    
+    # Check if username already exists
+    existing_user = db.query(User).filter(User.username == user_data.username).first()
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username already registered"
+        )
+    
+    # Check if email already exists (if email is provided)
+    if hasattr(user_data, 'email') and user_data.email:
+        existing_email = db.query(User).filter(User.email == user_data.email).first()
+        if existing_email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered"
+            )
+    
+    # Create new admin user
+    hashed_password = get_password_hash(user_data.password)
+    user = User(
+        username=user_data.username,
+        password_hash=hashed_password,
+        role=UserRole.ADMIN,
+        email=user_data.email if hasattr(user_data, 'email') else None
+    )
+    
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    
+    return UserResponse(
+        id=str(user.id),
+        username=user.username,
+        role=user.role,
+        email=user.email,
         created_at=user.created_at
     )
 

@@ -53,6 +53,55 @@ if os.path.exists(static_dir):
 else:
     print(f"⚠ Static directory not found: {os.path.abspath(static_dir)}")
 
+@app.on_event("startup")
+async def startup_event():
+    """Initialize database and create admin user on startup"""
+    try:
+        print("🔄 Starting database initialization...")
+        
+        # Create tables
+        Base.metadata.create_all(bind=engine)
+        print("✅ Database tables created")
+        
+        # Run migrations
+        try:
+            run_migrations()
+            print("✅ Database migrations completed")
+        except Exception as e:
+            print(f"⚠️ Migration warning: {e}")
+        
+        # Create admin user if it doesn't exist
+        try:
+            from app.core.database import SessionLocal
+            from app.core.security import get_password_hash
+            from app.models.user import User, UserRole
+            
+            db = SessionLocal()
+            try:
+                admin_user = db.query(User).filter(User.username == "admin").first()
+                if not admin_user:
+                    admin_user = User(
+                        username="admin",
+                        password_hash=get_password_hash("admin123"),
+                        role=UserRole.ADMIN
+                    )
+                    db.add(admin_user)
+                    db.commit()
+                    print("✅ Admin user created (username: admin, password: admin123)")
+                else:
+                    print("✅ Admin user already exists")
+            finally:
+                db.close()
+        except Exception as e:
+            print(f"⚠️ Admin user creation warning: {e}")
+        
+        print("✅ Database initialization completed successfully")
+        
+    except Exception as e:
+        print(f"❌ Database initialization error: {e}")
+        # Don't raise the error to allow the app to start
+        print("⚠️ Continuing with degraded functionality")
+
 @app.get("/")
 async def root():
     """Serve the main HTML page"""
