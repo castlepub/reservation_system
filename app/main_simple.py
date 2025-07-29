@@ -94,52 +94,46 @@ async def dashboard_stats():
 @app.get("/api/dashboard/notes")
 async def dashboard_notes():
     """Get dashboard notes"""
-    return {
-        "notes": [
-            {
-                "id": "1",
-                "content": "Welcome to The Castle Pub!",
-                "created_at": datetime.now().isoformat(),
-                "updated_at": datetime.now().isoformat()
-            }
-        ]
-    }
+    return [
+        {
+            "id": "1",
+            "content": "Welcome to The Castle Pub!",
+            "created_at": datetime.now().isoformat(),
+            "updated_at": datetime.now().isoformat()
+        }
+    ]
 
 @app.get("/api/dashboard/customers")
 async def dashboard_customers():
     """Get customer list"""
-    return {
-        "customers": [
-            {
-                "id": "1",
-                "name": "Sample Customer",
-                "email": "customer@example.com",
-                "phone": "+1234567890",
-                "total_reservations": 0,
-                "last_visit": None
-            }
-        ]
-    }
+    return [
+        {
+            "id": "1",
+            "name": "Sample Customer",
+            "email": "customer@example.com",
+            "phone": "+1234567890",
+            "total_reservations": 0,
+            "last_visit": None
+        }
+    ]
 
 @app.get("/api/dashboard/today")
 async def today_reservations():
     """Get today's reservations"""
-    return {
-        "reservations": [
-            {
-                "id": "1",
-                "customer_name": "Sample Reservation",
-                "email": "reservation@example.com",
-                "phone": "+1234567890",
-                "date": date.today().isoformat(),
-                "time": "19:00",
-                "party_size": 4,
-                "room_name": "Main Room",
-                "status": "confirmed",
-                "created_at": datetime.now().isoformat()
-            }
-        ]
-    }
+    return [
+        {
+            "id": "1",
+            "customer_name": "Sample Reservation",
+            "email": "reservation@example.com",
+            "phone": "+1234567890",
+            "date": date.today().isoformat(),
+            "time": "19:00",
+            "party_size": 4,
+            "room_name": "Main Room",
+            "status": "confirmed",
+            "created_at": datetime.now().isoformat()
+        }
+    ]
 
 @app.get("/api/rooms")
 async def get_rooms():
