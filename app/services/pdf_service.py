@@ -222,14 +222,30 @@ class PDFService:
             
             # Load and encode logo
             logo_base64 = ""
-            logo_path = "static/logo.png"
-            if os.path.exists(logo_path):
-                with open(logo_path, "rb") as logo_file:
-                    logo_data = logo_file.read()
-                    logo_base64 = base64.b64encode(logo_data).decode('utf-8')
-                logger.info("Logo loaded successfully for PDF")
-            else:
-                logger.warning("Logo file not found, PDF will be generated without logo")
+            # Try multiple possible paths for the logo
+            possible_logo_paths = [
+                "static/logo.png",
+                "/app/static/logo.png",
+                os.path.join(os.getcwd(), "static", "logo.png"),
+                os.path.join(os.path.dirname(__file__), "..", "..", "static", "logo.png")
+            ]
+            
+            logo_found = False
+            for logo_path in possible_logo_paths:
+                if os.path.exists(logo_path):
+                    try:
+                        with open(logo_path, "rb") as logo_file:
+                            logo_data = logo_file.read()
+                            logo_base64 = base64.b64encode(logo_data).decode('utf-8')
+                        logger.info(f"Logo loaded successfully from {logo_path}")
+                        logo_found = True
+                        break
+                    except Exception as e:
+                        logger.warning(f"Failed to load logo from {logo_path}: {e}")
+                        continue
+            
+            if not logo_found:
+                logger.warning("Logo file not found in any expected location, PDF will be generated without logo")
             
             # Render HTML template
             template = Template(self.html_template)
@@ -257,14 +273,30 @@ class PDFService:
             
             # Load and encode logo
             logo_base64 = ""
-            logo_path = "static/logo.png"
-            if os.path.exists(logo_path):
-                with open(logo_path, "rb") as logo_file:
-                    logo_data = logo_file.read()
-                    logo_base64 = base64.b64encode(logo_data).decode('utf-8')
-                logger.info("Logo loaded successfully for PDF")
-            else:
-                logger.warning("Logo file not found, PDF will be generated without logo")
+            # Try multiple possible paths for the logo
+            possible_logo_paths = [
+                "static/logo.png",
+                "/app/static/logo.png",
+                os.path.join(os.getcwd(), "static", "logo.png"),
+                os.path.join(os.path.dirname(__file__), "..", "..", "static", "logo.png")
+            ]
+            
+            logo_found = False
+            for logo_path in possible_logo_paths:
+                if os.path.exists(logo_path):
+                    try:
+                        with open(logo_path, "rb") as logo_file:
+                            logo_data = logo_file.read()
+                            logo_base64 = base64.b64encode(logo_data).decode('utf-8')
+                        logger.info(f"Logo loaded successfully from {logo_path}")
+                        logo_found = True
+                        break
+                    except Exception as e:
+                        logger.warning(f"Failed to load logo from {logo_path}: {e}")
+                        continue
+            
+            if not logo_found:
+                logger.warning("Logo file not found in any expected location, PDF will be generated without logo")
             
             # Render HTML template for single reservation
             template = Template(self.html_template)
