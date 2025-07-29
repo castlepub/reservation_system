@@ -22,28 +22,21 @@ app = FastAPI(
     version="1.0.0"
 )
 
-@app.on_event("startup")
-async def startup_event():
-    """Initialize database and run migrations on startup"""
+# Remove the startup event entirely
+# @app.on_event("startup")
+# async def startup_event():
+#     """Initialize database and run migrations on startup"""
+#     pass
+
+# Add a simple endpoint to trigger migrations manually
+@app.get("/init-db")
+async def initialize_database():
+    """Manually trigger database initialization"""
     try:
-        print("🔄 Starting database initialization...")
-        
-        # Create tables
-        Base.metadata.create_all(bind=engine)
-        print("✅ Database tables created")
-        
-        # Run migrations in a separate try-catch to avoid startup failures
-        try:
-            run_migrations()
-        except Exception as e:
-            print(f"⚠️ Migration warning (non-critical): {e}")
-        
-        print("✅ Database initialized successfully")
-        
+        run_migrations()
+        return {"status": "success", "message": "Database initialized"}
     except Exception as e:
-        print(f"❌ Database initialization error: {e}")
-        # Don't raise the error to allow the app to start
-        print("⚠️ Continuing with degraded functionality")
+        return {"status": "error", "message": str(e)}
 
 
 def run_migrations():
