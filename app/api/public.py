@@ -6,6 +6,7 @@ from app.schemas.reservation import (
     ReservationCreate, ReservationUpdate, ReservationWithTables,
     AvailabilityRequest, AvailabilityResponse
 )
+from app.schemas.room import RoomResponse
 from app.services.reservation_service import ReservationService
 from app.services.table_service import TableService
 from app.services.email_service import EmailService
@@ -102,18 +103,11 @@ def check_availability(
         )
 
 
-@router.get("/rooms", response_model=List[dict])
+@router.get("/rooms", response_model=List[RoomResponse])
 def get_rooms(db: Session = Depends(get_db)):
-    """Get all active rooms"""
+    """Get all active rooms (public endpoint)"""
     rooms = db.query(Room).filter(Room.active == True).all()
-    return [
-        {
-            "id": str(room.id),
-            "name": room.name,
-            "description": room.description
-        }
-        for room in rooms
-    ]
+    return rooms
 
 
 @router.put("/reservations/{token}", response_model=ReservationWithTables)

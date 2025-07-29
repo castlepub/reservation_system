@@ -14,15 +14,24 @@ const sections = {
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('Initializing app...');
+    
     try {
         initializeApp();
         setupEventListeners();
-        loadRooms();
-        populateTimeSlots();
-        setMinDate();
+        
+        // Initialize public dropdowns immediately (no auth required)
+        initializePublicDropdowns();
+        
+        // Check if user is logged in and load admin data
+        if (authToken) {
+            checkAuth();
+            loadRestaurantSettings(); // Load settings for admin users
+        }
+        
+        console.log('App initialized successfully');
     } catch (error) {
         console.error('Error initializing app:', error);
-        showMessage('Error initializing application. Please refresh the page.', 'error');
     }
 });
 
@@ -59,11 +68,6 @@ function setupEventListeners() {
         newDateInput.addEventListener('change', function() {
             updateTimeSlotsForDate(this, 'newTime');
         });
-    }
-    
-    // Load restaurant settings on page load to set up party sizes
-    if (authToken) {
-        loadRestaurantSettings();
     }
 }
 
@@ -1110,10 +1114,14 @@ async function loadRestaurantSettings() {
 }
 
 function updateMaxPartySizeOptions(maxPartySize) {
-    const partySizeSelects = document.querySelectorAll('#partySize, #adminPartySize, #newPartySize');
+    // Target all party size dropdowns (public, admin, and new reservation)
+    const partySizeSelects = document.querySelectorAll('#partySize, #adminPartySize, #newPartySize, #editPartySize');
     
     partySizeSelects.forEach(select => {
         if (select) {
+            // Store current value to restore if possible
+            const currentValue = select.value;
+            
             // Clear existing options except placeholder
             select.innerHTML = '<option value="">Select size</option>';
             
@@ -1123,6 +1131,11 @@ function updateMaxPartySizeOptions(maxPartySize) {
                 option.value = i;
                 option.textContent = i === 1 ? '1 person' : `${i} people`;
                 select.appendChild(option);
+            }
+            
+            // Restore previous value if it's still valid
+            if (currentValue && parseInt(currentValue) <= maxPartySize) {
+                select.value = currentValue;
             }
         }
     });
