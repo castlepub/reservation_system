@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 import os
 
 # Create FastAPI app
@@ -15,14 +16,32 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Get the correct path to static files
+current_dir = os.path.dirname(os.path.abspath(__file__))
+static_dir = os.path.join(current_dir, "..", "static")
+static_dir = os.path.abspath(static_dir)
+
+print(f"Static directory path: {static_dir}")
+print(f"Static directory exists: {os.path.exists(static_dir)}")
+
 # Mount static files
-static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
 if os.path.exists(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
+    print(f"✅ Static files mounted from: {static_dir}")
+else:
+    print(f"❌ Static directory not found: {static_dir}")
 
 @app.get("/")
 async def root():
-    return {"message": "The Castle Pub Reservation System", "status": "running"}
+    # Serve the HTML file instead of JSON
+    html_file = os.path.join(static_dir, "index.html")
+    print(f"HTML file path: {html_file}")
+    print(f"HTML file exists: {os.path.exists(html_file)}")
+    
+    if os.path.exists(html_file):
+        return FileResponse(html_file)
+    else:
+        return {"message": "The Castle Pub Reservation System", "status": "running", "error": f"HTML file not found at {html_file}"}
 
 @app.get("/health")
 async def health():
