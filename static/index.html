@@ -318,14 +318,14 @@
                     <div class="tab-header">
                         <h3>Reservation Management</h3>
                         <div class="reservation-controls">
-                            <select id="reservationStatusFilter" class="form-control">
+                            <select id="reservationStatusFilter" class="form-control" onchange="loadAllReservations()">
                                 <option value="">All Reservations</option>
                                 <option value="confirmed">Confirmed</option>
                                 <option value="pending">Pending</option>
                                 <option value="cancelled">Cancelled</option>
                                 <option value="completed">Completed</option>
                             </select>
-                            <input type="date" id="reservationDateFilter" class="form-control">
+                            <input type="date" id="reservationDateFilter" class="form-control" onchange="loadAllReservations()">
                             <button class="btn btn-primary" onclick="showAddReservationForm()">
                                 <i class="fas fa-plus"></i> Add Reservation
                             </button>

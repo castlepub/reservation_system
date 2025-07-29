@@ -508,7 +508,8 @@ def get_reservations(
     if date_filter:
         query = query.filter(Reservation.date == date_filter)
     
-    reservations = query.all()
+    # Order by date and time (earliest first)
+    reservations = query.order_by(Reservation.date, Reservation.time).all()
     
     # Convert to ReservationWithTables format
     result = []

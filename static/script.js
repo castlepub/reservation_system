@@ -1265,9 +1265,11 @@ async function removeSpecialDay(dayId) {
 async function loadTablesData() {
     try {
         // Load rooms for filter
-        await loadRoomsForTables();
+        const rooms = await loadRoomsForTables();
         // Load tables
-        await loadTables();
+        const tables = await loadTables();
+        // Display tables
+        displayTables(tables, rooms);
     } catch (error) {
         console.error('Error loading tables data:', error);
         showMessage('Error loading tables data', 'error');
@@ -1284,48 +1286,20 @@ async function loadRoomsForTables() {
         
         if (response.ok) {
             const rooms = await response.json();
-            
-            // Populate room filter
-            const roomFilter = document.getElementById('roomFilter');
-            const tableRoom = document.getElementById('tableRoom');
-            
-            // Clear existing options (keep "All Rooms" for filter)
-            while (roomFilter.options.length > 1) {
-                roomFilter.removeChild(roomFilter.lastChild);
-            }
-            
-            // Clear table room select
-            while (tableRoom.options.length > 1) {
-                tableRoom.removeChild(tableRoom.lastChild);
-            }
-            
-            rooms.forEach(room => {
-                // Add to filter
-                const filterOption = document.createElement('option');
-                filterOption.value = room.id;
-                filterOption.textContent = room.name;
-                roomFilter.appendChild(filterOption);
-                
-                // Add to add table form
-                const tableOption = document.createElement('option');
-                tableOption.value = room.id;
-                tableOption.textContent = room.name;
-                tableRoom.appendChild(tableOption);
-            });
+            return rooms;
+        } else {
+            console.error('Failed to load rooms for tables');
+            return [];
         }
     } catch (error) {
         console.error('Error loading rooms for tables:', error);
+        return [];
     }
 }
 
-async function loadTables(roomId = null) {
+async function loadTables() {
     try {
-        let url = `${API_BASE_URL}/api/admin/tables`;
-        if (roomId) {
-            url += `?room_id=${roomId}`;
-        }
-        
-        const response = await fetch(url, {
+        const response = await fetch(`${API_BASE_URL}/api/admin/tables`, {
             headers: {
                 'Authorization': `Bearer ${authToken}`
             }
@@ -1333,77 +1307,66 @@ async function loadTables(roomId = null) {
         
         if (response.ok) {
             const tables = await response.json();
-            displayTables(tables);
+            return tables;
         } else {
             console.error('Failed to load tables');
-            document.getElementById('tablesGrid').innerHTML = '<div class="error-text">Failed to load tables</div>';
+            showMessage('Failed to load tables. Please check your admin permissions.', 'error');
+            return [];
         }
     } catch (error) {
         console.error('Error loading tables:', error);
-        document.getElementById('tablesGrid').innerHTML = '<div class="error-text">Error loading tables</div>';
+        showMessage('Error loading tables', 'error');
+        return [];
     }
 }
 
-function displayTables(tables) {
+function displayTables(tables, rooms) {
     const tablesGrid = document.getElementById('tablesGrid');
     
     if (tables.length === 0) {
-        tablesGrid.innerHTML = '<div class="empty-text">No tables found. Add some tables to get started!</div>';
+        tablesGrid.innerHTML = '<div class="empty-text">No tables found</div>';
         return;
     }
     
-    // Group tables by room
-    const tablesByRoom = tables.reduce((acc, table) => {
-        const roomName = table.room?.name || 'Unknown Room';
-        if (!acc[roomName]) {
-            acc[roomName] = [];
-        }
-        acc[roomName].push(table);
-        return acc;
-    }, {});
-    
     let html = '';
     
-    Object.entries(tablesByRoom).forEach(([roomName, roomTables]) => {
-        html += `
-            <div class="room-section">
-                <h4 class="room-title">${roomName}</h4>
-                <div class="tables-row">
-        `;
+    tables.forEach(table => {
+        const room = rooms.find(r => r.id === table.room_id);
+        const roomName = room ? room.name : 'Unknown Room';
         
-        roomTables.forEach(table => {
-            html += `
-                <div class="table-card">
-                    <div class="table-header">
-                        <h5>${table.name}</h5>
-                        <div class="table-actions">
-                            <button class="btn-small btn-secondary" onclick="editTable('${table.id}')">
-                                <i class="fas fa-edit"></i>
-                            </button>
-                            <button class="btn-small btn-danger" onclick="deleteTable('${table.id}', '${table.name}')">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </div>
+        html += `
+            <div class="table-card">
+                <div class="table-header">
+                    <h5>${table.name}</h5>
+                    <span class="table-id">ID: ${table.id.substring(0, 8)}...</span>
+                </div>
+                <div class="table-details">
+                    <div class="detail-row">
+                        <i class="fas fa-door-open"></i>
+                        <span>${roomName}</span>
                     </div>
-                    <div class="table-info">
-                        <div class="info-item">
-                            <i class="fas fa-users"></i>
-                            <span>${table.capacity} seats</span>
-                        </div>
-                        <div class="info-item">
-                            <i class="fas fa-${table.combinable ? 'link' : 'unlink'}"></i>
-                            <span>${table.combinable ? 'Combinable' : 'Stand-alone'}</span>
-                        </div>
-                        <div class="info-item">
-                            <i class="fas fa-${table.active ? 'check-circle' : 'times-circle'}"></i>
-                            <span>${table.active ? 'Active' : 'Inactive'}</span>
-                        </div>
+                    <div class="detail-row">
+                        <i class="fas fa-users"></i>
+                        <span>${table.capacity} seats</span>
+                    </div>
+                    <div class="detail-row">
+                        <i class="fas fa-link"></i>
+                        <span>${table.combinable ? 'Combinable' : 'Not combinable'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <i class="fas fa-circle"></i>
+                        <span class="${table.active ? 'status-active' : 'status-inactive'}">
+                            ${table.active ? 'Active' : 'Inactive'}
+                        </span>
                     </div>
                 </div>
-            `;
-        });
-        
-        html += `
+                <div class="table-actions">
+                    <button class="btn-small btn-secondary" onclick="editTable('${table.id}')">
+                        <i class="fas fa-edit"></i> Edit
+                    </button>
+                    <button class="btn-small btn-danger" onclick="deleteTable('${table.id}')">
+                        <i class="fas fa-trash"></i> Delete
+                    </button>
                 </div>
             </div>
         `;
@@ -1522,7 +1485,16 @@ document.addEventListener('DOMContentLoaded', function() {
 // Reservation Management Functions
 async function loadAllReservations() {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/admin/reservations`, {
+        // Get the selected date filter
+        const dateFilter = document.getElementById('reservationDateFilter').value;
+        let url = `${API_BASE_URL}/api/admin/reservations`;
+        
+        // Add date filter if selected
+        if (dateFilter) {
+            url += `?date_filter=${dateFilter}`;
+        }
+        
+        const response = await fetch(url, {
             headers: {
                 'Authorization': `Bearer ${authToken}`
             }
