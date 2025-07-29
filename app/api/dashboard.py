@@ -158,6 +158,8 @@ def get_customers(
     current_user: User = Depends(get_current_user)
 ):
     """Get all customers with their reservation statistics"""
+    from app.models.room import Room
+    
     # Get all unique customers from reservations
     reservations = db.query(Reservation).all()
     
@@ -185,8 +187,15 @@ def get_customers(
         room_counts = {}
         for r in reservations:
             room_id = r.room_id
-            room_counts[room_id] = room_counts.get(room_id, 0) + 1
-        favorite_room = max(room_counts.keys(), key=lambda k: room_counts[k]) if room_counts else None
+            if room_id:  # Only count if room_id exists
+                room_counts[room_id] = room_counts.get(room_id, 0) + 1
+        
+        favorite_room_name = None
+        if room_counts:
+            favorite_room_id = max(room_counts.keys(), key=lambda k: room_counts[k])
+            # Get room name from database
+            room = db.query(Room).filter(Room.id == favorite_room_id).first()
+            favorite_room_name = room.name if room else favorite_room_id
         
         customer_responses.append(CustomerResponse(
             customer_name=customer_data["customer_name"],
@@ -194,7 +203,7 @@ def get_customers(
             phone=customer_data["phone"],
             total_reservations=len(reservations),
             last_visit=last_visit,
-            favorite_room=favorite_room,
+            favorite_room=favorite_room_name,
             created_at=customer_data["created_at"]
         ))
     

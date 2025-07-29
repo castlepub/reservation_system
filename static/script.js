@@ -60,6 +60,11 @@ function setupEventListeners() {
             updateTimeSlotsForDate(this, 'newTime');
         });
     }
+    
+    // Load restaurant settings on page load to set up party sizes
+    if (authToken) {
+        loadRestaurantSettings();
+    }
 }
 
 // Dashboard Functions
@@ -1086,8 +1091,9 @@ async function loadRestaurantSettings() {
                 settingsMap[setting.setting_key] = setting.setting_value;
             });
             
-            // Update max party size in forms
-            updateMaxPartySizeOptions(parseInt(settingsMap.max_party_size) || 20);
+            // Update max party size in forms immediately 
+            const maxPartySize = parseInt(settingsMap.max_party_size) || 20;
+            updateMaxPartySizeOptions(maxPartySize);
             
             // Populate settings form
             populateSettingsForm(settingsMap);
@@ -1633,8 +1639,15 @@ function displayReservations(reservations) {
 
 function showAddReservationForm() {
     document.getElementById('addReservationModal').classList.remove('hidden');
+    
+    // Load and populate rooms
     loadRooms('newRoom');
-    populateTimeSlots('newTime');
+    
+    // Load restaurant settings and update party size
+    loadRestaurantSettings().then(() => {
+        // Populate time slots
+        populateTimeSlots('newTime');
+    });
 }
 
 function hideAddReservationForm() {
@@ -1713,6 +1726,172 @@ async function cancelReservation(reservationId) {
 }
 
 function editReservation(reservationId) {
-    // TODO: Implement edit functionality
-    showMessage('Edit functionality coming soon', 'info');
+    // Load the reservation data and show edit modal
+    showEditReservationForm(reservationId);
+}
+
+async function showEditReservationForm(reservationId) {
+    try {
+        // Fetch the current reservation data
+        const response = await fetch(`${API_BASE_URL}/api/admin/reservations/${reservationId}`, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+        
+        if (response.ok) {
+            const reservation = await response.json();
+            
+            // Create and show edit modal
+            const modal = document.createElement('div');
+            modal.id = 'editReservationModal';
+            modal.className = 'modal';
+            modal.innerHTML = `
+                <div class="modal-content large-modal">
+                    <div class="modal-header">
+                        <h4>Edit Reservation - ${reservation.customer_name}</h4>
+                        <button class="close-btn" onclick="hideEditReservationForm()">&times;</button>
+                    </div>
+                    <form id="editReservationForm" onsubmit="handleEditReservation(event, '${reservationId}')">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="editCustomerName">Customer Name *</label>
+                                <input type="text" id="editCustomerName" name="customerName" value="${reservation.customer_name}" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="editEmail">Email *</label>
+                                <input type="email" id="editEmail" name="email" value="${reservation.email}" required>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="editPhone">Phone *</label>
+                                <input type="tel" id="editPhone" name="phone" value="${reservation.phone}" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="editReservationType">Type *</label>
+                                <select id="editReservationType" name="reservationType" required>
+                                    <option value="dining" ${reservation.reservation_type === 'dining' ? 'selected' : ''}>Dining</option>
+                                    <option value="fun" ${reservation.reservation_type === 'fun' ? 'selected' : ''}>Fun</option>
+                                    <option value="team_event" ${reservation.reservation_type === 'team_event' ? 'selected' : ''}>Team Event</option>
+                                    <option value="birthday" ${reservation.reservation_type === 'birthday' ? 'selected' : ''}>Birthday</option>
+                                    <option value="party" ${reservation.reservation_type === 'party' ? 'selected' : ''}>Party</option>
+                                    <option value="special_event" ${reservation.reservation_type === 'special_event' ? 'selected' : ''}>Special Event</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="editDate">Date *</label>
+                                <input type="date" id="editDate" name="date" value="${reservation.date}" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="editTime">Time *</label>
+                                <input type="time" id="editTime" name="time" value="${reservation.time}" required>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="editPartySize">Party Size *</label>
+                                <select id="editPartySize" name="partySize" required>
+                                    <!-- Will be populated dynamically -->
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="editStatus">Status *</label>
+                                <select id="editStatus" name="status" required>
+                                    <option value="pending" ${reservation.status === 'pending' ? 'selected' : ''}>Pending</option>
+                                    <option value="confirmed" ${reservation.status === 'confirmed' ? 'selected' : ''}>Confirmed</option>
+                                    <option value="cancelled" ${reservation.status === 'cancelled' ? 'selected' : ''}>Cancelled</option>
+                                    <option value="completed" ${reservation.status === 'completed' ? 'selected' : ''}>Completed</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="editNotes">Customer Notes</label>
+                            <textarea id="editNotes" name="notes" rows="2">${reservation.notes || ''}</textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="editAdminNotes">Admin Notes (Internal)</label>
+                            <textarea id="editAdminNotes" name="adminNotes" rows="2">${reservation.admin_notes || ''}</textarea>
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-secondary" onclick="hideEditReservationForm()">Cancel</button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Update Reservation
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // Populate party size dropdown
+            updateMaxPartySizeOptions(20); // Will be replaced by settings value
+            
+            // Set the current party size
+            const partySizeSelect = document.getElementById('editPartySize');
+            if (partySizeSelect) {
+                partySizeSelect.value = reservation.party_size;
+            }
+            
+            // Show modal
+            modal.classList.remove('hidden');
+            
+        } else {
+            throw new Error('Failed to load reservation data');
+        }
+    } catch (error) {
+        console.error('Error loading reservation for edit:', error);
+        showMessage('Error loading reservation data', 'error');
+    }
+}
+
+function hideEditReservationForm() {
+    const modal = document.getElementById('editReservationModal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+async function handleEditReservation(event, reservationId) {
+    event.preventDefault();
+    
+    const formData = new FormData(event.target);
+    const reservationData = {
+        customer_name: formData.get('customerName'),
+        email: formData.get('email'),
+        phone: formData.get('phone'),
+        party_size: parseInt(formData.get('partySize')),
+        date: formData.get('date'),
+        time: formData.get('time'),
+        reservation_type: formData.get('reservationType'),
+        status: formData.get('status'),
+        notes: formData.get('notes') || null,
+        admin_notes: formData.get('adminNotes') || null
+    };
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/admin/reservations/${reservationId}`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(reservationData)
+        });
+        
+        if (response.ok) {
+            showMessage('Reservation updated successfully', 'success');
+            hideEditReservationForm();
+            loadAllReservations(); // Reload reservations list
+        } else {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to update reservation');
+        }
+    } catch (error) {
+        console.error('Error updating reservation:', error);
+        showMessage('Error updating reservation: ' + error.message, 'error');
+    }
 } 

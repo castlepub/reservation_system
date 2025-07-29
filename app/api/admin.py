@@ -527,7 +527,7 @@ def get_reservation(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_staff_user)
 ):
-    """Get a specific reservation"""
+    """Get a specific reservation by ID"""
     reservation_service = ReservationService(db)
     reservation = reservation_service.get_reservation(reservation_id)
     
@@ -543,21 +543,21 @@ def get_reservation(
 @router.put("/reservations/{reservation_id}", response_model=ReservationWithTables)
 def update_reservation(
     reservation_id: str,
-    update_data: ReservationUpdate,
+    reservation_data: ReservationUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_staff_user)
 ):
-    """Update a reservation"""
+    """Update a specific reservation"""
     reservation_service = ReservationService(db)
-    reservation = reservation_service.update_reservation(reservation_id, update_data)
     
-    if not reservation:
+    try:
+        reservation = reservation_service.update_reservation(reservation_id, reservation_data)
+        return reservation
+    except ValueError as e:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Reservation not found"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
         )
-    
-    return reservation
 
 
 @router.delete("/reservations/{reservation_id}")
