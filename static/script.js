@@ -662,39 +662,33 @@ async function checkAvailabilityAdmin() {
 
 // Tab Management
 function showTab(tabName) {
-    // Hide all tabs
-    document.querySelectorAll('.tab-content').forEach(tab => {
-        tab.classList.remove('active');
-    });
+    // Hide all tab contents
+    const tabContents = document.querySelectorAll('.tab-content');
+    tabContents.forEach(content => content.classList.remove('active'));
     
     // Remove active class from all tab buttons
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.classList.remove('active');
-    });
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    tabButtons.forEach(btn => btn.classList.remove('active'));
     
-    // Show selected tab
+    // Show selected tab content
     const selectedTab = document.getElementById(tabName + 'Tab');
     if (selectedTab) {
         selectedTab.classList.add('active');
     }
     
-    // Add active class to clicked tab button
-    event.target.classList.add('active');
+    // Add active class to selected tab button
+    const selectedButton = document.querySelector(`[onclick="showTab('${tabName}')"]`);
+    if (selectedButton) {
+        selectedButton.classList.add('active');
+    }
     
     // Load data for specific tabs
-    if (tabName === 'dashboard') {
-        loadDashboardStats();
-    } else if (tabName === 'customers') {
-        loadCustomers();
+    if (tabName === 'dailyView') {
+        loadDailyView();
     } else if (tabName === 'today') {
         loadTodayReservations();
-    } else if (tabName === 'reservations') {
-        loadAllReservations();
-    } else if (tabName === 'settings') {
-        loadSettingsData();
-        loadRestaurantSettings(); // Load restaurant settings for dynamic forms
-    } else if (tabName === 'tables') {
-        loadTablesData();
+    } else if (tabName === 'dashboard') {
+        loadDashboardData();
     }
 }
 
@@ -2322,3 +2316,294 @@ async function handleEditReservation(event, reservationId) {
         showMessage('Error updating reservation: ' + error.message, 'error');
     }
 } 
+
+// Daily View Variables
+let currentViewDate = new Date();
+let currentRoomId = null;
+let dailyViewData = null;
+
+// Daily View Functions
+function showTab(tabName) {
+    // Hide all tab contents
+    const tabContents = document.querySelectorAll('.tab-content');
+    tabContents.forEach(content => content.classList.remove('active'));
+    
+    // Remove active class from all tab buttons
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    tabButtons.forEach(btn => btn.classList.remove('active'));
+    
+    // Show selected tab content
+    const selectedTab = document.getElementById(tabName + 'Tab');
+    if (selectedTab) {
+        selectedTab.classList.add('active');
+    }
+    
+    // Add active class to selected tab button
+    const selectedButton = document.querySelector(`[onclick="showTab('${tabName}')"]`);
+    if (selectedButton) {
+        selectedButton.classList.add('active');
+    }
+    
+    // Load data for specific tabs
+    if (tabName === 'dailyView') {
+        loadDailyView();
+    } else if (tabName === 'today') {
+        loadTodayReservations();
+    } else if (tabName === 'dashboard') {
+        loadDashboardData();
+    }
+}
+
+async function loadDailyView() {
+    try {
+        const dateStr = currentViewDate.toISOString().split('T')[0];
+        const response = await fetch(`${API_BASE_URL}/api/layout/daily/${dateStr}`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        
+        if (response.ok) {
+            dailyViewData = await response.json();
+            updateDateDisplay();
+            renderReservationsList();
+            renderRoomTabs();
+            renderTableLayout();
+        } else {
+            throw new Error('Failed to load daily view');
+        }
+    } catch (error) {
+        console.error('Error loading daily view:', error);
+        showMessage('Error loading daily view', 'error');
+    }
+}
+
+function updateDateDisplay() {
+    const dateDisplay = document.getElementById('currentDate');
+    if (dateDisplay) {
+        const options = { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' };
+        dateDisplay.textContent = currentViewDate.toLocaleDateString('en-US', options);
+    }
+}
+
+function renderReservationsList() {
+    const container = document.getElementById('dailyReservationsList');
+    if (!container || !dailyViewData) return;
+    
+    container.innerHTML = '';
+    
+    dailyViewData.reservations.forEach(reservation => {
+        const reservationElement = document.createElement('div');
+        reservationElement.className = 'reservation-item';
+        reservationElement.onclick = () => selectReservation(reservation.id);
+        
+        const timeRange = `${reservation.time}-${addHours(reservation.time, reservation.duration_hours)}`;
+        
+        reservationElement.innerHTML = `
+            <div class="reservation-header">
+                <span class="reservation-time">${timeRange}</span>
+                <span class="reservation-party">${reservation.party_size}p</span>
+            </div>
+            <div class="reservation-customer">${reservation.customer_name}</div>
+            <div class="reservation-details">
+                ${reservation.room_name} • ${reservation.reservation_type}
+                ${reservation.notes ? `<br><small>${reservation.notes}</small>` : ''}
+            </div>
+            ${reservation.table_names.length > 0 ? 
+                `<div class="reservation-tables">Tables: ${reservation.table_names.join(', ')}</div>` : 
+                '<div class="reservation-tables">No tables assigned</div>'
+            }
+        `;
+        
+        container.appendChild(reservationElement);
+    });
+}
+
+function renderRoomTabs() {
+    const container = document.getElementById('roomTabs');
+    if (!container || !dailyViewData) return;
+    
+    container.innerHTML = '';
+    
+    dailyViewData.rooms.forEach((room, index) => {
+        const tabElement = document.createElement('button');
+        tabElement.className = `room-tab ${index === 0 ? 'active' : ''}`;
+        tabElement.textContent = room.name;
+        tabElement.onclick = () => switchRoom(room.id);
+        
+        container.appendChild(tabElement);
+        
+        if (index === 0) {
+            currentRoomId = room.id;
+        }
+    });
+}
+
+function renderTableLayout() {
+    const container = document.getElementById('tableLayout');
+    if (!container || !dailyViewData || !currentRoomId) return;
+    
+    container.innerHTML = '';
+    
+    const currentRoom = dailyViewData.rooms.find(room => room.id === currentRoomId);
+    if (!currentRoom) return;
+    
+    // Add room features
+    if (currentRoom.layout?.show_entrance) {
+        const entrance = document.createElement('div');
+        entrance.className = 'room-entrance';
+        entrance.textContent = 'ENTRANCE';
+        container.appendChild(entrance);
+    }
+    
+    if (currentRoom.layout?.show_bar) {
+        const bar = document.createElement('div');
+        bar.className = 'room-bar';
+        bar.textContent = 'BAR';
+        container.appendChild(bar);
+    }
+    
+    // Add tables
+    currentRoom.tables.forEach(table => {
+        const tableElement = document.createElement('div');
+        tableElement.className = `table-element ${table.layout?.shape || 'rectangular'}`;
+        tableElement.style.left = `${table.layout?.x_position || 50}px`;
+        tableElement.style.top = `${table.layout?.y_position || 50}px`;
+        tableElement.style.width = `${table.layout?.width || 80}px`;
+        tableElement.style.height = `${table.layout?.height || 60}px`;
+        tableElement.style.backgroundColor = table.layout?.color || '#4A90E2';
+        tableElement.style.borderColor = table.layout?.border_color || '#2E5BBA';
+        tableElement.style.color = table.layout?.text_color || '#FFFFFF';
+        tableElement.style.fontSize = `${table.layout?.font_size || 12}px`;
+        tableElement.style.zIndex = table.layout?.z_index || 1;
+        
+        tableElement.innerHTML = `
+            ${table.layout?.show_name !== false ? `<div class="table-name">${table.name}</div>` : ''}
+            ${table.layout?.show_capacity !== false ? `<div class="table-capacity">${table.capacity}p</div>` : ''}
+        `;
+        
+        // Determine table status
+        const tableReservations = getTableReservations(table.id);
+        if (tableReservations.length > 0) {
+            tableElement.classList.add('reserved');
+            tableElement.title = `Reserved: ${tableReservations.map(r => `${r.customer_name} (${r.time})`).join(', ')}`;
+        } else {
+            tableElement.classList.add('available');
+            tableElement.title = `Available: ${table.name} (${table.capacity} seats)`;
+        }
+        
+        tableElement.onclick = () => showTableDetails(table.id);
+        container.appendChild(tableElement);
+    });
+}
+
+function getTableReservations(tableId) {
+    if (!dailyViewData) return [];
+    
+    return dailyViewData.reservations.filter(reservation => 
+        reservation.table_names.some(tableName => {
+            const table = dailyViewData.rooms
+                .flatMap(room => room.tables)
+                .find(t => t.id === tableId);
+            return table && table.name === tableName;
+        })
+    );
+}
+
+function switchRoom(roomId) {
+    currentRoomId = roomId;
+    
+    // Update active tab
+    const tabs = document.querySelectorAll('.room-tab');
+    tabs.forEach(tab => tab.classList.remove('active'));
+    event.target.classList.add('active');
+    
+    renderTableLayout();
+}
+
+function selectReservation(reservationId) {
+    // Remove previous selection
+    document.querySelectorAll('.reservation-item').forEach(item => 
+        item.classList.remove('selected')
+    );
+    
+    // Add selection to clicked item
+    event.target.closest('.reservation-item').classList.add('selected');
+    
+    // Highlight related tables
+    highlightReservationTables(reservationId);
+}
+
+function highlightReservationTables(reservationId) {
+    const reservation = dailyViewData.reservations.find(r => r.id === reservationId);
+    if (!reservation) return;
+    
+    // Reset all table highlights
+    document.querySelectorAll('.table-element').forEach(table => {
+        table.style.boxShadow = '';
+        table.style.transform = '';
+    });
+    
+    // Highlight tables for this reservation
+    reservation.table_names.forEach(tableName => {
+        const tableElement = document.querySelector(`[title*="${tableName}"]`);
+        if (tableElement) {
+            tableElement.style.boxShadow = '0 0 10px #667eea';
+            tableElement.style.transform = 'scale(1.1)';
+        }
+    });
+}
+
+function showTableDetails(tableId) {
+    const table = dailyViewData.rooms
+        .flatMap(room => room.tables)
+        .find(t => t.id === tableId);
+    
+    if (!table) return;
+    
+    const reservations = getTableReservations(tableId);
+    let details = `Table: ${table.name}\nCapacity: ${table.capacity} seats\nRoom: ${table.room_name}`;
+    
+    if (reservations.length > 0) {
+        details += '\n\nReservations:';
+        reservations.forEach(r => {
+            details += `\n• ${r.customer_name} (${r.time}-${addHours(r.time, r.duration_hours)})`;
+        });
+    } else {
+        details += '\n\nStatus: Available';
+    }
+    
+    alert(details);
+}
+
+function previousDay() {
+    currentViewDate.setDate(currentViewDate.getDate() - 1);
+    loadDailyView();
+}
+
+function nextDay() {
+    currentViewDate.setDate(currentViewDate.getDate() + 1);
+    loadDailyView();
+}
+
+function goToToday() {
+    currentViewDate = new Date();
+    loadDailyView();
+}
+
+function filterReservations(filter) {
+    // Update active filter button
+    document.querySelectorAll('.filter-buttons .btn').forEach(btn => 
+        btn.classList.remove('active')
+    );
+    event.target.classList.add('active');
+    
+    // Filter reservations (implement based on your needs)
+    console.log('Filtering reservations:', filter);
+}
+
+function addHours(timeStr, hours) {
+    const [hours_str, minutes] = timeStr.split(':');
+    const date = new Date();
+    date.setHours(parseInt(hours_str), parseInt(minutes), 0);
+    date.setHours(date.getHours() + hours);
+    return date.toTimeString().slice(0, 5);
+}

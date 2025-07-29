@@ -5,6 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from app.core.database import engine, Base
 from app.api import auth, public, admin
+from app.api.layout import router as layout_router
 from app.core.config import settings
 import logging
 import os
@@ -16,10 +17,8 @@ logger = logging.getLogger(__name__)
 # Create FastAPI app
 app = FastAPI(
     title="The Castle Pub Reservation System",
-    description="A comprehensive restaurant reservation system for The Castle Pub",
-    version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc"
+    description="A comprehensive restaurant reservation system with table management and visual layout",
+    version="1.0.0"
 )
 
 @app.on_event("startup")
@@ -81,9 +80,10 @@ app.add_middleware(
 )
 
 # Include routers
-app.include_router(auth.router, prefix="/api")
+app.include_router(auth.router)
+app.include_router(admin.router)
 app.include_router(public.router)
-app.include_router(admin.router, prefix="/api")
+app.include_router(layout_router)
 
 # Import and include dashboard router
 from app.api import dashboard

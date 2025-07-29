@@ -199,6 +199,10 @@
                         <i class="fas fa-calendar-day"></i>
                         TODAY
                     </button>
+                    <button class="tab-btn" onclick="showTab('dailyView')">
+                        <i class="fas fa-map"></i>
+                        Daily View
+                    </button>
                     <button class="tab-btn" onclick="showTab('reservations')">
                         <i class="fas fa-calendar-alt"></i>
                         Reservations
@@ -299,25 +303,64 @@
                 <!-- Today Tab -->
                 <div id="todayTab" class="tab-content">
                     <div class="tab-header">
-                        <h3>Today's Arrivals</h3>
-                        <div class="today-controls">
-                            <select id="reservationTypeFilter" class="form-control">
-                                <option value="">All Types</option>
-                                <option value="dining">Dining</option>
-                                <option value="fun">Fun</option>
-                                <option value="team_event">Team Event</option>
-                                <option value="birthday">Birthday</option>
-                                <option value="party">Party</option>
-                                <option value="special_event">Special Event</option>
-                            </select>
-                            <input type="text" id="todaySearch" placeholder="Search by name..." class="form-control">
-                            <button class="btn btn-secondary" onclick="printNameTags()">
-                                <i class="fas fa-print"></i> Print Name Tags
+                        <h3>Today's Reservations</h3>
+                        <button class="btn btn-primary" onclick="showAddReservationForm()">
+                            <i class="fas fa-plus"></i> Add Reservation
+                        </button>
+                    </div>
+                    <div id="todayReservationsList" class="reservations-table">
+                        <!-- Today's reservations will be loaded here -->
+                    </div>
+                </div>
+
+                <!-- Daily View Tab -->
+                <div id="dailyViewTab" class="tab-content">
+                    <div class="daily-view-header">
+                        <h3>Daily View</h3>
+                        <div class="date-navigation">
+                            <button class="btn btn-secondary" onclick="previousDay()">
+                                <i class="fas fa-chevron-left"></i>
+                            </button>
+                            <span id="currentDate" class="date-display"></span>
+                            <button class="btn btn-secondary" onclick="nextDay()">
+                                <i class="fas fa-chevron-right"></i>
+                            </button>
+                            <button class="btn btn-primary" onclick="goToToday()">
+                                <i class="fas fa-calendar-day"></i> Today
                             </button>
                         </div>
                     </div>
-                    <div id="todayReservationsList" class="today-reservations">
-                        <!-- Today's reservations will be loaded here -->
+                    
+                    <div class="daily-view-container">
+                        <!-- Left Panel: Reservations List -->
+                        <div class="reservations-panel">
+                            <div class="panel-header">
+                                <h4>Reservations</h4>
+                                <div class="filter-buttons">
+                                    <button class="btn btn-sm btn-outline active" onclick="filterReservations('all')">All</button>
+                                    <button class="btn btn-sm btn-outline" onclick="filterReservations('confirmed')">Confirmed</button>
+                                    <button class="btn btn-sm btn-outline" onclick="filterReservations('pending')">Pending</button>
+                                </div>
+                            </div>
+                            <div id="dailyReservationsList" class="reservations-list">
+                                <!-- Reservations will be loaded here -->
+                            </div>
+                        </div>
+                        
+                        <!-- Right Panel: Visual Layout -->
+                        <div class="layout-panel">
+                            <div class="panel-header">
+                                <h4>Table Layout</h4>
+                                <div class="room-tabs" id="roomTabs">
+                                    <!-- Room tabs will be generated here -->
+                                </div>
+                            </div>
+                            <div class="layout-container">
+                                <div id="tableLayout" class="table-layout">
+                                    <!-- Visual table layout will be rendered here -->
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -572,6 +615,57 @@
                             <button id="saveAllSettings" class="btn btn-primary btn-large">
                                 <i class="fas fa-save"></i> Save All Settings
                             </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Daily View Section -->
+                <div id="dailyViewSection" class="dashboard-section" style="display: none;">
+                    <div class="section-header">
+                        <h2>Daily View</h2>
+                        <div class="date-navigation">
+                            <button class="btn btn-secondary" onclick="previousDay()">
+                                <i class="fas fa-chevron-left"></i>
+                            </button>
+                            <span id="currentDate" class="date-display"></span>
+                            <button class="btn btn-secondary" onclick="nextDay()">
+                                <i class="fas fa-chevron-right"></i>
+                            </button>
+                            <button class="btn btn-primary" onclick="goToToday()">
+                                <i class="fas fa-calendar-day"></i> Today
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="daily-view-container">
+                        <!-- Left Panel: Reservations List -->
+                        <div class="reservations-panel">
+                            <div class="panel-header">
+                                <h3>Reservations</h3>
+                                <div class="filter-buttons">
+                                    <button class="btn btn-sm btn-outline" onclick="filterReservations('all')">All</button>
+                                    <button class="btn btn-sm btn-outline" onclick="filterReservations('confirmed')">Confirmed</button>
+                                    <button class="btn btn-sm btn-outline" onclick="filterReservations('pending')">Pending</button>
+                                </div>
+                            </div>
+                            <div id="dailyReservationsList" class="reservations-list">
+                                <!-- Reservations will be loaded here -->
+                            </div>
+                        </div>
+                        
+                        <!-- Right Panel: Visual Layout -->
+                        <div class="layout-panel">
+                            <div class="panel-header">
+                                <h3>Table Layout</h3>
+                                <div class="room-tabs" id="roomTabs">
+                                    <!-- Room tabs will be generated here -->
+                                </div>
+                            </div>
+                            <div class="layout-container">
+                                <div id="tableLayout" class="table-layout">
+                                    <!-- Visual table layout will be rendered here -->
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
