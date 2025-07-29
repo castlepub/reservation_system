@@ -28,7 +28,7 @@ def get_working_hours(
     
     for day in DayOfWeek:
         if day not in existing_days:
-            # Create default working hours (11:00 - 23:00)
+            # Create default working hours (11:00 - 23:00) - OPEN by default
             default_hours = WorkingHours(
                 day_of_week=day,
                 is_open=True,
@@ -144,8 +144,8 @@ def get_restaurant_settings(
             },
             {
                 "setting_key": "min_reservation_hours",
-                "setting_value": "2",
-                "description": "Minimum hours in advance for reservations"
+                "setting_value": "0",
+                "description": "Minimum hours in advance for reservations (0 = can book today)"
             },
             {
                 "setting_key": "max_reservation_days",

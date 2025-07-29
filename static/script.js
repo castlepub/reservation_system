@@ -981,32 +981,44 @@ function updateWorkingHoursDisplay(weeklySchedule) {
     
     container.innerHTML = '';
     
+    // Convert backend format {working_hours: [...]} to frontend format {monday: {...}}
+    let dayData = {};
+    if (weeklySchedule.working_hours && Array.isArray(weeklySchedule.working_hours)) {
+        weeklySchedule.working_hours.forEach(hours => {
+            dayData[hours.day_of_week] = {
+                is_open: hours.is_open,
+                open_time: hours.open_time,
+                close_time: hours.close_time
+            };
+        });
+    }
+    
     days.forEach((day, index) => {
-        const dayData = weeklySchedule[day] || {
+        const daySchedule = dayData[day] || {
             is_open: true,
             open_time: '11:00',
             close_time: '23:00'
         };
         
         const dayElement = document.createElement('div');
-        dayElement.className = `working-hours-day ${!dayData.is_open ? 'closed' : ''}`;
+        dayElement.className = `working-hours-day ${!daySchedule.is_open ? 'closed' : ''}`;
         dayElement.innerHTML = `
             <div class="day-name">${dayNames[index]}</div>
             <div class="day-toggle">
                 <label>
-                    <input type="checkbox" ${dayData.is_open ? 'checked' : ''} 
+                    <input type="checkbox" ${daySchedule.is_open ? 'checked' : ''} 
                            onchange="toggleDayOpen('${day}', this.checked)">
                     Open
                 </label>
             </div>
-            <div class="time-inputs" style="display: ${dayData.is_open ? 'flex' : 'none'}">
-                <input type="time" value="${dayData.open_time || '11:00'}" 
+            <div class="time-inputs" style="display: ${daySchedule.is_open ? 'flex' : 'none'}">
+                <input type="time" value="${daySchedule.open_time || '11:00'}" 
                        id="${day}-open" class="time-input">
                 <span>to</span>
-                <input type="time" value="${dayData.close_time || '23:00'}" 
+                <input type="time" value="${daySchedule.close_time || '23:00'}" 
                        id="${day}-close" class="time-input">
             </div>
-            <div class="closed-text" style="display: ${dayData.is_open ? 'none' : 'block'}">
+            <div class="closed-text" style="display: ${daySchedule.is_open ? 'none' : 'block'}">
                 <span class="text-muted">Closed</span>
             </div>
         `;
