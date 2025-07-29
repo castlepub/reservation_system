@@ -26,106 +26,115 @@ app = FastAPI(
 async def startup_event():
     """Initialize database and run migrations on startup"""
     try:
+        print("🔄 Starting database initialization...")
+        
         # Create tables
         Base.metadata.create_all(bind=engine)
+        print("✅ Database tables created")
         
-        # Run duration migration if needed
-        from sqlalchemy import text
-        from app.core.database import SessionLocal
-        
-        db = SessionLocal()
+        # Run migrations in a separate try-catch to avoid startup failures
         try:
-            # Check if duration_hours column exists
-            result = db.execute(text("""
-                SELECT column_name 
-                FROM information_schema.columns 
-                WHERE table_name='reservations' AND column_name='duration_hours'
-            """)).fetchone()
-            
-            if not result:
-                print("🔄 Adding duration_hours column to reservations table...")
-                
-                # Add the column with default value 2
-                db.execute(text("ALTER TABLE reservations ADD COLUMN duration_hours INTEGER DEFAULT 2 NOT NULL"))
-                db.commit()
-                
-                print("✅ duration_hours column added successfully")
-            else:
-                print("✅ duration_hours column already exists")
-            
-            # Update existing reservations to have duration_hours = 2 if they don't have it
-            db.execute(text("UPDATE reservations SET duration_hours = 2 WHERE duration_hours IS NULL"))
-            db.commit()
-            
-            print("✅ All existing reservations updated with default duration")
-            
-            # Check if layout tables exist, if not create them
-            try:
-                db.execute(text("SELECT 1 FROM table_layouts LIMIT 1"))
-                print("✅ table_layouts table exists")
-            except Exception:
-                print("🔄 Creating table_layouts table...")
-                db.execute(text("""
-                    CREATE TABLE table_layouts (
-                        id TEXT PRIMARY KEY,
-                        table_id TEXT NOT NULL UNIQUE,
-                        room_id TEXT NOT NULL,
-                        x_position FLOAT NOT NULL,
-                        y_position FLOAT NOT NULL,
-                        width FLOAT DEFAULT 100.0,
-                        height FLOAT DEFAULT 80.0,
-                        shape VARCHAR DEFAULT 'rectangular',
-                        color VARCHAR DEFAULT '#4A90E2',
-                        border_color VARCHAR DEFAULT '#2E5BBA',
-                        text_color VARCHAR DEFAULT '#FFFFFF',
-                        show_capacity BOOLEAN DEFAULT TRUE,
-                        show_name BOOLEAN DEFAULT TRUE,
-                        font_size INTEGER DEFAULT 12,
-                        z_index INTEGER DEFAULT 1,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        updated_at TIMESTAMP
-                    )
-                """))
-                db.commit()
-                print("✅ table_layouts table created")
-            
-            try:
-                db.execute(text("SELECT 1 FROM room_layouts LIMIT 1"))
-                print("✅ room_layouts table exists")
-            except Exception:
-                print("🔄 Creating room_layouts table...")
-                db.execute(text("""
-                    CREATE TABLE room_layouts (
-                        id TEXT PRIMARY KEY,
-                        room_id TEXT NOT NULL UNIQUE,
-                        width FLOAT DEFAULT 800.0,
-                        height FLOAT DEFAULT 600.0,
-                        background_color VARCHAR DEFAULT '#F5F5F5',
-                        grid_enabled BOOLEAN DEFAULT TRUE,
-                        grid_size INTEGER DEFAULT 20,
-                        grid_color VARCHAR DEFAULT '#E0E0E0',
-                        show_entrance BOOLEAN DEFAULT TRUE,
-                        entrance_position VARCHAR DEFAULT 'top',
-                        show_bar BOOLEAN DEFAULT FALSE,
-                        bar_position VARCHAR DEFAULT 'center',
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        updated_at TIMESTAMP
-                    )
-                """))
-                db.commit()
-                print("✅ room_layouts table created")
-            
+            run_migrations()
         except Exception as e:
-            print(f"⚠️ Migration warning: {e}")
-            db.rollback()
-        finally:
-            db.close()
+            print(f"⚠️ Migration warning (non-critical): {e}")
         
         print("✅ Database initialized successfully")
         
     except Exception as e:
         print(f"❌ Database initialization error: {e}")
+        # Don't raise the error to allow the app to start
+        print("⚠️ Continuing with degraded functionality")
+
+
+def run_migrations():
+    """Run database migrations"""
+    from sqlalchemy import text
+    from app.core.database import SessionLocal
+    
+    db = SessionLocal()
+    try:
+        # Check if duration_hours column exists
+        result = db.execute(text("""
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name='reservations' AND column_name='duration_hours'
+        """)).fetchone()
+        
+        if not result:
+            print("🔄 Adding duration_hours column to reservations table...")
+            db.execute(text("ALTER TABLE reservations ADD COLUMN duration_hours INTEGER DEFAULT 2 NOT NULL"))
+            db.commit()
+            print("✅ duration_hours column added successfully")
+        else:
+            print("✅ duration_hours column already exists")
+        
+        # Update existing reservations
+        db.execute(text("UPDATE reservations SET duration_hours = 2 WHERE duration_hours IS NULL"))
+        db.commit()
+        print("✅ All existing reservations updated with default duration")
+        
+        # Check if layout tables exist
+        try:
+            db.execute(text("SELECT 1 FROM table_layouts LIMIT 1"))
+            print("✅ table_layouts table exists")
+        except Exception:
+            print("🔄 Creating table_layouts table...")
+            db.execute(text("""
+                CREATE TABLE table_layouts (
+                    id TEXT PRIMARY KEY,
+                    table_id TEXT NOT NULL UNIQUE,
+                    room_id TEXT NOT NULL,
+                    x_position FLOAT NOT NULL,
+                    y_position FLOAT NOT NULL,
+                    width FLOAT DEFAULT 100.0,
+                    height FLOAT DEFAULT 80.0,
+                    shape VARCHAR DEFAULT 'rectangular',
+                    color VARCHAR DEFAULT '#4A90E2',
+                    border_color VARCHAR DEFAULT '#2E5BBA',
+                    text_color VARCHAR DEFAULT '#FFFFFF',
+                    show_capacity BOOLEAN DEFAULT TRUE,
+                    show_name BOOLEAN DEFAULT TRUE,
+                    font_size INTEGER DEFAULT 12,
+                    z_index INTEGER DEFAULT 1,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP
+                )
+            """))
+            db.commit()
+            print("✅ table_layouts table created")
+        
+        try:
+            db.execute(text("SELECT 1 FROM room_layouts LIMIT 1"))
+            print("✅ room_layouts table exists")
+        except Exception:
+            print("🔄 Creating room_layouts table...")
+            db.execute(text("""
+                CREATE TABLE room_layouts (
+                    id TEXT PRIMARY KEY,
+                    room_id TEXT NOT NULL UNIQUE,
+                    width FLOAT DEFAULT 800.0,
+                    height FLOAT DEFAULT 600.0,
+                    background_color VARCHAR DEFAULT '#F5F5F5',
+                    grid_enabled BOOLEAN DEFAULT TRUE,
+                    grid_size INTEGER DEFAULT 20,
+                    grid_color VARCHAR DEFAULT '#E0E0E0',
+                    show_entrance BOOLEAN DEFAULT TRUE,
+                    entrance_position VARCHAR DEFAULT 'top',
+                    show_bar BOOLEAN DEFAULT FALSE,
+                    bar_position VARCHAR DEFAULT 'center',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP
+                )
+            """))
+            db.commit()
+            print("✅ room_layouts table created")
+        
+    except Exception as e:
+        print(f"⚠️ Migration error: {e}")
+        db.rollback()
         raise
+    finally:
+        db.close()
 
 # Add CORS middleware
 app.add_middleware(
