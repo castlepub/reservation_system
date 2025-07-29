@@ -1552,3 +1552,56 @@ main {
     padding-top: 15px;
     border-top: 1px solid #ddd;
 } 
+
+/* Capacity Information Styles */
+.capacity-info {
+    margin-bottom: 15px;
+    padding: 10px;
+    border-radius: 5px;
+    border-left: 4px solid #ccc;
+}
+
+.capacity-info h5 {
+    margin: 0 0 5px 0;
+    font-size: 14px;
+    color: #333;
+}
+
+.capacity-status {
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.capacity-perfect {
+    background-color: #d4edda;
+    border-left-color: #28a745;
+}
+
+.capacity-perfect .capacity-status {
+    color: #155724;
+}
+
+.capacity-shortage {
+    background-color: #f8d7da;
+    border-left-color: #dc3545;
+}
+
+.capacity-shortage .capacity-status {
+    color: #721c24;
+}
+
+.capacity-excess {
+    background-color: #fff3cd;
+    border-left-color: #ffc107;
+}
+
+.capacity-excess .capacity-status {
+    color: #856404;
+}
+
+.capacity-summary {
+    margin-top: 8px;
+    font-size: 11px;
+    color: #666;
+    font-weight: bold;
+} 

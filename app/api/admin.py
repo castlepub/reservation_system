@@ -19,6 +19,7 @@ from datetime import date, time, datetime, timedelta
 from sqlalchemy import text
 import uuid
 import random
+import traceback
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -649,6 +650,7 @@ def get_available_tables_for_reservation(
         
         # Get current table assignment
         current_tables = []
+        current_total_capacity = 0
         if reservation.tables:
             current_tables = [
                 {
@@ -659,6 +661,7 @@ def get_available_tables_for_reservation(
                 }
                 for table in reservation.tables
             ]
+            current_total_capacity = sum(table.capacity for table in reservation.tables)
         
         # Get available tables (all tables except those reserved for the same time)
         available_tables = []
@@ -682,12 +685,30 @@ def get_available_tables_for_reservation(
                     "room_name": table.room.name if table.room else "Unknown"
                 })
         
+        # Calculate capacity information
+        party_size = reservation.party_size
+        seats_needed = party_size
+        seats_available = current_total_capacity
+        seats_shortage = max(0, seats_needed - seats_available)
+        seats_excess = max(0, seats_available - seats_needed)
+        
         return {
             "available_tables": available_tables,
-            "current_tables": current_tables
+            "current_tables": current_tables,
+            "party_size": party_size,
+            "current_total_capacity": current_total_capacity,
+            "seats_needed": seats_needed,
+            "seats_shortage": seats_shortage,
+            "seats_excess": seats_excess,
+            "capacity_status": "perfect" if seats_shortage == 0 and seats_excess == 0 else "shortage" if seats_shortage > 0 else "excess"
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
+        import traceback
+        print(f"Error in get_available_tables_for_reservation: {str(e)}")
+        print(traceback.format_exc())
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error getting available tables: {str(e)}")
 
 @router.put("/reservations/{reservation_id}/tables")

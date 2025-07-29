@@ -2035,6 +2035,25 @@ async function showTableSelectionModal(reservationId) {
             const data = await response.json();
             const availableTables = data.available_tables;
             const currentTables = data.current_tables || [];
+            const partySize = data.party_size;
+            const currentTotalCapacity = data.current_total_capacity;
+            const seatsShortage = data.seats_shortage;
+            const seatsExcess = data.seats_excess;
+            const capacityStatus = data.capacity_status;
+            
+            // Create capacity status message
+            let capacityMessage = '';
+            let capacityClass = '';
+            if (capacityStatus === 'perfect') {
+                capacityMessage = `Perfect! ${currentTotalCapacity} seats for ${partySize} people`;
+                capacityClass = 'capacity-perfect';
+            } else if (capacityStatus === 'shortage') {
+                capacityMessage = `Need ${seatsShortage} more seats (${currentTotalCapacity}/${partySize})`;
+                capacityClass = 'capacity-shortage';
+            } else {
+                capacityMessage = `${seatsExcess} extra seats (${currentTotalCapacity}/${partySize})`;
+                capacityClass = 'capacity-excess';
+            }
             
             // Create table selection modal
             const modal = document.createElement('div');
@@ -2047,10 +2066,17 @@ async function showTableSelectionModal(reservationId) {
                         <button class="close-btn" onclick="hideTableSelectionModal()">&times;</button>
                     </div>
                     <div class="table-selection-content">
+                        <div class="capacity-info ${capacityClass}">
+                            <h5>Party Size: ${partySize} people</h5>
+                            <div class="capacity-status">${capacityMessage}</div>
+                        </div>
                         <div class="current-selection">
                             <h5>Currently Selected:</h5>
                             <div id="selectedTablesList">
-                                ${currentTables.map(t => `<span class="selected-table">${t.table_name} (${t.capacity})</span>`).join('')}
+                                ${currentTables.map(t => `<span class="selected-table" data-table-id="${t.id}">${t.table_name} (${t.capacity})</span>`).join('')}
+                            </div>
+                            <div id="currentCapacityInfo" class="capacity-summary">
+                                Total: ${currentTotalCapacity} seats
                             </div>
                         </div>
                         <div class="available-tables">
@@ -2058,6 +2084,7 @@ async function showTableSelectionModal(reservationId) {
                             <div class="tables-grid">
                                 ${availableTables.map(table => `
                                     <div class="table-option ${currentTables.some(t => t.id === table.id) ? 'selected' : ''}" 
+                                         data-table-id="${table.id}"
                                          onclick="toggleTableSelection('${table.id}', '${table.name}', ${table.capacity})">
                                         <div class="table-name">${table.name}</div>
                                         <div class="table-capacity">${table.capacity} seats</div>
@@ -2079,7 +2106,8 @@ async function showTableSelectionModal(reservationId) {
             document.body.appendChild(modal);
             
         } else {
-            throw new Error('Failed to load available tables');
+            const errorData = await response.json();
+            throw new Error(errorData.detail || 'Failed to load available tables');
         }
     } catch (error) {
         console.error('Error showing table selection modal:', error);
@@ -2095,8 +2123,9 @@ function hideTableSelectionModal() {
 }
 
 function toggleTableSelection(tableId, tableName, capacity) {
-    const tableOption = document.querySelector(`[onclick*="${tableId}"]`);
+    const tableOption = document.querySelector(`[data-table-id="${tableId}"]`);
     const selectedTablesList = document.getElementById('selectedTablesList');
+    const currentCapacityInfo = document.getElementById('currentCapacityInfo');
     
     if (tableOption.classList.contains('selected')) {
         // Remove from selection
@@ -2113,6 +2142,35 @@ function toggleTableSelection(tableId, tableName, capacity) {
         tableSpan.setAttribute('data-table-id', tableId);
         tableSpan.textContent = `${tableName} (${capacity})`;
         selectedTablesList.appendChild(tableSpan);
+    }
+    
+    // Update capacity summary
+    if (currentCapacityInfo) {
+        const selectedTables = Array.from(selectedTablesList.querySelectorAll('.selected-table'));
+        const totalCapacity = selectedTables.reduce((sum, span) => {
+            const capacityText = span.textContent.match(/\((\d+)\)/);
+            return sum + (capacityText ? parseInt(capacityText[1]) : 0);
+        }, 0);
+        
+        // Get party size from the modal header
+        const partySizeElement = document.querySelector('.capacity-info h5');
+        const partySizeMatch = partySizeElement?.textContent.match(/(\d+)/);
+        const partySize = partySizeMatch ? parseInt(partySizeMatch[1]) : 0;
+        
+        let capacityMessage = `Total: ${totalCapacity} seats`;
+        if (partySize > 0) {
+            if (totalCapacity === partySize) {
+                capacityMessage += ` (Perfect!)`;
+            } else if (totalCapacity < partySize) {
+                const shortage = partySize - totalCapacity;
+                capacityMessage += ` (Need ${shortage} more)`;
+            } else {
+                const excess = totalCapacity - partySize;
+                capacityMessage += ` (${excess} extra)`;
+            }
+        }
+        
+        currentCapacityInfo.textContent = capacityMessage;
     }
 }
 
@@ -2140,10 +2198,10 @@ async function saveTableSelection(reservationId) {
             const currentTablesList = document.getElementById('currentTablesList');
             if (currentTablesList) {
                 const tableNames = selectedTables.map(tableId => {
-                    const tableOption = document.querySelector(`[onclick*="${tableId}"]`);
+                    const tableOption = document.querySelector(`[data-table-id="${tableId}"]`);
                     if (tableOption) {
-                        const name = tableOption.querySelector('.table-name').textContent;
-                        const capacity = tableOption.querySelector('.table-capacity').textContent;
+                        const name = tableOption.querySelector('.table-name')?.textContent || 'Unknown';
+                        const capacity = tableOption.querySelector('.table-capacity')?.textContent || '';
                         return `${name} (${capacity})`;
                     }
                     return '';
@@ -2151,7 +2209,8 @@ async function saveTableSelection(reservationId) {
                 currentTablesList.textContent = tableNames.join(', ') || 'None assigned';
             }
         } else {
-            throw new Error('Failed to update table assignment');
+            const errorData = await response.json();
+            throw new Error(errorData.detail || 'Failed to update table assignment');
         }
     } catch (error) {
         console.error('Error saving table selection:', error);
