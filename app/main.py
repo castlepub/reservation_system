@@ -118,33 +118,13 @@ async def create_admin_user_async():
 
 @app.get("/")
 async def root():
-    """Serve the main HTML page"""
-    logger.info(f"🏠 Root endpoint called!")
-    index_path = os.path.join(static_dir, "index.html")
-    
-    if os.path.exists(index_path):
-        try:
-            with open(index_path, 'r', encoding='utf-8') as f:
-                html_content = f.read()
-            from fastapi.responses import HTMLResponse
-            return HTMLResponse(content=html_content)
-        except Exception as e:
-            logger.error(f"Error reading index.html: {str(e)}")
-            return {
-                "message": "The Castle Pub Reservation System",
-                "status": "running",
-                "version": "1.0.0",
-                "docs": "/docs",
-                "error": f"Could not load frontend: {str(e)}"
-            }
+    """Serve the main HTML file"""
+    # Serve the HTML file instead of JSON
+    html_file = os.path.join(static_dir, "index.html")
+    if os.path.exists(html_file):
+        return FileResponse(html_file)
     else:
-        return {
-            "message": "The Castle Pub Reservation System",
-            "status": "running",
-            "version": "1.0.0",
-            "docs": "/docs",
-            "note": "Frontend not found, API is available"
-        }
+        return {"message": "The Castle Pub Reservation System", "status": "running", "error": "HTML file not found"}
 
 @app.get("/ping")
 async def ping():
