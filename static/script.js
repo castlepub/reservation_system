@@ -39,19 +39,10 @@ function initializeApp() {
 }
 
 function setupEventListeners() {
-    // Navigation
-    document.querySelectorAll('.nav-link').forEach(link => {
-        link.addEventListener('click', function(e) {
-            e.preventDefault();
-            const target = this.getAttribute('href').substring(1);
-            showSection(target);
-        });
-    });
-
     // Forms
     document.getElementById('reservationForm').addEventListener('submit', handleReservationSubmit);
     document.getElementById('adminLoginForm').addEventListener('submit', handleAdminLogin);
-    document.getElementById('adminReservationForm').addEventListener('submit', handleAdminReservationSubmit);
+    // Removed adminReservationForm - it's now handled by the modal
     document.getElementById('addNoteForm').addEventListener('submit', handleAddNote);
 
     // Date and party size changes
@@ -59,24 +50,16 @@ function setupEventListeners() {
         updateTimeSlotsForDate(this, 'time');
         checkAvailability();
     });
+    
     document.getElementById('partySize').addEventListener('change', checkAvailability);
-
-    // Admin date and party size changes
-    document.getElementById('adminDate').addEventListener('change', function() {
-        updateTimeSlotsForDate(this, 'adminTime');
-        checkAvailabilityAdmin();
-    });
-    document.getElementById('adminPartySize').addEventListener('change', checkAvailabilityAdmin);
-
-    // Settings event listeners
-    document.getElementById('saveWorkingHours')?.addEventListener('click', saveWorkingHours);
-    document.getElementById('addSpecialDay')?.addEventListener('click', addSpecialDay);
-    document.getElementById('saveAllSettings')?.addEventListener('click', saveAllSettings);
-
-    // Search functionality
-    document.getElementById('customerSearch')?.addEventListener('input', filterCustomers);
-    document.getElementById('todaySearch')?.addEventListener('input', filterTodayReservations);
-    document.getElementById('reservationTypeFilter')?.addEventListener('change', filterTodayReservations);
+    
+    // Admin form date changes
+    const newDateInput = document.getElementById('newDate');
+    if (newDateInput) {
+        newDateInput.addEventListener('change', function() {
+            updateTimeSlotsForDate(this, 'newTime');
+        });
+    }
 }
 
 // Dashboard Functions
@@ -1539,7 +1522,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // Reservation Management Functions
 async function loadAllReservations() {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/reservations`, {
+        const response = await fetch(`${API_BASE_URL}/api/admin/reservations`, {
             headers: {
                 'Authorization': `Bearer ${authToken}`
             }
