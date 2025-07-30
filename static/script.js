@@ -1637,11 +1637,12 @@ async function deleteTable(tableId, tableName) {
             showMessage('Table deleted successfully', 'success');
             loadTables(); // Reload tables
         } else {
-            throw new Error('Failed to delete table');
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to delete table');
         }
     } catch (error) {
         console.error('Error deleting table:', error);
-        showMessage('Error deleting table', 'error');
+        showMessage('Error deleting table: ' + error.message, 'error');
     }
 }
 
@@ -2437,12 +2438,18 @@ function renderReservationsList() {
     
     container.innerHTML = '';
     
+    // Handle case where reservations array is undefined or empty
+    if (!dailyViewData.reservations || !Array.isArray(dailyViewData.reservations) || dailyViewData.reservations.length === 0) {
+        container.innerHTML = '<div class="no-reservations-message">No reservations for this date</div>';
+        return;
+    }
+    
     dailyViewData.reservations.forEach(reservation => {
         const reservationElement = document.createElement('div');
         reservationElement.className = 'reservation-item';
         reservationElement.onclick = () => selectReservation(reservation.id);
         
-        const timeRange = `${reservation.time}-${addHours(reservation.time, reservation.duration_hours)}`;
+        const timeRange = `${reservation.time}-${addHours(reservation.time, reservation.duration_hours || 2)}`;
         
         reservationElement.innerHTML = `
             <div class="reservation-header">
@@ -2454,7 +2461,7 @@ function renderReservationsList() {
                 ${reservation.room_name} • ${reservation.reservation_type}
                 ${reservation.notes ? `<br><small>${reservation.notes}</small>` : ''}
             </div>
-            ${reservation.table_names.length > 0 ? 
+            ${reservation.table_names && reservation.table_names.length > 0 ? 
                 `<div class="reservation-tables">Tables: ${reservation.table_names.join(', ')}</div>` : 
                 '<div class="reservation-tables">No tables assigned</div>'
             }
@@ -2497,7 +2504,10 @@ function renderTableLayout() {
     container.innerHTML = '';
     
     const currentRoom = dailyViewData.rooms.find(room => room.id === currentRoomId);
-    if (!currentRoom) return;
+    if (!currentRoom) {
+        container.innerHTML = '<div class="no-room-message">Room not found</div>';
+        return;
+    }
     
     // Add room features
     if (currentRoom.layout?.show_entrance) {
@@ -2512,6 +2522,12 @@ function renderTableLayout() {
         bar.className = 'room-bar';
         bar.textContent = 'BAR';
         container.appendChild(bar);
+    }
+    
+    // Handle case where tables array is undefined or empty
+    if (!currentRoom.tables || !Array.isArray(currentRoom.tables) || currentRoom.tables.length === 0) {
+        container.innerHTML += '<div class="no-tables-message">No tables in this room</div>';
+        return;
     }
     
     // Add tables
@@ -2659,4 +2675,98 @@ function addHours(timeStr, hours) {
     date.setHours(parseInt(hours_str), parseInt(minutes), 0);
     date.setHours(date.getHours() + hours);
     return date.toTimeString().slice(0, 5);
+}
+
+async function editTable(tableId) {
+    try {
+        // Get table details
+        const response = await fetch(`${API_BASE_URL}/admin/tables/${tableId}`, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to fetch table details');
+        }
+        
+        const table = await response.json();
+        
+        // Populate room dropdown in edit modal
+        const editRoomSelect = document.getElementById('editTableRoom');
+        if (editRoomSelect) {
+            // Get rooms data from the current state or fetch it
+            const roomsResponse = await fetch(`${API_BASE_URL}/admin/rooms`, {
+                headers: {
+                    'Authorization': `Bearer ${authToken}`
+                }
+            });
+            
+            if (roomsResponse.ok) {
+                const rooms = await roomsResponse.json();
+                editRoomSelect.innerHTML = '<option value="">Select Room</option>';
+                rooms.forEach(room => {
+                    const option = document.createElement('option');
+                    option.value = room.id;
+                    option.textContent = room.name;
+                    editRoomSelect.appendChild(option);
+                });
+            }
+        }
+        
+        // Populate edit form
+        document.getElementById('editTableId').value = table.id;
+        document.getElementById('editTableName').value = table.name;
+        document.getElementById('editTableCapacity').value = table.capacity;
+        document.getElementById('editTableCombinable').checked = table.combinable;
+        document.getElementById('editTableRoom').value = table.room_id;
+        
+        // Show edit modal
+        document.getElementById('editTableModal').classList.remove('hidden');
+        
+    } catch (error) {
+        console.error('Error loading table for edit:', error);
+        showMessage('Error loading table details: ' + error.message, 'error');
+    }
+}
+
+async function handleEditTable(event) {
+    event.preventDefault();
+    
+    const formData = new FormData(event.target);
+    const tableId = formData.get('table_id');
+    const tableData = {
+        room_id: formData.get('room_id'),
+        name: formData.get('name'),
+        capacity: parseInt(formData.get('capacity')),
+        combinable: formData.get('combinable') === 'on'
+    };
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/admin/tables/${tableId}`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(tableData)
+        });
+        
+        if (response.ok) {
+            showMessage('Table updated successfully', 'success');
+            hideEditTableForm();
+            loadTables(); // Reload tables
+        } else {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to update table');
+        }
+    } catch (error) {
+        console.error('Error updating table:', error);
+        showMessage('Error updating table: ' + error.message, 'error');
+    }
+}
+
+function hideEditTableForm() {
+    document.getElementById('editTableModal').classList.add('hidden');
+    document.getElementById('editTableForm').reset();
 }

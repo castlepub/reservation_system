@@ -542,6 +542,47 @@
                             </form>
                         </div>
                     </div>
+
+                    <!-- Edit Table Form Modal -->
+                    <div id="editTableModal" class="modal hidden">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h4>Edit Table</h4>
+                                <button class="close-btn" onclick="hideEditTableForm()">&times;</button>
+                            </div>
+                            <form id="editTableForm" onsubmit="handleEditTable(event)">
+                                <input type="hidden" id="editTableId" name="table_id">
+                                <div class="form-group">
+                                    <label for="editTableRoom">Room *</label>
+                                    <select id="editTableRoom" name="room_id" required>
+                                        <option value="">Select Room</option>
+                                    </select>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="editTableName">Table Name *</label>
+                                        <input type="text" id="editTableName" name="name" required placeholder="e.g., T1, F1, BG1">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="editTableCapacity">Capacity *</label>
+                                        <input type="number" id="editTableCapacity" name="capacity" required min="1" max="20">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label>
+                                        <input type="checkbox" id="editTableCombinable" name="combinable">
+                                        Combinable (can be joined with other tables)
+                                    </label>
+                                </div>
+                                <div class="form-actions">
+                                    <button type="button" class="btn btn-secondary" onclick="hideEditTableForm()">Cancel</button>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-save"></i> Update Table
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Settings Tab -->

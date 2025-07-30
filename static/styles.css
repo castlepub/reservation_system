@@ -1638,19 +1638,38 @@ main {
 }
 
 .daily-view-container {
-    display: grid;
-    grid-template-columns: 350px 1fr;
+    display: flex;
+    height: calc(100vh - 200px);
     gap: 20px;
-    height: calc(100vh - 250px);
-    min-height: 500px;
 }
 
 .reservations-panel {
+    flex: 1;
     background: white;
-    border-radius: 10px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    display: flex;
-    flex-direction: column;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    overflow: hidden;
+}
+
+.layout-panel {
+    flex: 2;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    overflow: hidden;
+}
+
+.no-reservations-message,
+.no-rooms-message,
+.no-tables-message,
+.no-room-message {
+    padding: 20px;
+    text-align: center;
+    color: #666;
+    font-style: italic;
+    background: #f8f9fa;
+    border-radius: 8px;
+    margin: 20px;
 }
 
 .panel-header {
