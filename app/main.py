@@ -193,20 +193,38 @@ async def init_basic_data():
                 db.add_all([room1, room2, room3])
                 db.commit()
                 
-                # Create sample tables
+                # Create sample tables with combinable logic
                 tables = [
-                    Table(name="T1", capacity=2, room_id=room1.id, active=True),
-                    Table(name="T2", capacity=4, room_id=room1.id, active=True),
-                    Table(name="T3", capacity=6, room_id=room1.id, active=True),
-                    Table(name="P1", capacity=8, room_id=room2.id, active=True),
-                    Table(name="B1", capacity=2, room_id=room3.id, active=True),
-                    Table(name="B2", capacity=4, room_id=room3.id, active=True),
+                    # Main Dining - tables can combine
+                    Table(name="T1", capacity=2, room_id=room1.id, active=True, combinable=True),
+                    Table(name="T2", capacity=4, room_id=room1.id, active=True, combinable=True), 
+                    Table(name="T3", capacity=6, room_id=room1.id, active=True, combinable=True),
+                    # Private Dining - standalone
+                    Table(name="P1", capacity=8, room_id=room2.id, active=True, combinable=False),
+                    # Bar Area - small tables can combine
+                    Table(name="B1", capacity=2, room_id=room3.id, active=True, combinable=True),
+                    Table(name="B2", capacity=4, room_id=room3.id, active=True, combinable=True),
                 ]
                 
                 db.add_all(tables)
                 db.commit()
                 
-                return {"status": "success", "message": "Basic rooms and tables created"}
+                # Create default table combinations
+                combinations = [
+                    # Main Dining combinations
+                    {"primary_table": "T1", "combinable_with": ["T2"]},
+                    {"primary_table": "T2", "combinable_with": ["T1", "T3"]},
+                    {"primary_table": "T3", "combinable_with": ["T2"]},
+                    # Bar Area combinations  
+                    {"primary_table": "B1", "combinable_with": ["B2"]},
+                    {"primary_table": "B2", "combinable_with": ["B1"]},
+                    # P1 is standalone (no combinations)
+                ]
+                
+                # Store combinations in a simple format (could be moved to database later)
+                # For now, we'll use the table service logic
+                
+                return {"status": "success", "message": "Basic rooms, tables, and combinations created"}
             else:
                 return {"status": "info", "message": f"Rooms already exist ({existing_rooms} rooms found)"}
                 
@@ -215,6 +233,114 @@ async def init_basic_data():
             
     except Exception as e:
         return {"status": "error", "message": f"Error creating basic data: {str(e)}"}
+
+@app.get("/admin/tables")
+async def get_tables_simple():
+    """Simple endpoint to get all tables"""
+    try:
+        from app.core.database import SessionLocal
+        from app.models.table import Table
+        from app.models.room import Room
+        
+        db = SessionLocal()
+        try:
+            tables = db.query(Table).join(Room).filter(Table.active == True).all()
+            
+            result = []
+            for table in tables:
+                result.append({
+                    "id": str(table.id),
+                    "name": table.name,
+                    "capacity": table.capacity,
+                    "room_id": str(table.room_id),
+                    "room_name": table.room.name,
+                    "combinable": table.combinable,
+                    "active": table.active
+                })
+            
+            return result
+            
+        finally:
+            db.close()
+            
+    except Exception as e:
+        return {"status": "error", "message": f"Error loading tables: {str(e)}"}
+
+@app.get("/admin/rooms")
+async def get_rooms_simple():
+    """Simple endpoint to get all rooms"""
+    try:
+        from app.core.database import SessionLocal
+        from app.models.room import Room
+        
+        db = SessionLocal()
+        try:
+            rooms = db.query(Room).filter(Room.active == True).all()
+            
+            result = []
+            for room in rooms:
+                result.append({
+                    "id": str(room.id),
+                    "name": room.name,
+                    "description": room.description,
+                    "active": room.active
+                })
+            
+            return result
+            
+        finally:
+            db.close()
+            
+    except Exception as e:
+        return {"status": "error", "message": f"Error loading rooms: {str(e)}"}
+
+@app.get("/admin/reservations")
+async def get_reservations_simple(date_filter: str = None):
+    """Simple endpoint to get reservations"""
+    try:
+        from app.core.database import SessionLocal
+        from app.models.reservation import Reservation
+        from app.models.room import Room
+        from datetime import datetime
+        
+        db = SessionLocal()
+        try:
+            query = db.query(Reservation).join(Room)
+            
+            if date_filter:
+                target_date = datetime.strptime(date_filter, "%Y-%m-%d").date()
+                query = query.filter(Reservation.date == target_date)
+            
+            reservations = query.all()
+            
+            result = []
+            for reservation in reservations:
+                result.append({
+                    "id": str(reservation.id),
+                    "customer_name": reservation.customer_name,
+                    "email": reservation.email,
+                    "phone": reservation.phone,
+                    "party_size": reservation.party_size,
+                    "date": reservation.date.isoformat(),
+                    "time": reservation.time.strftime("%H:%M"),
+                    "duration_hours": reservation.duration_hours_safe,
+                    "room_id": str(reservation.room_id),
+                    "room_name": reservation.room.name,
+                    "status": reservation.status.value,
+                    "reservation_type": reservation.reservation_type.value,
+                    "notes": reservation.notes,
+                    "admin_notes": reservation.admin_notes,
+                    "created_at": reservation.created_at.isoformat(),
+                    "tables": []  # We'll add table assignments later
+                })
+            
+            return result
+            
+        finally:
+            db.close()
+            
+    except Exception as e:
+        return {"status": "error", "message": f"Error loading reservations: {str(e)}"}
 
 @app.get("/admin/reports/daily")
 async def get_daily_report_simple(report_date: str):
