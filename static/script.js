@@ -759,9 +759,16 @@ async function handleAdminLogin(e) {
     try {
         showLoading();
         
-        // Try simple login endpoint first
-        const response = await fetch(`${API_BASE_URL}/api/simple-login?username=${username}&password=${password}`, {
-            method: 'POST'
+        // Use proper auth endpoint
+        const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: new URLSearchParams({
+                'username': username,
+                'password': password
+            })
         });
 
         console.log('Login response status:', response.status);
@@ -775,26 +782,9 @@ async function handleAdminLogin(e) {
             loadDashboardData();
             showMessage(`Welcome back, ${data.user.username}!`, 'success');
         } else {
-            // Fallback to original auth endpoint
-            const authResponse = await fetch(`${API_BASE_URL}/api/auth/login`, {
-                method: 'POST',
-                body: formData
-            });
-            
-            if (authResponse.ok) {
-                const data = await authResponse.json();
-                console.log('Login successful via auth router, got token');
-                authToken = data.access_token;
-                localStorage.setItem('authToken', authToken);
-                
-                showAdminDashboard();
-                loadDashboardData();
-                showMessage(`Welcome back, ${data.user.username}!`, 'success');
-            } else {
-                const error = await authResponse.json();
-                console.error('Login failed:', error);
-                throw new Error(error.detail || 'Login failed');
-            }
+            const error = await response.json();
+            console.error('Login failed:', error);
+            throw new Error(error.detail || 'Login failed');
         }
     } catch (error) {
         console.error('Login error:', error);

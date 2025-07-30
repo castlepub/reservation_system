@@ -32,7 +32,7 @@ app.add_middleware(
 )
 
 # Include essential routers
-app.include_router(auth.router)
+app.include_router(auth.router, prefix="/api")
 app.include_router(admin.router)
 app.include_router(public.router)
 # app.include_router(layout_router)  # Keep commented out for now
@@ -159,21 +159,6 @@ async def api_root():
 async def test_auth():
     """Test if auth endpoints are accessible"""
     return {"message": "Auth router is working", "status": "ok"}
-
-@app.post("/api/simple-login")
-async def simple_login(username: str, password: str):
-    """Simple login endpoint for testing"""
-    if username == "admin" and password == "admin123":
-        return {
-            "access_token": "test-token-123",
-            "token_type": "bearer",
-            "user": {
-                "username": "admin",
-                "role": "admin"
-            }
-        }
-    else:
-        raise HTTPException(status_code=401, detail="Invalid credentials")
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request, exc):
