@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from app.core.database import engine, Base
@@ -171,6 +171,120 @@ async def get_daily_view_fallback(date: str):
         "rooms": [],
         "message": "Layout system temporarily disabled for stability"
     }
+
+@app.get("/admin/init-basic-data")
+async def init_basic_data():
+    """Initialize basic rooms and tables for testing"""
+    try:
+        from app.core.database import SessionLocal
+        from app.models.room import Room
+        from app.models.table import Table
+        
+        db = SessionLocal()
+        try:
+            # Check if rooms exist
+            existing_rooms = db.query(Room).count()
+            if existing_rooms == 0:
+                # Create sample rooms
+                room1 = Room(name="Main Dining", description="Main dining area", active=True)
+                room2 = Room(name="Private Dining", description="Private dining room", active=True)
+                room3 = Room(name="Bar Area", description="Bar and lounge area", active=True)
+                
+                db.add_all([room1, room2, room3])
+                db.commit()
+                
+                # Create sample tables
+                tables = [
+                    Table(name="T1", capacity=2, room_id=room1.id, active=True),
+                    Table(name="T2", capacity=4, room_id=room1.id, active=True),
+                    Table(name="T3", capacity=6, room_id=room1.id, active=True),
+                    Table(name="P1", capacity=8, room_id=room2.id, active=True),
+                    Table(name="B1", capacity=2, room_id=room3.id, active=True),
+                    Table(name="B2", capacity=4, room_id=room3.id, active=True),
+                ]
+                
+                db.add_all(tables)
+                db.commit()
+                
+                return {"status": "success", "message": "Basic rooms and tables created"}
+            else:
+                return {"status": "info", "message": f"Rooms already exist ({existing_rooms} rooms found)"}
+                
+        finally:
+            db.close()
+            
+    except Exception as e:
+        return {"status": "error", "message": f"Error creating basic data: {str(e)}"}
+
+@app.get("/admin/reports/daily")
+async def get_daily_report_simple(report_date: str):
+    """Simple daily report endpoint"""
+    try:
+        from app.core.database import SessionLocal
+        from app.models.reservation import Reservation
+        from datetime import datetime
+        
+        # Parse the date
+        target_date = datetime.strptime(report_date, "%Y-%m-%d").date()
+        
+        db = SessionLocal()
+        try:
+            # Get reservations for the date
+            reservations = db.query(Reservation).filter(Reservation.date == target_date).all()
+            
+            # Generate simple HTML report
+            html_content = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Daily Report - {target_date}</title>
+                <style>
+                    body {{ font-family: Arial, sans-serif; margin: 20px; }}
+                    .header {{ text-align: center; margin-bottom: 20px; }}
+                    .reservation {{ margin: 10px 0; padding: 10px; border: 1px solid #ccc; }}
+                    .summary {{ background: #f5f5f5; padding: 10px; margin: 20px 0; }}
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <h1>The Castle Pub</h1>
+                    <h2>Daily Report - {target_date}</h2>
+                </div>
+                <div class="summary">
+                    <strong>Total Reservations: {len(reservations)}</strong>
+                </div>
+            """
+            
+            for reservation in reservations:
+                html_content += f"""
+                <div class="reservation">
+                    <strong>{reservation.customer_name}</strong> - {reservation.time.strftime('%H:%M')}<br>
+                    Party Size: {reservation.party_size}<br>
+                    Phone: {reservation.phone}<br>
+                    Status: {reservation.status.value}<br>
+                    {f'Notes: {reservation.notes}' if reservation.notes else ''}
+                </div>
+                """
+            
+            html_content += """
+            </body>
+            </html>
+            """
+            
+            return Response(
+                content=html_content,
+                media_type="text/html",
+                headers={"Content-Disposition": f"attachment; filename=daily_report_{target_date}.html"}
+            )
+            
+        finally:
+            db.close()
+            
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error generating report: {str(e)}"
+        )
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request, exc):
