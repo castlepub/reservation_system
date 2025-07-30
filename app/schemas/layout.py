@@ -1,7 +1,14 @@
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
-from app.models.table_layout import TableShape
+# Import moved to avoid circular dependency
+import enum
+
+class TableShape(str, enum.Enum):
+    RECTANGULAR = "rectangular"
+    ROUND = "round"
+    SQUARE = "square"
+    CUSTOM = "custom"
 
 
 class TableLayoutCreate(BaseModel):
