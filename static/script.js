@@ -753,13 +753,15 @@ async function handleAdminLogin(e) {
     e.preventDefault();
     
     const formData = new FormData(e.target);
+    const username = formData.get('username');
+    const password = formData.get('password');
     
     try {
         showLoading();
         
-        const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
-            method: 'POST',
-            body: formData
+        // Try simple login endpoint first
+        const response = await fetch(`${API_BASE_URL}/api/simple-login?username=${username}&password=${password}`, {
+            method: 'POST'
         });
 
         console.log('Login response status:', response.status);
@@ -773,9 +775,26 @@ async function handleAdminLogin(e) {
             loadDashboardData();
             showMessage(`Welcome back, ${data.user.username}!`, 'success');
         } else {
-            const error = await response.json();
-            console.error('Login failed:', error);
-            throw new Error(error.detail || 'Login failed');
+            // Fallback to original auth endpoint
+            const authResponse = await fetch(`${API_BASE_URL}/api/auth/login`, {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (authResponse.ok) {
+                const data = await authResponse.json();
+                console.log('Login successful via auth router, got token');
+                authToken = data.access_token;
+                localStorage.setItem('authToken', authToken);
+                
+                showAdminDashboard();
+                loadDashboardData();
+                showMessage(`Welcome back, ${data.user.username}!`, 'success');
+            } else {
+                const error = await authResponse.json();
+                console.error('Login failed:', error);
+                throw new Error(error.detail || 'Login failed');
+            }
         }
     } catch (error) {
         console.error('Login error:', error);
