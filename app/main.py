@@ -7,7 +7,7 @@ from app.core.database import engine, Base
 from app.api import auth, public, admin
 # Import all models to ensure they're registered with SQLAlchemy
 from app.models import User, Room, Table, Reservation, ReservationTable, TableLayout, RoomLayout
-# from app.api.layout import router as layout_router  # Keep commented out for now
+from app.api.layout import router as layout_router
 from app.core.config import settings
 import logging
 import os
@@ -37,7 +37,7 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/api")
 app.include_router(admin.router)
 app.include_router(public.router)
-# app.include_router(layout_router)  # Keep commented out for now
+app.include_router(layout_router)
 
 # Import and include dashboard router
 from app.api import dashboard
