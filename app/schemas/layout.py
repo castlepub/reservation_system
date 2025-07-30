@@ -1,52 +1,133 @@
-from pydantic import BaseModel
-from typing import Optional, List
-from datetime import datetime
-# Import moved to avoid circular dependency
-import enum
+from pydantic import BaseModel, Field
+from typing import List, Optional, Dict, Any
+from datetime import datetime, date
+from enum import Enum
 
-class TableShape(str, enum.Enum):
+
+class TableShape(str, Enum):
     RECTANGULAR = "rectangular"
     ROUND = "round"
     SQUARE = "square"
+    BAR_STOOL = "bar_stool"
     CUSTOM = "custom"
 
 
-class TableLayoutCreate(BaseModel):
+# Table Layout Schemas
+class TableLayoutBase(BaseModel):
+    x_position: float = Field(..., ge=0)
+    y_position: float = Field(..., ge=0)
+    width: float = Field(default=100.0, gt=0)
+    height: float = Field(default=80.0, gt=0)
+    shape: TableShape = TableShape.RECTANGULAR
+    color: str = "#4A90E2"
+    border_color: str = "#2E5BBA"
+    text_color: str = "#FFFFFF"
+    show_capacity: bool = True
+    show_name: bool = True
+    font_size: int = Field(default=12, ge=8, le=24)
+    custom_capacity: Optional[int] = Field(None, ge=1, le=50)
+    is_connected: bool = False
+    connected_to: Optional[str] = None
+    z_index: int = Field(default=1, ge=0)
+
+
+class TableLayoutCreate(TableLayoutBase):
     table_id: str
     room_id: str
-    x_position: float
-    y_position: float
-    width: Optional[float] = 100.0
-    height: Optional[float] = 80.0
-    shape: Optional[TableShape] = TableShape.RECTANGULAR
-    color: Optional[str] = "#4A90E2"
-    border_color: Optional[str] = "#2E5BBA"
-    text_color: Optional[str] = "#FFFFFF"
-    show_capacity: Optional[bool] = True
-    show_name: Optional[bool] = True
-    font_size: Optional[int] = 12
-    z_index: Optional[int] = 1
 
 
 class TableLayoutUpdate(BaseModel):
-    x_position: Optional[float] = None
-    y_position: Optional[float] = None
-    width: Optional[float] = None
-    height: Optional[float] = None
+    x_position: Optional[float] = Field(None, ge=0)
+    y_position: Optional[float] = Field(None, ge=0)
+    width: Optional[float] = Field(None, gt=0)
+    height: Optional[float] = Field(None, gt=0)
     shape: Optional[TableShape] = None
     color: Optional[str] = None
     border_color: Optional[str] = None
     text_color: Optional[str] = None
     show_capacity: Optional[bool] = None
     show_name: Optional[bool] = None
-    font_size: Optional[int] = None
-    z_index: Optional[int] = None
+    font_size: Optional[int] = Field(None, ge=8, le=24)
+    custom_capacity: Optional[int] = Field(None, ge=1, le=50)
+    is_connected: Optional[bool] = None
+    connected_to: Optional[str] = None
+    z_index: Optional[int] = Field(None, ge=0)
 
 
-class TableLayoutResponse(BaseModel):
+class TableLayoutResponse(TableLayoutBase):
     id: str
     table_id: str
     room_id: str
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+# Room Layout Schemas
+class RoomLayoutBase(BaseModel):
+    width: float = Field(default=800.0, gt=0)
+    height: float = Field(default=600.0, gt=0)
+    background_color: str = "#F5F5F5"
+    grid_enabled: bool = True
+    grid_size: int = Field(default=20, ge=5, le=100)
+    grid_color: str = "#E0E0E0"
+    show_entrance: bool = True
+    entrance_position: str = "top"  # top, bottom, left, right
+    show_bar: bool = False
+    bar_position: str = "center"
+
+
+class RoomLayoutCreate(RoomLayoutBase):
+    room_id: str
+
+
+class RoomLayoutUpdate(BaseModel):
+    width: Optional[float] = Field(None, gt=0)
+    height: Optional[float] = Field(None, gt=0)
+    background_color: Optional[str] = None
+    grid_enabled: Optional[bool] = None
+    grid_size: Optional[int] = Field(None, ge=5, le=100)
+    grid_color: Optional[str] = None
+    show_entrance: Optional[bool] = None
+    entrance_position: Optional[str] = None
+    show_bar: Optional[bool] = None
+    bar_position: Optional[str] = None
+
+
+class RoomLayoutResponse(RoomLayoutBase):
+    id: str
+    room_id: str
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+# Reservation schemas for layout integration
+class ReservationSummary(BaseModel):
+    id: str
+    customer_name: str
+    time: str
+    duration_hours: int
+    party_size: int
+    reservation_type: str
+    status: str
+    notes: Optional[str] = None
+    admin_notes: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+# Table with reservation data for layout editor
+class TableWithReservation(BaseModel):
+    layout_id: str
+    table_id: str
+    table_name: str
+    capacity: int
     x_position: float
     y_position: float
     width: float
@@ -58,104 +139,45 @@ class TableLayoutResponse(BaseModel):
     show_capacity: bool
     show_name: bool
     font_size: int
+    is_connected: bool
+    connected_to: Optional[str]
     z_index: int
-    created_at: datetime
-    updated_at: Optional[datetime]
+    reservations: List[ReservationSummary]
 
     class Config:
         from_attributes = True
 
 
-class RoomLayoutCreate(BaseModel):
+# Layout Editor Data
+class LayoutEditorData(BaseModel):
     room_id: str
-    width: Optional[float] = 800.0
-    height: Optional[float] = 600.0
-    background_color: Optional[str] = "#F5F5F5"
-    grid_enabled: Optional[bool] = True
-    grid_size: Optional[int] = 20
-    grid_color: Optional[str] = "#E0E0E0"
-    show_entrance: Optional[bool] = True
-    entrance_position: Optional[str] = "top"
-    show_bar: Optional[bool] = False
-    bar_position: Optional[str] = "center"
-
-
-class RoomLayoutUpdate(BaseModel):
-    width: Optional[float] = None
-    height: Optional[float] = None
-    background_color: Optional[str] = None
-    grid_enabled: Optional[bool] = None
-    grid_size: Optional[int] = None
-    grid_color: Optional[str] = None
-    show_entrance: Optional[bool] = None
-    entrance_position: Optional[str] = None
-    show_bar: Optional[bool] = None
-    bar_position: Optional[str] = None
-
-
-class RoomLayoutResponse(BaseModel):
-    id: str
-    room_id: str
-    width: float
-    height: float
-    background_color: str
-    grid_enabled: bool
-    grid_size: int
-    grid_color: str
-    show_entrance: bool
-    entrance_position: str
-    show_bar: bool
-    bar_position: str
-    created_at: datetime
-    updated_at: Optional[datetime]
+    room_layout: RoomLayoutResponse
+    tables: List[TableWithReservation]
+    reservations: List[ReservationSummary]
 
     class Config:
         from_attributes = True
 
 
-class TableWithLayout(BaseModel):
-    id: str
-    name: str
+# Table Assignment Suggestions
+class TableSuggestion(BaseModel):
+    table_id: str
+    table_name: str
+    layout_id: str
     capacity: int
+    x_position: float
+    y_position: float
+    shape: TableShape
+    score: int  # Lower is better (closer fit)
+
+
+# Export/Import schemas
+class LayoutExport(BaseModel):
     room_id: str
-    room_name: str
-    active: bool
-    combinable: bool
-    layout: Optional[TableLayoutResponse] = None
-
-    class Config:
-        from_attributes = True
+    exported_at: str
+    room_layout: Dict[str, Any]
+    table_layouts: List[Dict[str, Any]]
 
 
-class RoomWithLayout(BaseModel):
-    id: str
-    name: str
-    active: bool
-    layout: Optional[RoomLayoutResponse] = None
-    tables: List[TableWithLayout] = []
-
-    class Config:
-        from_attributes = True
-
-
-class DailyReservationView(BaseModel):
-    id: str
-    customer_name: str
-    time: str
-    duration_hours: int
-    party_size: int
-    table_names: List[str]
-    reservation_type: str
-    status: str
-    notes: Optional[str]
-    admin_notes: Optional[str]
-    room_name: str
-
-    class Config:
-        from_attributes = True
-
-
-class DailyViewResponse(BaseModel):
-    date: str
-    reservations: List[DailyReservationView]
-    rooms: List[RoomWithLayout] 
+class LayoutImport(BaseModel):
+    layout_data: Dict[str, Any] 

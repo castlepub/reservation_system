@@ -657,6 +657,110 @@
                             </div>
                         </div>
 
+                        <!-- Table Layout Editor -->
+                        <div class="setting-group">
+                            <h4>Table Layout Editor</h4>
+                            <div class="layout-controls">
+                                <div class="form-group">
+                                    <label for="layoutRoomSelect">Select Room</label>
+                                    <select id="layoutRoomSelect" class="form-control">
+                                        <option value="">Choose a room...</option>
+                                    </select>
+                                </div>
+                                <div class="layout-toolbar">
+                                    <button type="button" class="btn btn-secondary" onclick="addTableToLayout('square')">
+                                        <i class="fas fa-square"></i> Square
+                                    </button>
+                                    <button type="button" class="btn btn-secondary" onclick="addTableToLayout('round')">
+                                        <i class="fas fa-circle"></i> Round
+                                    </button>
+                                    <button type="button" class="btn btn-secondary" onclick="addTableToLayout('bar_stool')">
+                                        <i class="fas fa-dot-circle"></i> Bar Stool
+                                    </button>
+                                    <button type="button" class="btn btn-secondary" onclick="addTableToLayout('rectangular')">
+                                        <i class="fas fa-rectangle-portrait"></i> Rectangle
+                                    </button>
+                                    <button type="button" class="btn btn-secondary" onclick="toggleGrid()">
+                                        <i class="fas fa-th"></i> Grid
+                                    </button>
+                                    <button type="button" class="btn btn-primary" onclick="saveLayout()">
+                                        <i class="fas fa-save"></i> Save Layout
+                                    </button>
+                                    <button type="button" class="btn btn-secondary" onclick="exportLayout()">
+                                        <i class="fas fa-download"></i> Export
+                                    </button>
+                                    <button type="button" class="btn btn-secondary" onclick="printLayout()">
+                                        <i class="fas fa-print"></i> Print
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="layout-editor-container">
+                                <div id="layoutCanvas" class="layout-canvas">
+                                    <div class="layout-placeholder">
+                                        <i class="fas fa-map"></i>
+                                        <p>Select a room to start designing the layout</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="layout-sidebar">
+                                    <div class="layout-properties">
+                                        <h5>Table Properties</h5>
+                                        <div id="tableProperties" class="properties-form" style="display: none;">
+                                            <div class="form-group">
+                                                <label for="tableName">Table Name</label>
+                                                <input type="text" id="tableName" class="form-control">
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="tableCapacity">Capacity</label>
+                                                <input type="number" id="tableCapacity" class="form-control" min="1" max="50">
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="tableShape">Shape</label>
+                                                <select id="tableShape" class="form-control">
+                                                    <option value="square">Square</option>
+                                                    <option value="round">Round</option>
+                                                    <option value="rectangular">Rectangular</option>
+                                                    <option value="bar_stool">Bar Stool</option>
+                                                </select>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="tableColor">Color</label>
+                                                <input type="color" id="tableColor" class="form-control" value="#4A90E2">
+                                            </div>
+                                            <div class="form-group">
+                                                <label>
+                                                    <input type="checkbox" id="tableShowName" checked>
+                                                    Show Name
+                                                </label>
+                                            </div>
+                                            <div class="form-group">
+                                                <label>
+                                                    <input type="checkbox" id="tableShowCapacity" checked>
+                                                    Show Capacity
+                                                </label>
+                                            </div>
+                                            <div class="form-actions">
+                                                <button type="button" class="btn btn-primary" onclick="updateTableProperties()">
+                                                    <i class="fas fa-save"></i> Update
+                                                </button>
+                                                <button type="button" class="btn btn-danger" onclick="deleteSelectedTable()">
+                                                    <i class="fas fa-trash"></i> Delete
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="layout-reservations">
+                                        <h5>Reservations</h5>
+                                        <div id="layoutReservationsList" class="reservations-list">
+                                            <!-- Will be populated by JavaScript -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="setting-actions">
                             <button id="saveAllSettings" class="btn btn-primary btn-large">
                                 <i class="fas fa-save"></i> Save All Settings

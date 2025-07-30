@@ -4,7 +4,7 @@ from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from app.core.database import engine, Base
-from app.api import auth, public, admin
+from app.api import auth, admin, public, layout
 # Import all models to ensure they're registered with SQLAlchemy
 from app.models import User, Room, Table, Reservation, ReservationTable, TableLayout, RoomLayout
 # from app.api.layout import router as layout_router  # Disabled due to import issues
@@ -33,11 +33,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include essential routers
+# Include routers
 app.include_router(auth.router, prefix="/api")
-app.include_router(admin.router)
-app.include_router(public.router)
-# app.include_router(layout_router)  # Disabled due to import issues
+app.include_router(admin.router, prefix="/admin")
+app.include_router(public.router, prefix="/api")
+app.include_router(layout.router, prefix="/api/layout")
 
 # Import and include dashboard router
 from app.api import dashboard
@@ -545,33 +545,23 @@ def run_migrations():
         with engine.connect() as conn:
             # Add duration_hours column to reservations if it doesn't exist
             try:
-                conn.execute(text("""
-                    ALTER TABLE reservations 
-                    ADD COLUMN IF NOT EXISTS duration_hours INTEGER DEFAULT 2
-                """))
-                conn.execute(text("""
-                    UPDATE reservations 
-                    SET duration_hours = 2 
-                    WHERE duration_hours IS NULL
-                """))
-                # Make sure the column is not null
-                conn.execute(text("""
-                    ALTER TABLE reservations 
-                    ALTER COLUMN duration_hours SET NOT NULL
-                """))
+                conn.execute(text("ALTER TABLE reservations ADD COLUMN duration_hours INTEGER DEFAULT 2 NOT NULL"))
                 print("✅ Duration hours migration completed")
             except Exception as e:
-                print(f"⚠️ Duration hours migration warning: {e}")
+                if "duplicate column name" not in str(e).lower():
+                    print(f"⚠️ Duration hours migration: {e}")
+                else:
+                    print("✅ Duration hours column already exists")
             
             # Add email column to users if it doesn't exist
             try:
-                conn.execute(text("""
-                    ALTER TABLE users 
-                    ADD COLUMN IF NOT EXISTS email VARCHAR UNIQUE
-                """))
+                conn.execute(text("ALTER TABLE users ADD COLUMN email VARCHAR"))
                 print("✅ Email column migration completed")
             except Exception as e:
-                print(f"⚠️ Email column migration warning: {e}")
+                if "duplicate column name" not in str(e).lower():
+                    print(f"⚠️ Email migration: {e}")
+                else:
+                    print("✅ Email column already exists")
             
             # Create table_layouts table if it doesn't exist
             try:
@@ -591,16 +581,19 @@ def run_migrations():
                         show_capacity BOOLEAN DEFAULT TRUE,
                         show_name BOOLEAN DEFAULT TRUE,
                         font_size INTEGER DEFAULT 12,
+                        custom_capacity INTEGER,
+                        is_connected BOOLEAN DEFAULT FALSE,
+                        connected_to TEXT,
                         z_index INTEGER DEFAULT 1,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        FOREIGN KEY (table_id) REFERENCES tables(id) ON DELETE CASCADE,
-                        FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE
+                        FOREIGN KEY (table_id) REFERENCES tables(id),
+                        FOREIGN KEY (room_id) REFERENCES rooms(id)
                     )
                 """))
                 print("✅ Table layouts migration completed")
             except Exception as e:
-                print(f"⚠️ Table layouts migration warning: {e}")
+                print(f"⚠️ Table layouts migration: {e}")
             
             # Create room_layouts table if it doesn't exist
             try:
@@ -620,14 +613,15 @@ def run_migrations():
                         bar_position VARCHAR DEFAULT 'center',
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE
+                        FOREIGN KEY (room_id) REFERENCES rooms(id)
                     )
                 """))
                 print("✅ Room layouts migration completed")
             except Exception as e:
-                print(f"⚠️ Room layouts migration warning: {e}")
+                print(f"⚠️ Room layouts migration: {e}")
             
             conn.commit()
+            print("✅ Database migrations completed")
             
     except Exception as e:
         print(f"❌ Migration error: {e}")

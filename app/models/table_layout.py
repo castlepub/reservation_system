@@ -10,6 +10,7 @@ class TableShape(str, enum.Enum):
     RECTANGULAR = "rectangular"
     ROUND = "round"
     SQUARE = "square"
+    BAR_STOOL = "bar_stool"
     CUSTOM = "custom"
 
 
@@ -36,6 +37,11 @@ class TableLayout(Base):
     show_capacity = Column(Boolean, default=True)
     show_name = Column(Boolean, default=True)
     font_size = Column(Integer, default=12)
+    
+    # Custom properties
+    custom_capacity = Column(Integer)  # Override table capacity if needed
+    is_connected = Column(Boolean, default=False)  # For connected tables
+    connected_to = Column(Text, ForeignKey("table_layouts.id"), nullable=True)  # Link to another table
     
     # Z-index for layering
     z_index = Column(Integer, default=1)

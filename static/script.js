@@ -1090,9 +1090,13 @@ async function loadSettingsData() {
             loadRestaurantSettings(),
             loadSpecialDays()
         ]);
+        
+        // Initialize layout editor
+        initializeLayoutEditorOnLoad();
+        
     } catch (error) {
-        console.error('Error loading settings:', error);
-        showMessage('Error loading settings data', 'error');
+        console.error('Error loading settings data:', error);
+        showMessage('Error loading settings', 'error');
     }
 }
 
@@ -2769,4 +2773,690 @@ async function handleEditTable(event) {
 function hideEditTableForm() {
     document.getElementById('editTableModal').classList.add('hidden');
     document.getElementById('editTableForm').reset();
+}
+
+// Layout Editor Variables
+let currentLayoutRoom = null;
+let currentLayoutData = null;
+let selectedTable = null;
+let isDragging = false;
+let dragOffset = { x: 0, y: 0 };
+let gridEnabled = true;
+let tableCounter = 1;
+
+// Layout Editor Functions
+async function initializeLayoutEditor() {
+    try {
+        // Load rooms for layout editor
+        const response = await fetch(`${API_BASE_URL}/admin/rooms`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        
+        if (response.ok) {
+            const rooms = await response.json();
+            const roomSelect = document.getElementById('layoutRoomSelect');
+            roomSelect.innerHTML = '<option value="">Choose a room...</option>';
+            
+            rooms.forEach(room => {
+                const option = document.createElement('option');
+                option.value = room.id;
+                option.textContent = room.name;
+                roomSelect.appendChild(option);
+            });
+            
+            // Add event listener for room selection
+            roomSelect.addEventListener('change', handleRoomSelection);
+        }
+    } catch (error) {
+        console.error('Error initializing layout editor:', error);
+        showMessage('Error loading rooms for layout editor', 'error');
+    }
+}
+
+async function handleRoomSelection(event) {
+    const roomId = event.target.value;
+    if (!roomId) {
+        clearLayoutCanvas();
+        return;
+    }
+    
+    currentLayoutRoom = roomId;
+    await loadRoomLayout(roomId);
+}
+
+async function loadRoomLayout(roomId) {
+    try {
+        const today = new Date().toISOString().split('T')[0];
+        const response = await fetch(`${API_BASE_URL}/api/layout/editor/${roomId}?target_date=${today}`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        
+        if (response.ok) {
+            currentLayoutData = await response.json();
+            renderLayoutCanvas();
+            renderLayoutReservations();
+        } else {
+            throw new Error('Failed to load room layout');
+        }
+    } catch (error) {
+        console.error('Error loading room layout:', error);
+        showMessage('Error loading room layout', 'error');
+    }
+}
+
+function renderLayoutCanvas() {
+    const canvas = document.getElementById('layoutCanvas');
+    canvas.innerHTML = '';
+    
+    if (!currentLayoutData) return;
+    
+    // Set canvas size based on room layout
+    const roomLayout = currentLayoutData.room_layout;
+    canvas.style.width = `${roomLayout.width}px`;
+    canvas.style.height = `${roomLayout.height}px`;
+    canvas.style.backgroundColor = roomLayout.background_color;
+    
+    // Add grid if enabled
+    if (gridEnabled) {
+        canvas.classList.add('grid-enabled');
+    } else {
+        canvas.classList.remove('grid-enabled');
+    }
+    
+    // Add room features
+    if (roomLayout.show_entrance) {
+        const entrance = document.createElement('div');
+        entrance.className = 'room-entrance';
+        entrance.textContent = 'ENTRANCE';
+        canvas.appendChild(entrance);
+    }
+    
+    if (roomLayout.show_bar) {
+        const bar = document.createElement('div');
+        bar.className = 'room-bar';
+        bar.textContent = 'BAR';
+        canvas.appendChild(bar);
+    }
+    
+    // Render tables
+    currentLayoutData.tables.forEach(table => {
+        const tableElement = createTableElement(table);
+        canvas.appendChild(tableElement);
+    });
+    
+    // Add click handler for canvas
+    canvas.addEventListener('click', handleCanvasClick);
+}
+
+function createTableElement(tableData) {
+    const tableElement = document.createElement('div');
+    tableElement.className = `layout-table ${tableData.shape} ${getTableStatus(tableData)}`;
+    tableElement.style.left = `${tableData.x_position}px`;
+    tableElement.style.top = `${tableData.y_position}px`;
+    tableElement.style.width = `${tableData.width}px`;
+    tableElement.style.height = `${tableData.height}px`;
+    tableElement.style.backgroundColor = tableData.color;
+    tableElement.style.borderColor = tableData.border_color;
+    tableElement.style.color = tableData.text_color;
+    tableElement.style.fontSize = `${tableData.font_size}px`;
+    tableElement.style.zIndex = tableData.z_index;
+    
+    // Add table content
+    let content = '';
+    if (tableData.show_name) {
+        content += `<div class="table-name">${tableData.table_name}</div>`;
+    }
+    if (tableData.show_capacity) {
+        content += `<div class="table-capacity">${tableData.capacity}p</div>`;
+    }
+    tableElement.innerHTML = content;
+    
+    // Add event listeners
+    tableElement.addEventListener('click', (e) => {
+        e.stopPropagation();
+        selectTable(tableData.layout_id, tableElement);
+    });
+    
+    tableElement.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        openTableReservation(tableData);
+    });
+    
+    // Make draggable
+    makeTableDraggable(tableElement, tableData);
+    
+    return tableElement;
+}
+
+function getTableStatus(tableData) {
+    if (tableData.reservations && tableData.reservations.length > 0) {
+        return 'reserved';
+    }
+    return 'available';
+}
+
+function selectTable(layoutId, element) {
+    // Remove previous selection
+    document.querySelectorAll('.layout-table.selected').forEach(table => {
+        table.classList.remove('selected');
+    });
+    
+    // Add selection
+    element.classList.add('selected');
+    selectedTable = layoutId;
+    
+    // Show properties panel
+    showTableProperties(layoutId);
+}
+
+function showTableProperties(layoutId) {
+    const tableData = currentLayoutData.tables.find(t => t.layout_id === layoutId);
+    if (!tableData) return;
+    
+    // Populate properties form
+    document.getElementById('tableName').value = tableData.table_name;
+    document.getElementById('tableCapacity').value = tableData.capacity;
+    document.getElementById('tableShape').value = tableData.shape;
+    document.getElementById('tableColor').value = tableData.color;
+    document.getElementById('tableShowName').checked = tableData.show_name;
+    document.getElementById('tableShowCapacity').checked = tableData.show_capacity;
+    
+    // Show properties panel
+    document.getElementById('tableProperties').style.display = 'block';
+}
+
+function makeTableDraggable(element, tableData) {
+    element.addEventListener('mousedown', (e) => {
+        if (e.target === element) {
+            isDragging = true;
+            selectedTable = tableData.layout_id;
+            
+            const rect = element.getBoundingClientRect();
+            const canvasRect = document.getElementById('layoutCanvas').getBoundingClientRect();
+            
+            dragOffset.x = e.clientX - rect.left;
+            dragOffset.y = e.clientY - rect.top;
+            
+            element.classList.add('dragging');
+            
+            e.preventDefault();
+        }
+    });
+    
+    document.addEventListener('mousemove', (e) => {
+        if (isDragging && selectedTable) {
+            const canvas = document.getElementById('layoutCanvas');
+            const canvasRect = canvas.getBoundingClientRect();
+            
+            let newX = e.clientX - canvasRect.left - dragOffset.x;
+            let newY = e.clientY - canvasRect.top - dragOffset.y;
+            
+            // Snap to grid if enabled
+            if (gridEnabled) {
+                newX = Math.round(newX / 20) * 20;
+                newY = Math.round(newY / 20) * 20;
+            }
+            
+            // Keep within canvas bounds
+            newX = Math.max(0, Math.min(newX, canvas.offsetWidth - element.offsetWidth));
+            newY = Math.max(0, Math.min(newY, canvas.offsetHeight - element.offsetHeight));
+            
+            element.style.left = `${newX}px`;
+            element.style.top = `${newY}px`;
+        }
+    });
+    
+    document.addEventListener('mouseup', () => {
+        if (isDragging) {
+            isDragging = false;
+            document.querySelectorAll('.layout-table.dragging').forEach(table => {
+                table.classList.remove('dragging');
+            });
+            
+            // Auto-save position
+            if (selectedTable) {
+                updateTablePosition(selectedTable);
+            }
+        }
+    });
+}
+
+async function updateTablePosition(layoutId) {
+    try {
+        const tableElement = document.querySelector(`.layout-table.selected`);
+        if (!tableElement) return;
+        
+        const x = parseFloat(tableElement.style.left);
+        const y = parseFloat(tableElement.style.top);
+        
+        const response = await fetch(`${API_BASE_URL}/api/layout/tables/${layoutId}`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                x_position: x,
+                y_position: y
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to update table position');
+        }
+        
+        // Update local data
+        const tableData = currentLayoutData.tables.find(t => t.layout_id === layoutId);
+        if (tableData) {
+            tableData.x_position = x;
+            tableData.y_position = y;
+        }
+    } catch (error) {
+        console.error('Error updating table position:', error);
+        showMessage('Error updating table position', 'error');
+    }
+}
+
+function addTableToLayout(shape) {
+    if (!currentLayoutRoom) {
+        showMessage('Please select a room first', 'warning');
+        return;
+    }
+    
+    const canvas = document.getElementById('layoutCanvas');
+    const rect = canvas.getBoundingClientRect();
+    
+    // Default position (center of canvas)
+    const x = Math.round((rect.width / 2 - 50) / 20) * 20;
+    const y = Math.round((rect.height / 2 - 40) / 20) * 20;
+    
+    // Create new table data
+    const newTable = {
+        table_id: `temp_${Date.now()}`,
+        room_id: currentLayoutRoom,
+        x_position: x,
+        y_position: y,
+        width: shape === 'bar_stool' ? 40 : 100,
+        height: shape === 'bar_stool' ? 40 : 80,
+        shape: shape,
+        color: '#4A90E2',
+        border_color: '#2E5BBA',
+        text_color: '#FFFFFF',
+        show_capacity: true,
+        show_name: true,
+        font_size: 12,
+        custom_capacity: 4,
+        is_connected: false,
+        connected_to: null,
+        z_index: 1,
+        table_name: `T${tableCounter++}`,
+        capacity: 4,
+        reservations: []
+    };
+    
+    // Add to local data
+    currentLayoutData.tables.push(newTable);
+    
+    // Create and add table element
+    const tableElement = createTableElement(newTable);
+    canvas.appendChild(tableElement);
+    
+    // Select the new table
+    selectTable(newTable.layout_id, tableElement);
+    
+    // Save to backend
+    saveNewTable(newTable);
+}
+
+async function saveNewTable(tableData) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/layout/tables`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                table_id: tableData.table_id,
+                room_id: tableData.room_id,
+                x_position: tableData.x_position,
+                y_position: tableData.y_position,
+                width: tableData.width,
+                height: tableData.height,
+                shape: tableData.shape,
+                color: tableData.color,
+                border_color: tableData.border_color,
+                text_color: tableData.text_color,
+                show_capacity: tableData.show_capacity,
+                show_name: tableData.show_name,
+                font_size: tableData.font_size,
+                custom_capacity: tableData.custom_capacity,
+                is_connected: tableData.is_connected,
+                connected_to: tableData.connected_to,
+                z_index: tableData.z_index
+            })
+        });
+        
+        if (response.ok) {
+            const savedTable = await response.json();
+            // Update the temporary ID with the real one
+            const tableData = currentLayoutData.tables.find(t => t.table_id === `temp_${Date.now()}`);
+            if (tableData) {
+                tableData.layout_id = savedTable.id;
+                tableData.table_id = savedTable.table_id;
+            }
+        } else {
+            throw new Error('Failed to save new table');
+        }
+    } catch (error) {
+        console.error('Error saving new table:', error);
+        showMessage('Error saving new table', 'error');
+    }
+}
+
+async function updateTableProperties() {
+    if (!selectedTable) return;
+    
+    try {
+        const formData = {
+            table_name: document.getElementById('tableName').value,
+            capacity: parseInt(document.getElementById('tableCapacity').value),
+            shape: document.getElementById('tableShape').value,
+            color: document.getElementById('tableColor').value,
+            show_name: document.getElementById('tableShowName').checked,
+            show_capacity: document.getElementById('tableShowCapacity').checked
+        };
+        
+        const response = await fetch(`${API_BASE_URL}/api/layout/tables/${selectedTable}`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(formData)
+        });
+        
+        if (response.ok) {
+            // Update local data
+            const tableData = currentLayoutData.tables.find(t => t.layout_id === selectedTable);
+            if (tableData) {
+                Object.assign(tableData, formData);
+            }
+            
+            // Re-render canvas
+            renderLayoutCanvas();
+            showMessage('Table properties updated successfully', 'success');
+        } else {
+            throw new Error('Failed to update table properties');
+        }
+    } catch (error) {
+        console.error('Error updating table properties:', error);
+        showMessage('Error updating table properties', 'error');
+    }
+}
+
+async function deleteSelectedTable() {
+    if (!selectedTable) return;
+    
+    if (!confirm('Are you sure you want to delete this table?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/layout/tables/${selectedTable}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+        
+        if (response.ok) {
+            // Remove from local data
+            currentLayoutData.tables = currentLayoutData.tables.filter(t => t.layout_id !== selectedTable);
+            
+            // Re-render canvas
+            renderLayoutCanvas();
+            
+            // Hide properties panel
+            document.getElementById('tableProperties').style.display = 'none';
+            selectedTable = null;
+            
+            showMessage('Table deleted successfully', 'success');
+        } else {
+            throw new Error('Failed to delete table');
+        }
+    } catch (error) {
+        console.error('Error deleting table:', error);
+        showMessage('Error deleting table', 'error');
+    }
+}
+
+function toggleGrid() {
+    gridEnabled = !gridEnabled;
+    const canvas = document.getElementById('layoutCanvas');
+    
+    if (gridEnabled) {
+        canvas.classList.add('grid-enabled');
+    } else {
+        canvas.classList.remove('grid-enabled');
+    }
+}
+
+function renderLayoutReservations() {
+    const container = document.getElementById('layoutReservationsList');
+    if (!container || !currentLayoutData) return;
+    
+    container.innerHTML = '';
+    
+    if (!currentLayoutData.reservations || currentLayoutData.reservations.length === 0) {
+        container.innerHTML = '<div class="no-reservations">No reservations for today</div>';
+        return;
+    }
+    
+    currentLayoutData.reservations.forEach(reservation => {
+        const reservationElement = document.createElement('div');
+        reservationElement.className = 'reservation-item';
+        reservationElement.onclick = () => openReservationDetails(reservation.id);
+        
+        reservationElement.innerHTML = `
+            <div class="reservation-header">
+                <span class="reservation-time">${reservation.time}</span>
+                <span class="reservation-party">${reservation.party_size}p</span>
+            </div>
+            <div class="reservation-customer">${reservation.customer_name}</div>
+            <div class="reservation-type">${reservation.reservation_type}</div>
+        `;
+        
+        container.appendChild(reservationElement);
+    });
+}
+
+function openTableReservation(tableData) {
+    if (tableData.reservations && tableData.reservations.length > 0) {
+        // Show reservation details
+        const reservation = tableData.reservations[0];
+        showReservationDetails(reservation);
+    } else {
+        // Show table assignment options
+        showTableAssignmentModal(tableData);
+    }
+}
+
+function showReservationDetails(reservation) {
+    // Create and show modal with reservation details
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4>Reservation Details</h4>
+                <button class="close-btn" onclick="this.closest('.modal').remove()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p><strong>Customer:</strong> ${reservation.customer_name}</p>
+                <p><strong>Time:</strong> ${reservation.time}</p>
+                <p><strong>Party Size:</strong> ${reservation.party_size}</p>
+                <p><strong>Type:</strong> ${reservation.reservation_type}</p>
+                <p><strong>Status:</strong> ${reservation.status}</p>
+                ${reservation.notes ? `<p><strong>Notes:</strong> ${reservation.notes}</p>` : ''}
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    modal.classList.remove('hidden');
+}
+
+function showTableAssignmentModal(tableData) {
+    // Create modal for table assignment
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4>Assign Reservation to ${tableData.table_name}</h4>
+                <button class="close-btn" onclick="this.closest('.modal').remove()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Select a reservation to assign to this table:</p>
+                <div id="assignmentReservationsList">
+                    <!-- Will be populated with available reservations -->
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    modal.classList.remove('hidden');
+    
+    // Populate with available reservations
+    populateAssignmentReservations(tableData);
+}
+
+function populateAssignmentReservations(tableData) {
+    const container = document.getElementById('assignmentReservationsList');
+    if (!container || !currentLayoutData) return;
+    
+    const availableReservations = currentLayoutData.reservations.filter(r => 
+        !r.table_names || r.table_names.length === 0
+    );
+    
+    if (availableReservations.length === 0) {
+        container.innerHTML = '<p>No unassigned reservations available</p>';
+        return;
+    }
+    
+    availableReservations.forEach(reservation => {
+        const element = document.createElement('div');
+        element.className = 'reservation-option';
+        element.onclick = () => assignReservationToTable(reservation.id, tableData.table_id);
+        
+        element.innerHTML = `
+            <div class="reservation-info">
+                <strong>${reservation.customer_name}</strong> - ${reservation.time} (${reservation.party_size}p)
+            </div>
+        `;
+        
+        container.appendChild(element);
+    });
+}
+
+async function assignReservationToTable(reservationId, tableId) {
+    try {
+        // This would need to be implemented in the reservation service
+        // For now, just show a message
+        showMessage('Table assignment feature coming soon!', 'info');
+        
+        // Close modal
+        document.querySelector('.modal').remove();
+    } catch (error) {
+        console.error('Error assigning reservation to table:', error);
+        showMessage('Error assigning reservation to table', 'error');
+    }
+}
+
+async function saveLayout() {
+    if (!currentLayoutRoom) {
+        showMessage('No room selected', 'warning');
+        return;
+    }
+    
+    showMessage('Layout saved automatically', 'success');
+}
+
+async function exportLayout() {
+    if (!currentLayoutRoom) {
+        showMessage('No room selected', 'warning');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/layout/export/${currentLayoutRoom}`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            
+            // Create download link
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `layout_${currentLayoutRoom}_${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            showMessage('Layout exported successfully', 'success');
+        } else {
+            throw new Error('Failed to export layout');
+        }
+    } catch (error) {
+        console.error('Error exporting layout:', error);
+        showMessage('Error exporting layout', 'error');
+    }
+}
+
+function printLayout() {
+    if (!currentLayoutRoom) {
+        showMessage('No room selected', 'warning');
+        return;
+    }
+    
+    // Open print dialog
+    window.print();
+}
+
+function clearLayoutCanvas() {
+    const canvas = document.getElementById('layoutCanvas');
+    canvas.innerHTML = `
+        <div class="layout-placeholder">
+            <i class="fas fa-map"></i>
+            <p>Select a room to start designing the layout</p>
+        </div>
+    `;
+    
+    currentLayoutData = null;
+    selectedTable = null;
+    document.getElementById('tableProperties').style.display = 'none';
+}
+
+function handleCanvasClick(event) {
+    // Deselect table if clicking on empty canvas
+    if (event.target.id === 'layoutCanvas') {
+        document.querySelectorAll('.layout-table.selected').forEach(table => {
+            table.classList.remove('selected');
+        });
+        selectedTable = null;
+        document.getElementById('tableProperties').style.display = 'none';
+    }
+}
+
+// Initialize layout editor when settings tab is loaded
+function initializeLayoutEditorOnLoad() {
+    if (document.getElementById('layoutRoomSelect')) {
+        initializeLayoutEditor();
+    }
 }
