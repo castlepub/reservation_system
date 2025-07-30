@@ -4,10 +4,9 @@ from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from app.core.database import engine, Base
-from app.api import auth, admin, public, layout
+from app.api import auth, admin, public
 # Import all models to ensure they're registered with SQLAlchemy
-from app.models import User, Room, Table, Reservation, ReservationTable, TableLayout, RoomLayout
-# from app.api.layout import router as layout_router  # Disabled due to import issues
+from app.models import User, Room, Table, Reservation, ReservationTable
 from app.core.config import settings
 import logging
 import os
@@ -37,7 +36,6 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/api")
 app.include_router(admin.router, prefix="/admin")
 app.include_router(public.router, prefix="/api")
-# app.include_router(layout.router, prefix="/api/layout")  # Temporarily disabled for health checks
 
 # Import and include dashboard router
 from app.api import dashboard
@@ -55,131 +53,39 @@ if os.path.exists(static_dir):
 else:
     print(f"⚠ Static directory not found: {os.path.abspath(static_dir)}")
 
-@app.on_event("startup")
-async def startup_event():
-    """Initialize database and create admin user on startup"""
-    try:
-        print("🔄 Starting database initialization...")
-        
-        # Create tables
-        Base.metadata.create_all(bind=engine)
-        print("✅ Database tables created")
-        
-        # Run migrations in background (non-blocking)
-        try:
-            import asyncio
-            asyncio.create_task(run_migrations_async())
-        except Exception as e:
-            print(f"⚠️ Migration warning: {e}")
-        
-        # Create admin user in background (non-blocking)
-        try:
-            asyncio.create_task(create_admin_user_async())
-        except Exception as e:
-            print(f"⚠️ Admin user creation warning: {e}")
-        
-        print("✅ Database initialization started successfully")
-        
-    except Exception as e:
-        print(f"❌ Database initialization error: {e}")
-        print("⚠️ Continuing with degraded functionality")
-
-async def run_migrations_async():
-    """Run migrations asynchronously"""
-    try:
-        # Simple migration without complex operations
-        from sqlalchemy import text
-        from app.core.database import SessionLocal
-        
-        db = SessionLocal()
-        try:
-            # Only essential migrations
-            try:
-                db.execute(text("ALTER TABLE reservations ADD COLUMN duration_hours INTEGER DEFAULT 2"))
-                db.commit()
-                print("✅ Duration hours migration completed")
-            except Exception as e:
-                if "duplicate column name" not in str(e).lower():
-                    print(f"⚠️ Duration hours migration: {e}")
-                else:
-                    print("✅ Duration hours column already exists")
-        finally:
-            db.close()
-            
-    except Exception as e:
-        print(f"⚠️ Migration error: {e}")
-
-async def create_admin_user_async():
-    """Create admin user asynchronously"""
-    try:
-        from app.core.database import SessionLocal
-        from app.core.security import get_password_hash
-        from app.models.user import User, UserRole
-        
-        db = SessionLocal()
-        try:
-            # Check if admin user exists
-            existing_admin = db.query(User).filter(User.username == "admin").first()
-            if not existing_admin:
-                admin_user = User(
-                    username="admin",
-                    email="admin@castlepub.com",
-                    hashed_password=get_password_hash("admin123"),
-                    role=UserRole.ADMIN,
-                    is_active=True
-                )
-                db.add(admin_user)
-                db.commit()
-                print("✅ Admin user created successfully")
-            else:
-                print("✅ Admin user already exists")
-        finally:
-            db.close()
-            
-    except Exception as e:
-        print(f"⚠️ Admin user creation error: {e}")
-
 @app.get("/")
 async def root():
-    """Serve the main HTML file"""
-    # Serve the HTML file instead of JSON
-    html_file = os.path.join(static_dir, "index.html")
-    if os.path.exists(html_file):
-        return FileResponse(html_file)
-    else:
-        return {"message": "The Castle Pub Reservation System", "status": "running", "error": "HTML file not found"}
+    """Root endpoint"""
+    return {
+        "message": "The Castle Pub Reservation System",
+        "status": "running",
+        "version": "1.0.0"
+    }
 
 @app.get("/ping")
 async def ping():
-    """Simple health check endpoint"""
-    return {"status": "ok", "message": "pong", "timestamp": datetime.now().isoformat()}
+    """Simple ping endpoint"""
+    return {"message": "pong"}
 
 @app.get("/health")
 async def health_check():
     """Health check endpoint for Railway"""
-    try:
-        return {
-            "status": "healthy",
-            "timestamp": datetime.utcnow().isoformat(),
-            "service": "The Castle Pub Reservation System",
-            "version": "1.0.0"
-        }
-    except Exception as e:
-        return {
-            "status": "degraded",
-            "error": str(e),
-            "timestamp": datetime.utcnow().isoformat()
-        }
+    return {
+        "status": "healthy",
+        "timestamp": datetime.utcnow().isoformat(),
+        "service": "The Castle Pub Reservation System",
+        "version": "1.0.0"
+    }
 
 @app.get("/api")
 async def api_root():
     """API root endpoint"""
     return {
         "message": "The Castle Pub Reservation System API",
-        "version": "1.0.0",
+        "status": "running",
         "endpoints": {
             "auth": "/api/auth",
-            "admin": "/api/admin", 
+            "admin": "/admin",
             "public": "/api/public",
             "dashboard": "/api/dashboard",
             "settings": "/api/settings"
@@ -188,7 +94,7 @@ async def api_root():
 
 @app.get("/api/test-auth")
 async def test_auth():
-    """Test if auth endpoints are accessible"""
+    """Test auth endpoint"""
     return {"message": "Auth router is working", "status": "ok"}
 
 @app.get("/api/layout/editor/{room_id}")
@@ -226,91 +132,122 @@ async def get_daily_view_fallback(date: str):
 
 @app.get("/admin/init-basic-data")
 async def init_basic_data():
-    """Initialize basic rooms and tables for testing"""
+    """Initialize basic data (rooms and tables)"""
     try:
         from app.core.database import SessionLocal
         from app.models.room import Room
         from app.models.table import Table
+        import uuid
         
         db = SessionLocal()
         try:
-            # Check if rooms exist
+            # Check if rooms already exist
             existing_rooms = db.query(Room).count()
             if existing_rooms == 0:
-                # Create sample rooms
-                room1 = Room(name="Main Dining", description="Main dining area", active=True)
-                room2 = Room(name="Private Dining", description="Private dining room", active=True)
-                room3 = Room(name="Bar Area", description="Bar and lounge area", active=True)
-                
-                db.add_all([room1, room2, room3])
-                db.commit()
-                
-                # Create sample tables with combinable logic
-                tables = [
-                    # Main Dining - tables can combine
-                    Table(name="T1", capacity=2, room_id=room1.id, active=True, combinable=True),
-                    Table(name="T2", capacity=4, room_id=room1.id, active=True, combinable=True), 
-                    Table(name="T3", capacity=6, room_id=room1.id, active=True, combinable=True),
-                    # Private Dining - standalone
-                    Table(name="P1", capacity=8, room_id=room2.id, active=True, combinable=False),
-                    # Bar Area - small tables can combine
-                    Table(name="B1", capacity=2, room_id=room3.id, active=True, combinable=True),
-                    Table(name="B2", capacity=4, room_id=room3.id, active=True, combinable=True),
+                # Create basic rooms
+                rooms = [
+                    Room(
+                        id=str(uuid.uuid4()),
+                        name="Front Room",
+                        active=True
+                    ),
+                    Room(
+                        id=str(uuid.uuid4()),
+                        name="Middle Room", 
+                        active=True
+                    ),
+                    Room(
+                        id=str(uuid.uuid4()),
+                        name="Back Room",
+                        active=True
+                    ),
+                    Room(
+                        id=str(uuid.uuid4()),
+                        name="Biergarten",
+                        active=True
+                    )
                 ]
                 
-                db.add_all(tables)
+                for room in rooms:
+                    db.add(room)
+                
                 db.commit()
                 
-                # Create default table combinations
-                combinations = [
-                    # Main Dining combinations
-                    {"primary_table": "T1", "combinable_with": ["T2"]},
-                    {"primary_table": "T2", "combinable_with": ["T1", "T3"]},
-                    {"primary_table": "T3", "combinable_with": ["T2"]},
-                    # Bar Area combinations  
-                    {"primary_table": "B1", "combinable_with": ["B2"]},
-                    {"primary_table": "B2", "combinable_with": ["B1"]},
-                    # P1 is standalone (no combinations)
-                ]
+                # Create basic tables for each room
+                for room in rooms:
+                    for i in range(1, 6):  # 5 tables per room
+                        table = Table(
+                            id=str(uuid.uuid4()),
+                            name=f"{room.name[0]}{i}",  # F1, M1, B1, BG1, etc.
+                            room_id=room.id,
+                            capacity=4 + (i % 3) * 2,  # 4, 6, or 8 seats
+                            active=True,
+                            combinable=True
+                        )
+                        db.add(table)
                 
-                # Store combinations in a simple format (could be moved to database later)
-                # For now, we'll use the table service logic
-                
-                return {"status": "success", "message": "Basic rooms, tables, and combinations created"}
+                db.commit()
+                return {"status": "success", "message": "Basic data initialized", "rooms_created": 4, "tables_created": 20}
             else:
-                return {"status": "info", "message": f"Rooms already exist ({existing_rooms} rooms found)"}
+                return {"status": "success", "message": "Data already exists", "existing_rooms": existing_rooms}
                 
         finally:
             db.close()
             
     except Exception as e:
-        return {"status": "error", "message": f"Error creating basic data: {str(e)}"}
+        return {"status": "error", "message": str(e)}
 
 @app.get("/admin/debug/check-data")
 async def check_database_data():
-    """Debug endpoint to check what data exists in database"""
+    """Check what data exists in the database"""
     try:
         from app.core.database import SessionLocal
         from app.models.room import Room
         from app.models.table import Table
+        from app.models.user import User
         
         db = SessionLocal()
         try:
-            rooms = db.query(Room).all()
-            tables = db.query(Table).all()
+            rooms_count = db.query(Room).count()
+            tables_count = db.query(Table).count()
+            users_count = db.query(User).count()
+            
+            rooms = []
+            if rooms_count > 0:
+                rooms = [
+                    {
+                        "id": str(room.id),
+                        "name": room.name,
+                        "active": room.active
+                    }
+                    for room in db.query(Room).all()
+                ]
+            
+            tables = []
+            if tables_count > 0:
+                tables = [
+                    {
+                        "id": str(table.id),
+                        "name": table.name,
+                        "room_id": str(table.room_id),
+                        "active": table.active
+                    }
+                    for table in db.query(Table).all()
+                ]
             
             return {
-                "rooms_count": len(rooms),
-                "tables_count": len(tables),
-                "rooms": [{"id": str(r.id), "name": r.name, "active": r.active} for r in rooms],
-                "tables": [{"id": str(t.id), "name": t.name, "room_id": str(t.room_id), "active": t.active} for t in tables]
+                "rooms_count": rooms_count,
+                "tables_count": tables_count,
+                "users_count": users_count,
+                "rooms": rooms,
+                "tables": tables
             }
             
         finally:
             db.close()
             
     except Exception as e:
-        return {"error": str(e)}
+        return {"status": "error", "message": str(e)}
 
 @app.get("/admin/tables")
 async def get_tables_simple():
@@ -320,38 +257,35 @@ async def get_tables_simple():
         from app.models.table import Table
         from app.models.room import Room
         
-        print("🔍 DEBUG: /admin/tables called")
-        
         db = SessionLocal()
         try:
-            tables = db.query(Table).join(Room).filter(Table.active == True).all()
-            print(f"🔍 DEBUG: Found {len(tables)} tables")
+            tables = db.query(Table).all()
+            rooms = db.query(Room).all()
             
-            result = []
+            # Create room lookup
+            room_lookup = {str(room.id): room.name for room in rooms}
+            
+            table_data = []
             for table in tables:
-                # Handle missing fields gracefully
-                capacity = getattr(table, 'capacity', 4)  # Default to 4 if missing
-                combinable = getattr(table, 'combinable', True)  # Default to True if missing
-                
-                result.append({
+                table_data.append({
                     "id": str(table.id),
                     "name": table.name,
-                    "capacity": capacity,
                     "room_id": str(table.room_id),
-                    "room_name": table.room.name,
-                    "combinable": combinable,
-                    "active": table.active
+                    "room_name": room_lookup.get(str(table.room_id), "Unknown"),
+                    "capacity": getattr(table, 'capacity', 4),
+                    "combinable": getattr(table, 'combinable', True),
+                    "active": table.active,
+                    "description": getattr(table, 'description', '')
                 })
             
-            print(f"🔍 DEBUG: Returning {len(result)} tables")
-            return result
+            return table_data
             
         finally:
             db.close()
             
     except Exception as e:
-        print(f"❌ DEBUG: Tables error: {str(e)}")
-        return {"status": "error", "message": f"Error loading tables: {str(e)}"}
+        logger.error(f"Error getting tables: {e}")
+        return []
 
 @app.get("/admin/rooms")
 async def get_rooms_simple():
@@ -360,34 +294,27 @@ async def get_rooms_simple():
         from app.core.database import SessionLocal
         from app.models.room import Room
         
-        print("🔍 DEBUG: /admin/rooms called")
-        
         db = SessionLocal()
         try:
-            rooms = db.query(Room).filter(Room.active == True).all()
-            print(f"🔍 DEBUG: Found {len(rooms)} rooms")
+            rooms = db.query(Room).all()
             
-            result = []
+            room_data = []
             for room in rooms:
-                # Handle missing description field gracefully
-                description = getattr(room, 'description', '')
-                
-                result.append({
+                room_data.append({
                     "id": str(room.id),
                     "name": room.name,
-                    "description": description,
-                    "active": room.active
+                    "active": room.active,
+                    "description": getattr(room, 'description', '')
                 })
             
-            print(f"🔍 DEBUG: Returning {len(result)} rooms")
-            return result
+            return room_data
             
         finally:
             db.close()
             
     except Exception as e:
-        print(f"❌ DEBUG: Rooms error: {str(e)}")
-        return {"status": "error", "message": f"Error loading rooms: {str(e)}"}
+        logger.error(f"Error getting rooms: {e}")
+        return []
 
 @app.get("/admin/reservations")
 async def get_reservations_simple(date_filter: str = None):
@@ -396,75 +323,76 @@ async def get_reservations_simple(date_filter: str = None):
         from app.core.database import SessionLocal
         from app.models.reservation import Reservation
         from app.models.room import Room
-        from datetime import datetime
         
         db = SessionLocal()
         try:
-            query = db.query(Reservation).join(Room)
+            query = db.query(Reservation)
             
             if date_filter:
-                target_date = datetime.strptime(date_filter, "%Y-%m-%d").date()
-                query = query.filter(Reservation.date == target_date)
+                from datetime import datetime
+                try:
+                    filter_date = datetime.strptime(date_filter, "%Y-%m-%d").date()
+                    query = query.filter(Reservation.date == filter_date)
+                except ValueError:
+                    pass
             
             reservations = query.all()
+            rooms = db.query(Room).all()
+            room_lookup = {str(room.id): room.name for room in rooms}
             
-            result = []
+            reservation_data = []
             for reservation in reservations:
-                result.append({
+                reservation_data.append({
                     "id": str(reservation.id),
                     "customer_name": reservation.customer_name,
-                    "email": reservation.email,
-                    "phone": reservation.phone,
+                    "date": reservation.date.strftime("%Y-%m-%d") if reservation.date else None,
+                    "time": reservation.time.strftime("%H:%M") if reservation.time else None,
                     "party_size": reservation.party_size,
-                    "date": reservation.date.isoformat(),
-                    "time": reservation.time.strftime("%H:%M"),
-                    "duration_hours": reservation.duration_hours_safe,
-                    "room_id": str(reservation.room_id),
-                    "room_name": reservation.room.name,
-                    "status": reservation.status.value,
-                    "reservation_type": reservation.reservation_type.value,
+                    "reservation_type": reservation.reservation_type.value if reservation.reservation_type else "dining",
+                    "status": reservation.status.value if reservation.status else "confirmed",
+                    "room_name": room_lookup.get(str(reservation.room_id), "Unknown"),
                     "notes": reservation.notes,
                     "admin_notes": reservation.admin_notes,
-                    "created_at": reservation.created_at.isoformat(),
-                    "tables": []  # We'll add table assignments later
+                    "duration_hours": getattr(reservation, 'duration_hours', 2)
                 })
             
-            return result
+            return reservation_data
             
         finally:
             db.close()
             
     except Exception as e:
-        return {"status": "error", "message": f"Error loading reservations: {str(e)}"}
+        logger.error(f"Error getting reservations: {e}")
+        return []
 
 @app.get("/api/settings/restaurant")
 async def get_restaurant_settings():
-    """Simple restaurant settings endpoint"""
+    """Get restaurant settings"""
     return {
-        "restaurant_name": "The Castle Pub",
-        "phone": "+1-555-CASTLE",
-        "email": "info@castlepub.com",
-        "address": "123 Castle Street",
-        "opening_time": "17:00",
-        "closing_time": "23:00"
+        "name": "The Castle Pub",
+        "phone": "+49 30 12345600",
+        "address": "Kastanienallee 85, 10435 Berlin, Germany",
+        "max_party_size": 20,
+        "min_advance_hours": 2,
+        "max_advance_days": 90
     }
 
 @app.get("/api/settings/working-hours")
 async def get_working_hours():
-    """Simple working hours endpoint"""
-    return [
-        {"day": "monday", "open_time": "17:00", "close_time": "23:00", "is_open": True},
-        {"day": "tuesday", "open_time": "17:00", "close_time": "23:00", "is_open": True},
-        {"day": "wednesday", "open_time": "17:00", "close_time": "23:00", "is_open": True},
-        {"day": "thursday", "open_time": "17:00", "close_time": "23:00", "is_open": True},
-        {"day": "friday", "open_time": "17:00", "close_time": "24:00", "is_open": True},
-        {"day": "saturday", "open_time": "16:00", "close_time": "24:00", "is_open": True},
-        {"day": "sunday", "open_time": "16:00", "close_time": "22:00", "is_open": True}
-    ]
+    """Get working hours"""
+    return {
+        "monday": {"open": True, "start": "11:00", "end": "23:00"},
+        "tuesday": {"open": True, "start": "11:00", "end": "23:00"},
+        "wednesday": {"open": True, "start": "11:00", "end": "23:00"},
+        "thursday": {"open": True, "start": "11:00", "end": "23:00"},
+        "friday": {"open": True, "start": "11:00", "end": "00:00"},
+        "saturday": {"open": True, "start": "11:00", "end": "00:00"},
+        "sunday": {"open": True, "start": "12:00", "end": "22:00"}
+    }
 
 @app.get("/api/rooms")
 async def get_public_rooms():
-    """Public rooms endpoint (same as admin but without auth)"""
+    """Get public rooms for reservation form"""
     try:
         from app.core.database import SessionLocal
         from app.models.room import Room
@@ -473,21 +401,21 @@ async def get_public_rooms():
         try:
             rooms = db.query(Room).filter(Room.active == True).all()
             
-            result = []
+            room_data = []
             for room in rooms:
-                result.append({
+                room_data.append({
                     "id": str(room.id),
                     "name": room.name,
-                    "description": room.description,
-                    "active": room.active
+                    "description": getattr(room, 'description', '')
                 })
             
-            return result
+            return room_data
             
         finally:
             db.close()
             
     except Exception as e:
+        logger.error(f"Error getting public rooms: {e}")
         return []
 
 @app.get("/admin/reports/daily")
@@ -496,69 +424,54 @@ async def get_daily_report_simple(report_date: str):
     try:
         from app.core.database import SessionLocal
         from app.models.reservation import Reservation
+        from app.models.room import Room
         from datetime import datetime
-        
-        # Parse the date
-        target_date = datetime.strptime(report_date, "%Y-%m-%d").date()
         
         db = SessionLocal()
         try:
+            # Parse date
+            target_date = datetime.strptime(report_date, "%Y-%m-%d").date()
+            
             # Get reservations for the date
             reservations = db.query(Reservation).filter(Reservation.date == target_date).all()
+            rooms = db.query(Room).all()
             
-            # Generate simple HTML report
-            html_content = f"""
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Daily Report - {target_date}</title>
-                <style>
-                    body {{ font-family: Arial, sans-serif; margin: 20px; }}
-                    .header {{ text-align: center; margin-bottom: 20px; }}
-                    .reservation {{ margin: 10px 0; padding: 10px; border: 1px solid #ccc; }}
-                    .summary {{ background: #f5f5f5; padding: 10px; margin: 20px 0; }}
-                </style>
-            </head>
-            <body>
-                <div class="header">
-                    <h1>The Castle Pub</h1>
-                    <h2>Daily Report - {target_date}</h2>
-                </div>
-                <div class="summary">
-                    <strong>Total Reservations: {len(reservations)}</strong>
-                </div>
-            """
+            room_lookup = {str(room.id): room.name for room in rooms}
             
+            reservation_data = []
             for reservation in reservations:
-                html_content += f"""
-                <div class="reservation">
-                    <strong>{reservation.customer_name}</strong> - {reservation.time.strftime('%H:%M')}<br>
-                    Party Size: {reservation.party_size}<br>
-                    Phone: {reservation.phone}<br>
-                    Status: {reservation.status.value}<br>
-                    {f'Notes: {reservation.notes}' if reservation.notes else ''}
-                </div>
-                """
+                reservation_data.append({
+                    "id": str(reservation.id),
+                    "customer_name": reservation.customer_name,
+                    "time": reservation.time.strftime("%H:%M") if reservation.time else "00:00",
+                    "party_size": reservation.party_size,
+                    "reservation_type": reservation.reservation_type.value if reservation.reservation_type else "dining",
+                    "status": reservation.status.value if reservation.status else "confirmed",
+                    "room_name": room_lookup.get(str(reservation.room_id), "Unknown"),
+                    "notes": reservation.notes,
+                    "admin_notes": reservation.admin_notes,
+                    "duration_hours": getattr(reservation, 'duration_hours', 2)
+                })
             
-            html_content += """
-            </body>
-            </html>
-            """
-            
-            return Response(
-                content=html_content,
-                media_type="text/html",
-                headers={"Content-Disposition": f"attachment; filename=daily_report_{target_date}.html"}
-            )
+            return {
+                "date": report_date,
+                "reservations": reservation_data,
+                "total_reservations": len(reservation_data),
+                "total_guests": sum(r["party_size"] for r in reservation_data)
+            }
             
         finally:
             db.close()
             
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error generating report: {str(e)}"
-        )
+        logger.error(f"Error generating daily report: {e}")
+        return {
+            "date": report_date,
+            "reservations": [],
+            "total_reservations": 0,
+            "total_guests": 0,
+            "error": str(e)
+        }
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request, exc):
@@ -571,18 +484,18 @@ async def http_exception_handler(request, exc):
 @app.exception_handler(Exception)
 async def general_exception_handler(request, exc):
     """Handle general exceptions"""
-    logger.error(f"Unhandled exception: {str(exc)}")
+    logger.error(f"Unhandled exception: {exc}")
     return JSONResponse(
         status_code=500,
         content={"detail": "Internal server error"}
-    ) 
+    )
 
-# Add a simple endpoint to trigger migrations manually
 @app.get("/init-db")
 async def initialize_database():
     """Manually trigger database initialization"""
     try:
-        run_migrations_async()
+        # Create tables
+        Base.metadata.create_all(bind=engine)
         return {"status": "success", "message": "Database initialized"}
     except Exception as e:
         return {"status": "error", "message": str(e)} 
