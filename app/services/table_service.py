@@ -117,24 +117,34 @@ class TableService:
             if table.capacity >= party_size:
                 return [table]
 
-        # Try combinations of tables
+        # Try combinations of tables - IMPORTANT: Only combine tables from the same room!
         best_combination = None
         best_score = float('inf')
 
-        # Try combinations of 2 to 4 tables (reasonable limit)
-        for r in range(2, min(5, len(combinable_tables) + 1)):
-            for combo in itertools.combinations(combinable_tables, r):
-                total_capacity = sum(table.capacity for table in combo)
-                
-                if total_capacity >= party_size:
-                    # Score: excess seats + number of tables (weighted)
-                    excess_seats = total_capacity - party_size
-                    num_tables = len(combo)
-                    score = excess_seats + (num_tables * 0.1)  # Small penalty for more tables
+        # Group tables by room to ensure we don't mix rooms
+        tables_by_room = {}
+        for table in combinable_tables:
+            room_id = table.room_id
+            if room_id not in tables_by_room:
+                tables_by_room[room_id] = []
+            tables_by_room[room_id].append(table)
+
+        # Try combinations within each room
+        for room_id, room_tables in tables_by_room.items():
+            # Try combinations of 2 to 4 tables (reasonable limit) within the same room
+            for r in range(2, min(5, len(room_tables) + 1)):
+                for combo in itertools.combinations(room_tables, r):
+                    total_capacity = sum(table.capacity for table in combo)
                     
-                    if score < best_score:
-                        best_score = score
-                        best_combination = list(combo)
+                    if total_capacity >= party_size:
+                        # Score: excess seats + number of tables (weighted)
+                        excess_seats = total_capacity - party_size
+                        num_tables = len(combo)
+                        score = excess_seats + (num_tables * 0.1)  # Small penalty for more tables
+                        
+                        if score < best_score:
+                            best_score = score
+                            best_combination = list(combo)
 
         return best_combination
 
@@ -197,4 +207,33 @@ class TableService:
             reservation_tables.append(reservation_table)
         
         self.db.commit()
-        return reservation_tables 
+        return reservation_tables
+
+    def get_reserved_table_ids(self, date: date, time: time, exclude_reservation_id: str = None) -> List[str]:
+        """Get list of table IDs that are reserved at the given date and time"""
+        from app.models.reservation import ReservationStatus, Reservation
+        
+        query = self.db.query(Reservation).filter(
+            and_(
+                Reservation.date == date,
+                Reservation.time == time,
+                Reservation.status != ReservationStatus.CANCELLED
+            )
+        )
+        
+        # Exclude a specific reservation if provided (useful for editing)
+        if exclude_reservation_id:
+            query = query.filter(Reservation.id != exclude_reservation_id)
+        
+        reservations = query.all()
+        
+        reserved_table_ids = []
+        for reservation in reservations:
+            table_assignments = self.db.query(ReservationTable).filter(
+                ReservationTable.reservation_id == reservation.id
+            ).all()
+            
+            for assignment in table_assignments:
+                reserved_table_ids.append(str(assignment.table_id))
+        
+        return reserved_table_ids 

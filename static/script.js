@@ -1682,6 +1682,14 @@ function displayReservations(reservations) {
                         <i class="fas fa-phone"></i>
                         <span>${reservation.phone}</span>
                     </div>
+                    <div class="detail-row">
+                        <i class="fas fa-table"></i>
+                        <span class="table-assignment">
+                            ${reservation.tables && reservation.tables.length > 0 
+                                ? reservation.tables.map(table => `<span class="table-tag">${table.table_name} (${table.capacity})</span>`).join(' ') 
+                                : 'No tables assigned'}
+                        </span>
+                    </div>
                     ${reservation.notes ? `
                         <div class="detail-row">
                             <i class="fas fa-comment"></i>
@@ -1690,6 +1698,9 @@ function displayReservations(reservations) {
                     ` : ''}
                 </div>
                 <div class="reservation-actions">
+                    <button class="btn-small btn-primary" onclick="editReservationTables('${reservation.id}')">
+                        <i class="fas fa-table"></i> Edit Tables
+                    </button>
                     <button class="btn-small btn-secondary" onclick="editReservation('${reservation.id}')">
                         <i class="fas fa-edit"></i> Edit
                     </button>
@@ -1961,5 +1972,126 @@ async function handleEditReservation(event, reservationId) {
     } catch (error) {
         console.error('Error updating reservation:', error);
         showMessage('Error updating reservation: ' + error.message, 'error');
+    }
+}
+
+async function editReservationTables(reservationId) {
+    try {
+        // First, get the current reservation details
+        const reservationResponse = await fetch(`${API_BASE_URL}/api/admin/reservations/${reservationId}`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        
+        if (!reservationResponse.ok) {
+            throw new Error('Failed to load reservation details');
+        }
+        
+        const reservation = await reservationResponse.json();
+        
+        // Get available tables for the reservation's room, date, and time
+        const availabilityResponse = await fetch(
+            `${API_BASE_URL}/api/availability?date=${reservation.date}&party_size=${reservation.party_size}&room_id=${reservation.room_id}`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        
+        if (!availabilityResponse.ok) {
+            throw new Error('Failed to load available tables');
+        }
+        
+        const availability = await availabilityResponse.json();
+        
+        // Create modal for table selection
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Edit Tables for ${reservation.customer_name}</h3>
+                    <span class="modal-close" onclick="this.closest('.modal-overlay').remove()">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <div class="reservation-info">
+                        <p><strong>Date:</strong> ${new Date(reservation.date).toLocaleDateString()}</p>
+                        <p><strong>Time:</strong> ${reservation.time}</p>
+                        <p><strong>Party Size:</strong> ${reservation.party_size} people</p>
+                        <p><strong>Room:</strong> ${reservation.room_name}</p>
+                    </div>
+                    
+                    <div class="current-tables">
+                        <h4>Current Tables:</h4>
+                        <div class="table-list">
+                            ${reservation.tables && reservation.tables.length > 0 
+                                ? reservation.tables.map(table => 
+                                    `<span class="table-tag current">${table.table_name} (${table.capacity} seats)</span>`
+                                ).join('')
+                                : '<span class="no-tables">No tables assigned</span>'}
+                        </div>
+                    </div>
+                    
+                    <div class="available-tables">
+                        <h4>Available Tables:</h4>
+                        <div class="table-grid">
+                            ${availability.tables.map(table => `
+                                <label class="table-option">
+                                    <input type="checkbox" value="${table.table_id}" 
+                                           ${reservation.tables && reservation.tables.some(t => t.table_id === table.table_id) ? 'checked' : ''}>
+                                    <span class="table-card">
+                                        <div class="table-name">${table.table_name}</div>
+                                        <div class="table-capacity">${table.capacity} seats</div>
+                                    </span>
+                                </label>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="saveTableAssignment('${reservationId}')">Save Changes</button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+    } catch (error) {
+        console.error('Error loading table editor:', error);
+        showMessage('Error loading table editor: ' + error.message, 'error');
+    }
+}
+
+async function saveTableAssignment(reservationId) {
+    try {
+        const selectedTables = [];
+        const checkboxes = document.querySelectorAll('.table-option input[type="checkbox"]:checked');
+        
+        checkboxes.forEach(checkbox => {
+            selectedTables.push(checkbox.value);
+        });
+        
+        if (selectedTables.length === 0) {
+            showMessage('Please select at least one table', 'error');
+            return;
+        }
+        
+        const response = await fetch(`${API_BASE_URL}/api/admin/reservations/${reservationId}/tables`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ table_ids: selectedTables })
+        });
+        
+        if (response.ok) {
+            showMessage('Table assignment updated successfully', 'success');
+            document.querySelector('.modal-overlay').remove();
+            loadAllReservations(); // Reload reservations list
+        } else {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to update table assignment');
+        }
+    } catch (error) {
+        console.error('Error saving table assignment:', error);
+        showMessage('Error saving table assignment: ' + error.message, 'error');
     }
 } 

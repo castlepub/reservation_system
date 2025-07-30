@@ -578,6 +578,75 @@ def cancel_reservation(
         )
 
 
+@router.put("/reservations/{reservation_id}/tables")
+def update_reservation_tables(
+    reservation_id: str,
+    table_data: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_staff_user)
+):
+    """Update table assignments for a reservation"""
+    from app.services.table_service import TableService
+    
+    # Get the reservation
+    reservation = db.query(Reservation).filter(Reservation.id == reservation_id).first()
+    if not reservation:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Reservation not found"
+        )
+    
+    table_ids = table_data.get('table_ids', [])
+    if not table_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="At least one table must be selected"
+        )
+    
+    # Verify all tables exist and are in the same room
+    tables = db.query(Table).filter(Table.id.in_(table_ids)).all()
+    if len(tables) != len(table_ids):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="One or more table IDs are invalid"
+        )
+    
+    # Check if all tables are in the same room
+    room_ids = set(table.room_id for table in tables)
+    if len(room_ids) > 1:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="All tables must be in the same room"
+        )
+    
+    # Check table availability (exclude current reservation)
+    table_service = TableService(db)
+    reserved_table_ids = table_service.get_reserved_table_ids(
+        reservation.date, 
+        reservation.time,
+        exclude_reservation_id=reservation_id
+    )
+    
+    conflicting_tables = set(table_ids) & set(reserved_table_ids)
+    if conflicting_tables:
+        conflicting_names = [t.name for t in tables if str(t.id) in conflicting_tables]
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Tables {', '.join(conflicting_names)} are already reserved at this time"
+        )
+    
+    # Update table assignments
+    table_service.assign_tables_to_reservation(reservation_id, table_ids)
+    
+    # Update reservation room if needed
+    new_room_id = tables[0].room_id
+    if reservation.room_id != new_room_id:
+        reservation.room_id = new_room_id
+        db.commit()
+    
+    return {"message": "Table assignment updated successfully"}
+
+
 # Reports
 @router.get("/reports/daily")
 def get_daily_report(

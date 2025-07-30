@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime, date, time
 from app.models.reservation import ReservationStatus, ReservationType
@@ -6,7 +6,7 @@ from app.models.reservation import ReservationStatus, ReservationType
 
 class ReservationCreate(BaseModel):
     customer_name: str
-    email: EmailStr
+    email: str
     phone: str
     party_size: int
     date: date
@@ -19,7 +19,7 @@ class ReservationCreate(BaseModel):
 
 class ReservationUpdate(BaseModel):
     customer_name: Optional[str] = None
-    email: Optional[EmailStr] = None
+    email: Optional[str] = None
     phone: Optional[str] = None
     party_size: Optional[int] = None
     date: Optional[date] = None
