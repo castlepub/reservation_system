@@ -55,12 +55,18 @@ else:
 
 @app.get("/")
 async def root():
-    """Root endpoint"""
-    return {
-        "message": "The Castle Pub Reservation System",
-        "status": "running",
-        "version": "1.0.0"
-    }
+    """Serve the main HTML file"""
+    # Serve the HTML file instead of JSON
+    html_file = os.path.join(static_dir, "index.html")
+    if os.path.exists(html_file):
+        return FileResponse(html_file)
+    else:
+        return {
+            "message": "The Castle Pub Reservation System",
+            "status": "running",
+            "version": "1.0.0",
+            "error": "HTML file not found"
+        }
 
 @app.get("/ping")
 async def ping():
