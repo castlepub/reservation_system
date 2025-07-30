@@ -325,12 +325,17 @@ def run_migrations():
             try:
                 conn.execute(text("""
                     ALTER TABLE reservations 
-                    ADD COLUMN IF NOT EXISTS duration_hours INTEGER DEFAULT 2 NOT NULL
+                    ADD COLUMN IF NOT EXISTS duration_hours INTEGER DEFAULT 2
                 """))
                 conn.execute(text("""
                     UPDATE reservations 
                     SET duration_hours = 2 
                     WHERE duration_hours IS NULL
+                """))
+                # Make sure the column is not null
+                conn.execute(text("""
+                    ALTER TABLE reservations 
+                    ALTER COLUMN duration_hours SET NOT NULL
                 """))
                 print("✅ Duration hours migration completed")
             except Exception as e:
