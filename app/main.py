@@ -342,6 +342,59 @@ async def get_reservations_simple(date_filter: str = None):
     except Exception as e:
         return {"status": "error", "message": f"Error loading reservations: {str(e)}"}
 
+@app.get("/api/settings/restaurant")
+async def get_restaurant_settings():
+    """Simple restaurant settings endpoint"""
+    return {
+        "restaurant_name": "The Castle Pub",
+        "phone": "+1-555-CASTLE",
+        "email": "info@castlepub.com",
+        "address": "123 Castle Street",
+        "opening_time": "17:00",
+        "closing_time": "23:00"
+    }
+
+@app.get("/api/settings/working-hours")
+async def get_working_hours():
+    """Simple working hours endpoint"""
+    return [
+        {"day": "monday", "open_time": "17:00", "close_time": "23:00", "is_open": True},
+        {"day": "tuesday", "open_time": "17:00", "close_time": "23:00", "is_open": True},
+        {"day": "wednesday", "open_time": "17:00", "close_time": "23:00", "is_open": True},
+        {"day": "thursday", "open_time": "17:00", "close_time": "23:00", "is_open": True},
+        {"day": "friday", "open_time": "17:00", "close_time": "24:00", "is_open": True},
+        {"day": "saturday", "open_time": "16:00", "close_time": "24:00", "is_open": True},
+        {"day": "sunday", "open_time": "16:00", "close_time": "22:00", "is_open": True}
+    ]
+
+@app.get("/api/rooms")
+async def get_public_rooms():
+    """Public rooms endpoint (same as admin but without auth)"""
+    try:
+        from app.core.database import SessionLocal
+        from app.models.room import Room
+        
+        db = SessionLocal()
+        try:
+            rooms = db.query(Room).filter(Room.active == True).all()
+            
+            result = []
+            for room in rooms:
+                result.append({
+                    "id": str(room.id),
+                    "name": room.name,
+                    "description": room.description,
+                    "active": room.active
+                })
+            
+            return result
+            
+        finally:
+            db.close()
+            
+    except Exception as e:
+        return []
+
 @app.get("/admin/reports/daily")
 async def get_daily_report_simple(report_date: str):
     """Simple daily report endpoint"""
