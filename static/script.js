@@ -2392,6 +2392,12 @@ function showTab(tabName) {
         loadTodayReservations();
     } else if (tabName === 'dashboard') {
         loadDashboardData();
+    } else if (tabName === 'tables') {
+        loadTablesData();
+    } else if (tabName === 'reservations') {
+        loadAllReservations();
+    } else if (tabName === 'settings') {
+        loadSettingsData();
     }
 }
 
