@@ -277,13 +277,17 @@ async def get_tables_simple():
             
             result = []
             for table in tables:
+                # Handle missing fields gracefully
+                capacity = getattr(table, 'capacity', 4)  # Default to 4 if missing
+                combinable = getattr(table, 'combinable', True)  # Default to True if missing
+                
                 result.append({
                     "id": str(table.id),
                     "name": table.name,
-                    "capacity": table.capacity,
+                    "capacity": capacity,
                     "room_id": str(table.room_id),
                     "room_name": table.room.name,
-                    "combinable": table.combinable,
+                    "combinable": combinable,
                     "active": table.active
                 })
             
@@ -313,10 +317,13 @@ async def get_rooms_simple():
             
             result = []
             for room in rooms:
+                # Handle missing description field gracefully
+                description = getattr(room, 'description', '')
+                
                 result.append({
                     "id": str(room.id),
                     "name": room.name,
-                    "description": room.description,
+                    "description": description,
                     "active": room.active
                 })
             
