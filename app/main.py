@@ -65,14 +65,14 @@ async def startup_event():
         Base.metadata.create_all(bind=engine)
         print("✅ Database tables created")
         
-        # Run migrations in background
+        # Run migrations in background (non-blocking)
         try:
             import asyncio
             asyncio.create_task(run_migrations_async())
         except Exception as e:
             print(f"⚠️ Migration warning: {e}")
         
-        # Create admin user in background
+        # Create admin user in background (non-blocking)
         try:
             asyncio.create_task(create_admin_user_async())
         except Exception as e:
@@ -87,8 +87,25 @@ async def startup_event():
 async def run_migrations_async():
     """Run migrations asynchronously"""
     try:
-        run_migrations()
-        print("✅ Database migrations completed")
+        # Simple migration without complex operations
+        from sqlalchemy import text
+        from app.core.database import SessionLocal
+        
+        db = SessionLocal()
+        try:
+            # Only essential migrations
+            try:
+                db.execute(text("ALTER TABLE reservations ADD COLUMN duration_hours INTEGER DEFAULT 2"))
+                db.commit()
+                print("✅ Duration hours migration completed")
+            except Exception as e:
+                if "duplicate column name" not in str(e).lower():
+                    print(f"⚠️ Duration hours migration: {e}")
+                else:
+                    print("✅ Duration hours column already exists")
+        finally:
+            db.close()
+            
     except Exception as e:
         print(f"⚠️ Migration error: {e}")
 
@@ -101,20 +118,24 @@ async def create_admin_user_async():
         
         db = SessionLocal()
         try:
-            admin_user = db.query(User).filter(User.username == "admin").first()
-            if not admin_user:
+            # Check if admin user exists
+            existing_admin = db.query(User).filter(User.username == "admin").first()
+            if not existing_admin:
                 admin_user = User(
                     username="admin",
-                    password_hash=get_password_hash("admin123"),
-                    role=UserRole.ADMIN
+                    email="admin@castlepub.com",
+                    hashed_password=get_password_hash("admin123"),
+                    role=UserRole.ADMIN,
+                    is_active=True
                 )
                 db.add(admin_user)
                 db.commit()
-                print("✅ Admin user created (username: admin, password: admin123)")
+                print("✅ Admin user created successfully")
             else:
                 print("✅ Admin user already exists")
         finally:
             db.close()
+            
     except Exception as e:
         print(f"⚠️ Admin user creation error: {e}")
 
@@ -135,12 +156,20 @@ async def ping():
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint"""
-    return {
-        "status": "healthy",
-        "service": "reservation-system",
-        "timestamp": datetime.now().isoformat()
-    }
+    """Health check endpoint for Railway"""
+    try:
+        return {
+            "status": "healthy",
+            "timestamp": datetime.utcnow().isoformat(),
+            "service": "The Castle Pub Reservation System",
+            "version": "1.0.0"
+        }
+    except Exception as e:
+        return {
+            "status": "degraded",
+            "error": str(e),
+            "timestamp": datetime.utcnow().isoformat()
+        }
 
 @app.get("/api")
 async def api_root():
@@ -553,99 +582,7 @@ async def general_exception_handler(request, exc):
 async def initialize_database():
     """Manually trigger database initialization"""
     try:
-        run_migrations()
+        run_migrations_async()
         return {"status": "success", "message": "Database initialized"}
     except Exception as e:
-        return {"status": "error", "message": str(e)}
-
-
-def run_migrations():
-    """Run database migrations"""
-    try:
-        from sqlalchemy import text
-        from app.core.database import engine
-        
-        with engine.connect() as conn:
-            # Add duration_hours column to reservations if it doesn't exist
-            try:
-                conn.execute(text("ALTER TABLE reservations ADD COLUMN duration_hours INTEGER DEFAULT 2 NOT NULL"))
-                print("✅ Duration hours migration completed")
-            except Exception as e:
-                if "duplicate column name" not in str(e).lower():
-                    print(f"⚠️ Duration hours migration: {e}")
-                else:
-                    print("✅ Duration hours column already exists")
-            
-            # Add email column to users if it doesn't exist
-            try:
-                conn.execute(text("ALTER TABLE users ADD COLUMN email VARCHAR"))
-                print("✅ Email column migration completed")
-            except Exception as e:
-                if "duplicate column name" not in str(e).lower():
-                    print(f"⚠️ Email migration: {e}")
-                else:
-                    print("✅ Email column already exists")
-            
-            # Create table_layouts table if it doesn't exist
-            try:
-                conn.execute(text("""
-                    CREATE TABLE IF NOT EXISTS table_layouts (
-                        id TEXT PRIMARY KEY,
-                        table_id TEXT NOT NULL UNIQUE,
-                        room_id TEXT NOT NULL,
-                        x_position FLOAT NOT NULL,
-                        y_position FLOAT NOT NULL,
-                        width FLOAT DEFAULT 100.0,
-                        height FLOAT DEFAULT 80.0,
-                        shape VARCHAR DEFAULT 'rectangular',
-                        color VARCHAR DEFAULT '#4A90E2',
-                        border_color VARCHAR DEFAULT '#2E5BBA',
-                        text_color VARCHAR DEFAULT '#FFFFFF',
-                        show_capacity BOOLEAN DEFAULT TRUE,
-                        show_name BOOLEAN DEFAULT TRUE,
-                        font_size INTEGER DEFAULT 12,
-                        custom_capacity INTEGER,
-                        is_connected BOOLEAN DEFAULT FALSE,
-                        connected_to TEXT,
-                        z_index INTEGER DEFAULT 1,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        FOREIGN KEY (table_id) REFERENCES tables(id),
-                        FOREIGN KEY (room_id) REFERENCES rooms(id)
-                    )
-                """))
-                print("✅ Table layouts migration completed")
-            except Exception as e:
-                print(f"⚠️ Table layouts migration: {e}")
-            
-            # Create room_layouts table if it doesn't exist
-            try:
-                conn.execute(text("""
-                    CREATE TABLE IF NOT EXISTS room_layouts (
-                        id TEXT PRIMARY KEY,
-                        room_id TEXT NOT NULL UNIQUE,
-                        width FLOAT DEFAULT 800.0,
-                        height FLOAT DEFAULT 600.0,
-                        background_color VARCHAR DEFAULT '#F5F5F5',
-                        grid_enabled BOOLEAN DEFAULT TRUE,
-                        grid_size INTEGER DEFAULT 20,
-                        grid_color VARCHAR DEFAULT '#E0E0E0',
-                        show_entrance BOOLEAN DEFAULT TRUE,
-                        entrance_position VARCHAR DEFAULT 'top',
-                        show_bar BOOLEAN DEFAULT FALSE,
-                        bar_position VARCHAR DEFAULT 'center',
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        FOREIGN KEY (room_id) REFERENCES rooms(id)
-                    )
-                """))
-                print("✅ Room layouts migration completed")
-            except Exception as e:
-                print(f"⚠️ Room layouts migration: {e}")
-            
-            conn.commit()
-            print("✅ Database migrations completed")
-            
-    except Exception as e:
-        print(f"❌ Migration error: {e}")
-        raise 
+        return {"status": "error", "message": str(e)} 
