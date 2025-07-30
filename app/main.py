@@ -5,6 +5,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from app.core.database import engine, Base
 from app.api import auth, public, admin
+# Import all models to ensure they're registered with SQLAlchemy
+from app.models import User, Room, Table, Reservation, ReservationTable, TableLayout, RoomLayout
 # from app.api.layout import router as layout_router  # Keep commented out for now
 from app.core.config import settings
 import logging
