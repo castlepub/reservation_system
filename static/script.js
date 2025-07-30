@@ -563,7 +563,7 @@ function filterTodayReservations() {
 async function generateDailyPDF() {
     try {
         const today = new Date().toISOString().split('T')[0];
-        const response = await fetch(`${API_BASE_URL}/api/admin/reports/daily?report_date=${today}`, {
+        const response = await fetch(`${API_BASE_URL}/admin/reports/daily?report_date=${today}`, {
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${authToken}`
@@ -1476,7 +1476,7 @@ async function loadTablesData() {
 
 async function loadRoomsForTables() {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/admin/rooms`, {
+        const response = await fetch(`${API_BASE_URL}/admin/rooms`, {
             headers: {
                 'Authorization': `Bearer ${authToken}`
             }
@@ -1500,7 +1500,7 @@ async function loadRoomsForTables() {
 
 async function loadTables() {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/admin/tables`, {
+        const response = await fetch(`${API_BASE_URL}/admin/tables`, {
             headers: {
                 'Authorization': `Bearer ${authToken}`
             }
@@ -1597,7 +1597,7 @@ async function handleAddTable(event) {
     };
     
     try {
-        const response = await fetch(`${API_BASE_URL}/api/admin/tables`, {
+        const response = await fetch(`${API_BASE_URL}/admin/tables`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${authToken}`,
@@ -1626,7 +1626,7 @@ async function deleteTable(tableId, tableName) {
     }
     
     try {
-        const response = await fetch(`${API_BASE_URL}/api/admin/tables/${tableId}`, {
+        const response = await fetch(`${API_BASE_URL}/admin/tables/${tableId}`, {
             method: 'DELETE',
             headers: {
                 'Authorization': `Bearer ${authToken}`
@@ -1709,7 +1709,7 @@ async function loadAllReservations() {
     try {
         // Get the selected date filter
         const dateFilter = document.getElementById('reservationDateFilter').value;
-        let url = `${API_BASE_URL}/api/admin/reservations`;
+        let url = `${API_BASE_URL}/admin/reservations`;
         
         // Add date filter if selected
         if (dateFilter) {
@@ -1914,7 +1914,7 @@ function editReservation(reservationId) {
 async function showEditReservationForm(reservationId) {
     try {
         // Fetch the current reservation data
-        const response = await fetch(`${API_BASE_URL}/api/admin/reservations/${reservationId}`, {
+        const response = await fetch(`${API_BASE_URL}/admin/reservations/${reservationId}`, {
             headers: {
                 'Authorization': `Bearer ${authToken}`
             }
@@ -2090,7 +2090,7 @@ function hideEditReservationForm() {
 async function showTableSelectionModal(reservationId) {
     try {
         // Fetch available tables for the reservation
-        const response = await fetch(`${API_BASE_URL}/api/admin/reservations/${reservationId}/available-tables`, {
+        const response = await fetch(`${API_BASE_URL}/admin/reservations/${reservationId}/available-tables`, {
             headers: {
                 'Authorization': `Bearer ${authToken}`
             }
@@ -2244,7 +2244,7 @@ async function saveTableSelection(reservationId) {
         const selectedTables = Array.from(document.querySelectorAll('#selectedTablesList .selected-table'))
             .map(span => span.getAttribute('data-table-id'));
         
-        const response = await fetch(`${API_BASE_URL}/api/admin/reservations/${reservationId}/tables`, {
+        const response = await fetch(`${API_BASE_URL}/admin/reservations/${reservationId}/tables`, {
             method: 'PUT',
             headers: {
                 'Authorization': `Bearer ${authToken}`,
@@ -2289,7 +2289,7 @@ async function clearAssignedTables(reservationId) {
     }
     
     try {
-        const response = await fetch(`${API_BASE_URL}/api/admin/reservations/${reservationId}/tables`, {
+        const response = await fetch(`${API_BASE_URL}/admin/reservations/${reservationId}/tables`, {
             method: 'PUT',
             headers: {
                 'Authorization': `Bearer ${authToken}`,
@@ -2335,7 +2335,7 @@ async function handleEditReservation(event, reservationId) {
     };
     
     try {
-        const response = await fetch(`${API_BASE_URL}/api/admin/reservations/${reservationId}`, {
+        const response = await fetch(`${API_BASE_URL}/admin/reservations/${reservationId}`, {
             method: 'PUT',
             headers: {
                 'Authorization': `Bearer ${authToken}`,
@@ -2460,9 +2460,15 @@ function renderReservationsList() {
 
 function renderRoomTabs() {
     const container = document.getElementById('roomTabs');
-    if (!container || !dailyViewData) return;
+    if (!container || !dailyViewData || !dailyViewData.rooms) return;
     
     container.innerHTML = '';
+    
+    // Handle case where rooms array is empty
+    if (!Array.isArray(dailyViewData.rooms) || dailyViewData.rooms.length === 0) {
+        container.innerHTML = '<div class="no-rooms-message">No rooms available</div>';
+        return;
+    }
     
     dailyViewData.rooms.forEach((room, index) => {
         const tabElement = document.createElement('button');
