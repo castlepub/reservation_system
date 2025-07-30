@@ -304,9 +304,14 @@
                 <div id="todayTab" class="tab-content">
                     <div class="tab-header">
                         <h3>Today's Reservations</h3>
-                        <button class="btn btn-primary" onclick="showAddReservationForm()">
-                            <i class="fas fa-plus"></i> Add Reservation
-                        </button>
+                        <div class="tab-header-actions">
+                            <button class="btn btn-secondary" onclick="generateDailyPDF()">
+                                <i class="fas fa-file-pdf"></i> Generate PDF
+                            </button>
+                            <button class="btn btn-primary" onclick="showAddReservationForm()">
+                                <i class="fas fa-plus"></i> Add Reservation
+                            </button>
+                        </div>
                     </div>
                     <div id="todayReservationsList" class="reservations-table">
                         <!-- Today's reservations will be loaded here -->

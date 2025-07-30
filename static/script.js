@@ -559,6 +559,38 @@ function filterTodayReservations() {
     loadTodayReservations(); // Reload with filters
 }
 
+// PDF Generation Functions
+async function generateDailyPDF() {
+    try {
+        const today = new Date().toISOString().split('T')[0];
+        const response = await fetch(`${API_BASE_URL}/api/admin/reports/daily?report_date=${today}`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+
+        if (response.ok) {
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = `daily_report_${today}.html`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            showMessage('Daily PDF report generated successfully!', 'success');
+        } else {
+            throw new Error('Failed to generate PDF');
+        }
+    } catch (error) {
+        console.error('Error generating daily PDF:', error);
+        showMessage('Error generating PDF report', 'error');
+    }
+}
+
 // Print Functions
 function printNameTags() {
     const reservations = Array.from(document.querySelectorAll('.today-reservation-card'));

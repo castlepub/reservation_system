@@ -318,6 +318,12 @@ main {
     margin-bottom: 2rem;
 }
 
+.tab-header-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
 /* Cards */
 .reservation-card,
 .room-card,
