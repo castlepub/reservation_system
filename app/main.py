@@ -234,6 +234,32 @@ async def init_basic_data():
     except Exception as e:
         return {"status": "error", "message": f"Error creating basic data: {str(e)}"}
 
+@app.get("/admin/debug/check-data")
+async def check_database_data():
+    """Debug endpoint to check what data exists in database"""
+    try:
+        from app.core.database import SessionLocal
+        from app.models.room import Room
+        from app.models.table import Table
+        
+        db = SessionLocal()
+        try:
+            rooms = db.query(Room).all()
+            tables = db.query(Table).all()
+            
+            return {
+                "rooms_count": len(rooms),
+                "tables_count": len(tables),
+                "rooms": [{"id": str(r.id), "name": r.name, "active": r.active} for r in rooms],
+                "tables": [{"id": str(t.id), "name": t.name, "room_id": str(t.room_id), "active": t.active} for t in tables]
+            }
+            
+        finally:
+            db.close()
+            
+    except Exception as e:
+        return {"error": str(e)}
+
 @app.get("/admin/tables")
 async def get_tables_simple():
     """Simple endpoint to get all tables"""
@@ -242,9 +268,12 @@ async def get_tables_simple():
         from app.models.table import Table
         from app.models.room import Room
         
+        print("🔍 DEBUG: /admin/tables called")
+        
         db = SessionLocal()
         try:
             tables = db.query(Table).join(Room).filter(Table.active == True).all()
+            print(f"🔍 DEBUG: Found {len(tables)} tables")
             
             result = []
             for table in tables:
@@ -258,12 +287,14 @@ async def get_tables_simple():
                     "active": table.active
                 })
             
+            print(f"🔍 DEBUG: Returning {len(result)} tables")
             return result
             
         finally:
             db.close()
             
     except Exception as e:
+        print(f"❌ DEBUG: Tables error: {str(e)}")
         return {"status": "error", "message": f"Error loading tables: {str(e)}"}
 
 @app.get("/admin/rooms")
@@ -273,9 +304,12 @@ async def get_rooms_simple():
         from app.core.database import SessionLocal
         from app.models.room import Room
         
+        print("🔍 DEBUG: /admin/rooms called")
+        
         db = SessionLocal()
         try:
             rooms = db.query(Room).filter(Room.active == True).all()
+            print(f"🔍 DEBUG: Found {len(rooms)} rooms")
             
             result = []
             for room in rooms:
@@ -286,12 +320,14 @@ async def get_rooms_simple():
                     "active": room.active
                 })
             
+            print(f"🔍 DEBUG: Returning {len(result)} rooms")
             return result
             
         finally:
             db.close()
             
     except Exception as e:
+        print(f"❌ DEBUG: Rooms error: {str(e)}")
         return {"status": "error", "message": f"Error loading rooms: {str(e)}"}
 
 @app.get("/admin/reservations")
