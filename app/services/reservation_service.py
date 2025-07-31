@@ -58,6 +58,9 @@ class ReservationService:
         table_ids = [str(table.id) for table in table_combo]
         self.table_service.assign_tables_to_reservation(str(reservation.id), table_ids)
         
+        # Commit the transaction to persist the reservation
+        self.db.commit()
+        
         # Get room name for response
         room = self.db.query(Room).filter(Room.id == actual_room_id).first()
         

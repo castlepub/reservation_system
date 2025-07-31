@@ -1,3 +1,13 @@
+# Import local configuration first to set environment variables
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+try:
+    import local_config
+    print("✓ Local configuration loaded")
+except ImportError:
+    print("⚠ Local configuration not found, using default settings")
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
@@ -9,7 +19,6 @@ from app.api import auth, admin, public
 from app.models import User, Room, Table, Reservation, ReservationTable
 from app.core.config import settings
 import logging
-import os
 from datetime import datetime
 
 # Configure logging
@@ -550,5 +559,46 @@ async def initialize_database():
         # Create tables
         Base.metadata.create_all(bind=engine)
         return {"status": "success", "message": "Database initialized"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@app.get("/create-admin")
+async def create_admin_user():
+    """Create a default admin user for testing"""
+    try:
+        from app.core.database import SessionLocal
+        from app.models.user import User, UserRole
+        from app.core.security import get_password_hash
+        import uuid
+        
+        db = SessionLocal()
+        try:
+            # Check if admin user already exists
+            existing_admin = db.query(User).filter(User.role == UserRole.ADMIN).first()
+            if existing_admin:
+                return {"status": "success", "message": "Admin user already exists", "username": existing_admin.username}
+            
+            # Create admin user
+            admin_user = User(
+                id=str(uuid.uuid4()),
+                username="admin",
+                password_hash=get_password_hash("admin123"),
+                role=UserRole.ADMIN
+            )
+            
+            db.add(admin_user)
+            db.commit()
+            db.refresh(admin_user)
+            
+            return {
+                "status": "success", 
+                "message": "Admin user created", 
+                "username": "admin",
+                "password": "admin123"
+            }
+            
+        finally:
+            db.close()
+            
     except Exception as e:
         return {"status": "error", "message": str(e)} 

@@ -1,0 +1,5 @@
+[33mc70d8a8[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Fix authentication issues and reservation creation: - Fix duplicate tableName ID in layout editor - Add simple fallback endpoints for dashboard data - Increase token expiration to 24 hours - Add simple reservation creation endpoint
+[33mb444d8e[m Fix root endpoint to serve HTML file - Change root endpoint from JSON to HTML file serving - Users can now access the web interface properly
+[33m4f3c5ba[m Ultra-minimal version to fix health checks - Remove all startup events and complex migrations - Simplify to basic endpoints only - Remove layout system temporarily - Focus on getting basic system working
+[33m0e8c92a[m Simplify startup to fix health checks - Remove complex migrations from startup - Simplify health check endpoint - Make startup non-blocking for Railway deployment
+[33m133b293[m Fix health check failures - Temporarily disable layout router to resolve startup issues - Add fallback endpoints for layout functionality - Ensure basic system stability before re-enabling advanced features

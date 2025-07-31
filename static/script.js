@@ -4,16 +4,18 @@ let authToken = localStorage.getItem('authToken');
 let dashboardStats = null;
 let chartInstance = null;
 
-// DOM Elements
-const sections = {
-    home: document.getElementById('home'),
-    reservations: document.getElementById('reservations'),
-    admin: document.getElementById('admin'),
-    adminDashboard: document.getElementById('adminDashboard')
-};
+// DOM Elements - will be initialized after DOM loads
+let sections = {};
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
+    // Initialize sections after DOM is loaded
+    sections = {
+        home: document.getElementById('home'),
+        reservations: document.getElementById('reservations'),
+        admin: document.getElementById('admin'),
+        adminDashboard: document.getElementById('adminDashboard')
+    };
     console.log('Initializing app...');
     
     try {
