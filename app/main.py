@@ -1,7 +1,7 @@
 # GRADUALLY RESTORING FUNCTIONALITY AFTER SUCCESSFUL HEALTH CHECK
 import os
 from datetime import datetime
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -11,6 +11,8 @@ from app.core.database import get_db
 # Import routers
 from app.api.settings import router as settings_router
 from app.api.admin import router as admin_router
+from app.api.dashboard import router as dashboard_router
+from app.api.auth import router as auth_router
 
 # Create FastAPI app
 app = FastAPI(title="The Castle Pub Reservation System")
@@ -25,8 +27,10 @@ app.add_middleware(
 )
 
 # Include routers
-app.include_router(settings_router)
-app.include_router(admin_router)
+app.include_router(settings_router, prefix="/api")
+app.include_router(admin_router, prefix="/admin")
+app.include_router(dashboard_router, prefix="/api/dashboard")
+app.include_router(auth_router, prefix="/api/auth")
 
 # Mount static files
 static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
@@ -78,33 +82,6 @@ async def get_rooms_public(db: Session = Depends(get_db)):
         for room in rooms
     ]
 
-@app.get("/api/dashboard/stats")
-async def get_dashboard_stats_temp():
-    """Temporary dashboard stats"""
-    return {
-        "total_reservations_today": 0,
-        "total_guests_today": 0,
-        "total_reservations_week": 0,
-        "total_guests_week": 0,
-        "weekly_forecast": [],
-        "guest_notes": []
-    }
-
-@app.get("/api/dashboard/notes")
-async def get_dashboard_notes_temp():
-    """Temporary dashboard notes"""
-    return []
-
-@app.get("/api/dashboard/customers")
-async def get_dashboard_customers_temp():
-    """Temporary dashboard customers"""
-    return []
-
-@app.get("/api/dashboard/today")
-async def get_dashboard_today_temp():
-    """Temporary today's reservations"""
-    return []
-
 @app.post("/api/auth/login")
 async def login_temp():
     """Temporary login endpoint - accepts any credentials"""
@@ -121,7 +98,6 @@ async def login_temp():
 @app.get("/api/auth/me")
 async def get_auth_me_temp():
     """Temporary auth check - return user if token exists"""
-    from fastapi import Request, HTTPException
     return {
         "id": "temp_user",
         "username": "admin", 
@@ -140,6 +116,7 @@ async def get_restaurant_settings_temp():
         {"key": "website", "value": "www.castlepub.com"}
     ]
 
+# Admin endpoints with proper authentication bypass for now
 @app.get("/admin/reservations")
 async def get_admin_reservations_temp():
     """Temporary admin reservations"""
