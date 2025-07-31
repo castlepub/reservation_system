@@ -852,9 +852,8 @@ function showSection(sectionName) {
 
 function showReservationForm() {
     console.log('showReservationForm called');
-    console.log('sections object:', sections);
-    console.log('reservations section:', sections.reservations);
-    showSection('reservations');
+    // Open the same modal as the "+ Add Reservation" button
+    showAddReservationForm();
 }
 
 function hideReservationForm() {

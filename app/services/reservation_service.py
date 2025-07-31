@@ -246,8 +246,20 @@ class ReservationService:
         if reservation_data.party_size < 1:
             raise ValueError("Party size must be at least 1")
         
+        # Debug: Check time type and value
+        print(f"DEBUG: Time type: {type(reservation_data.time)}")
+        print(f"DEBUG: Time value: {reservation_data.time}")
+        
+        # Ensure time is a proper time object
+        if not isinstance(reservation_data.time, time):
+            raise ValueError(f"Invalid time format. Expected time object, got {type(reservation_data.time)}")
+        
         # Check reservation time limits
-        reservation_datetime = datetime.combine(reservation_data.date, reservation_data.time)
+        try:
+            reservation_datetime = datetime.combine(reservation_data.date, reservation_data.time)
+        except Exception as e:
+            raise ValueError(f"Error combining date and time: {str(e)}")
+        
         now = datetime.now()
         
         # Minimum hours in advance
