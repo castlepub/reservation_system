@@ -89,7 +89,7 @@ async def health_check():
         "status": "healthy",
         "timestamp": datetime.utcnow().isoformat(),
         "service": "The Castle Pub Reservation System",
-        "version": "2.1.0"
+        "version": "2.3.0"
     }
 
 @app.get("/api")
@@ -107,14 +107,7 @@ async def api_root():
         }
     }
 
-@app.get("/api/test-reservations")
-async def test_reservations_endpoint():
-    """Test endpoint to verify routing is working"""
-    return {
-        "message": "Reservations endpoint test",
-        "status": "working",
-        "endpoint": "/api/reservations should be available"
-    }
+
 
 @app.get("/api/dashboard/stats")
 async def get_dashboard_stats_simple():
@@ -145,10 +138,7 @@ async def get_today_reservations_simple():
 
 
 
-@app.get("/api/test-auth")
-async def test_auth():
-    """Test auth endpoint"""
-    return {"message": "Auth router is working", "status": "ok"}
+
 
 @app.get("/api/layout/editor/{room_id}")
 async def get_layout_editor_fallback(room_id: str, target_date: str = None):
@@ -182,6 +172,31 @@ async def get_daily_view_fallback(date: str):
         "date": date,
         "rooms": []
     }
+
+@app.get("/api/layout/tables/{layout_id}")
+async def get_layout_tables_fallback(layout_id: str):
+    """Fallback endpoint for layout tables"""
+    return []
+
+@app.post("/api/layout/tables")
+async def create_layout_table_fallback():
+    """Fallback endpoint for creating layout tables"""
+    return {"status": "success", "message": "Layout system temporarily disabled"}
+
+@app.put("/api/layout/tables/{table_id}")
+async def update_layout_table_fallback(table_id: str):
+    """Fallback endpoint for updating layout tables"""
+    return {"status": "success", "message": "Layout system temporarily disabled"}
+
+@app.delete("/api/layout/tables/{table_id}")
+async def delete_layout_table_fallback(table_id: str):
+    """Fallback endpoint for deleting layout tables"""
+    return {"status": "success", "message": "Layout system temporarily disabled"}
+
+@app.get("/api/layout/export/{room_id}")
+async def export_layout_fallback(room_id: str):
+    """Fallback endpoint for layout export"""
+    return {"status": "success", "message": "Layout system temporarily disabled"}
 
 @app.get("/admin/init-basic-data")
 async def init_basic_data():

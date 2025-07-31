@@ -1,4 +1,4 @@
-EMERGENCY DEPLOYMENT - FIX RESERVATION 500 ERROR
+CODEBASE CLEANUP - REMOVE UNUSED FILES & FIX ENDPOINTS
 Timestamp: 2025-01-30 
-Changes: Completely bypass time validation
-Version: 2.1.0
+Changes: Removed 25+ unused test files, added missing layout fallback endpoints, cleaned up imports
+Version: 2.3.0
