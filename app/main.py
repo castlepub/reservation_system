@@ -8,6 +8,10 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 
+# Import routers
+from app.api.settings import router as settings_router
+from app.api.admin import router as admin_router
+
 # Create FastAPI app
 app = FastAPI(title="The Castle Pub Reservation System")
 
@@ -19,6 +23,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include routers
+app.include_router(settings_router)
+app.include_router(admin_router)
 
 # Mount static files
 static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")

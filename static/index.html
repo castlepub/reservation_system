@@ -590,195 +590,227 @@
                     <div class="tab-header">
                         <h3>Restaurant Settings</h3>
                     </div>
-                    <div class="settings-content">
-                        <!-- Working Hours Section -->
-                        <div class="setting-group">
-                            <h4>Weekly Operating Hours</h4>
-                            <div id="workingHoursContainer" class="working-hours-container">
-                                <!-- Will be populated by JavaScript -->
-                                <div class="loading-text">Loading working hours...</div>
-                            </div>
-                            <div class="setting-actions">
-                                <button id="saveWorkingHours" class="btn btn-primary">
-                                    <i class="fas fa-save"></i> Save Working Hours
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- Restaurant Information -->
-                        <div class="setting-group">
-                            <h4>Restaurant Information</h4>
-                            <div class="form-group">
-                                <label>Restaurant Name</label>
-                                <input type="text" id="restaurantName" value="The Castle Pub" class="form-control">
-                            </div>
-                            <div class="form-group">
-                                <label>Phone Number</label>
-                                <input type="tel" id="restaurantPhone" value="+49 30 12345600" class="form-control">
-                            </div>
-                            <div class="form-group">
-                                <label>Address</label>
-                                <textarea id="restaurantAddress" class="form-control" rows="2">Kastanienallee 85, 10435 Berlin, Germany</textarea>
-                            </div>
-                        </div>
-                        
-                        <!-- Reservation Settings -->
-                        <div class="setting-group">
-                            <h4>Reservation Settings</h4>
-                            <div class="form-group">
-                                <label>Maximum Party Size</label>
-                                <input type="number" id="maxPartySize" value="20" class="form-control" min="1" max="50">
-                            </div>
-                            <div class="form-group">
-                                <label>Minimum Hours in Advance</label>
-                                <input type="number" id="minAdvanceHours" value="2" class="form-control" min="0" max="168">
-                            </div>
-                            <div class="form-group">
-                                <label>Maximum Days in Advance</label>
-                                <input type="number" id="maxAdvanceDays" value="90" class="form-control" min="1" max="365">
-                            </div>
-                        </div>
-
-                        <!-- Special Days / Holidays -->
-                        <div class="setting-group">
-                            <h4>Special Days & Holidays</h4>
-                            <div class="form-group">
-                                <label>Add Closed Day</label>
-                                <div class="special-day-form">
-                                    <input type="date" id="specialDate" class="form-control">
-                                    <input type="text" id="specialReason" placeholder="Reason (e.g., Holiday, Private Event)" class="form-control">
-                                    <button type="button" id="addSpecialDay" class="btn btn-secondary">
-                                        <i class="fas fa-plus"></i> Add
-                                    </button>
-                                </div>
-                            </div>
-                            <div id="specialDaysContainer" class="special-days-list">
-                                <!-- Will be populated by JavaScript -->
-                            </div>
-                        </div>
-
-                        <!-- Room Management -->
-                        <div class="setting-group">
-                            <h4>Room Management</h4>
-                            <div class="room-management-header">
-                                <button type="button" class="btn btn-primary" onclick="showAddRoomModal()">
-                                    <i class="fas fa-plus"></i> Add New Room
-                                </button>
-                            </div>
-                            <div id="roomsContainer" class="rooms-list">
-                                <!-- Will be populated by JavaScript -->
-                                <div class="loading-text">Loading rooms...</div>
-                            </div>
-                        </div>
-
-                        <!-- Table Layout Editor -->
-                        <div class="setting-group">
-                            <h4>Table Layout Editor</h4>
-                            <div class="layout-controls">
+                    
+                    <!-- Settings Navigation Tabs -->
+                    <div class="settings-nav-tabs">
+                        <button class="settings-tab-btn active" onclick="showSettingsTab('general')">
+                            <i class="fas fa-cog"></i> General
+                        </button>
+                        <button class="settings-tab-btn" onclick="showSettingsTab('rooms')">
+                            <i class="fas fa-door-open"></i> Rooms
+                        </button>
+                        <button class="settings-tab-btn" onclick="showSettingsTab('hours')">
+                            <i class="fas fa-clock"></i> Working Hours
+                        </button>
+                        <button class="settings-tab-btn" onclick="showSettingsTab('layout')">
+                            <i class="fas fa-map"></i> Table Layout
+                        </button>
+                    </div>
+                    
+                    <!-- General Settings Tab -->
+                    <div id="generalSettingsTab" class="settings-tab-content active">
+                        <div class="settings-content">
+                            <!-- Restaurant Information -->
+                            <div class="setting-group">
+                                <h4>Restaurant Information</h4>
                                 <div class="form-group">
-                                    <label for="layoutRoomSelect">Select Room</label>
-                                    <select id="layoutRoomSelect" class="form-control">
-                                        <option value="">Choose a room...</option>
-                                    </select>
+                                    <label>Restaurant Name</label>
+                                    <input type="text" id="restaurantName" value="The Castle Pub" class="form-control">
                                 </div>
-                                <div class="layout-toolbar">
-                                    <button type="button" class="btn btn-secondary" onclick="addTableToLayout('square')">
-                                        <i class="fas fa-square"></i> Square
-                                    </button>
-                                    <button type="button" class="btn btn-secondary" onclick="addTableToLayout('round')">
-                                        <i class="fas fa-circle"></i> Round
-                                    </button>
-                                    <button type="button" class="btn btn-secondary" onclick="addTableToLayout('bar_stool')">
-                                        <i class="fas fa-dot-circle"></i> Bar Stool
-                                    </button>
-                                    <button type="button" class="btn btn-secondary" onclick="addTableToLayout('rectangular')">
-                                        <i class="fas fa-rectangle-portrait"></i> Rectangle
-                                    </button>
-                                    <button type="button" class="btn btn-secondary" onclick="toggleGrid()">
-                                        <i class="fas fa-th"></i> Grid
-                                    </button>
-                                    <button type="button" class="btn btn-primary" onclick="saveLayout()">
-                                        <i class="fas fa-save"></i> Save Layout
-                                    </button>
-                                    <button type="button" class="btn btn-secondary" onclick="exportLayout()">
-                                        <i class="fas fa-download"></i> Export
-                                    </button>
-                                    <button type="button" class="btn btn-secondary" onclick="printLayout()">
-                                        <i class="fas fa-print"></i> Print
-                                    </button>
+                                <div class="form-group">
+                                    <label>Phone Number</label>
+                                    <input type="tel" id="restaurantPhone" value="+49 30 12345600" class="form-control">
+                                </div>
+                                <div class="form-group">
+                                    <label>Address</label>
+                                    <textarea id="restaurantAddress" class="form-control" rows="2">Kastanienallee 85, 10435 Berlin, Germany</textarea>
                                 </div>
                             </div>
                             
-                            <div class="layout-editor-container">
-                                <div id="layoutCanvas" class="layout-canvas">
-                                    <div class="layout-placeholder">
-                                        <i class="fas fa-map"></i>
-                                        <p>Select a room to start designing the layout</p>
+                            <!-- Reservation Settings -->
+                            <div class="setting-group">
+                                <h4>Reservation Settings</h4>
+                                <div class="form-group">
+                                    <label>Maximum Party Size</label>
+                                    <input type="number" id="maxPartySize" value="20" class="form-control" min="1" max="50">
+                                </div>
+                                <div class="form-group">
+                                    <label>Minimum Hours in Advance</label>
+                                    <input type="number" id="minAdvanceHours" value="2" class="form-control" min="0" max="168">
+                                </div>
+                                <div class="form-group">
+                                    <label>Maximum Days in Advance</label>
+                                    <input type="number" id="maxAdvanceDays" value="90" class="form-control" min="1" max="365">
+                                </div>
+                            </div>
+
+                            <!-- Special Days / Holidays -->
+                            <div class="setting-group">
+                                <h4>Special Days & Holidays</h4>
+                                <div class="form-group">
+                                    <label>Add Closed Day</label>
+                                    <div class="special-day-form">
+                                        <input type="date" id="specialDate" class="form-control">
+                                        <input type="text" id="specialReason" placeholder="Reason (e.g., Holiday, Private Event)" class="form-control">
+                                        <button type="button" id="addSpecialDay" class="btn btn-secondary">
+                                            <i class="fas fa-plus"></i> Add
+                                        </button>
+                                    </div>
+                                </div>
+                                <div id="specialDaysContainer" class="special-days-list">
+                                    <!-- Will be populated by JavaScript -->
+                                </div>
+                            </div>
+                            
+                            <div class="setting-actions">
+                                <button id="saveGeneralSettings" class="btn btn-primary">
+                                    <i class="fas fa-save"></i> Save General Settings
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Rooms Settings Tab -->
+                    <div id="roomsSettingsTab" class="settings-tab-content">
+                        <div class="settings-content">
+                            <div class="setting-group">
+                                <h4>Room Management</h4>
+                                <div class="room-management-header">
+                                    <button type="button" class="btn btn-primary" onclick="showAddRoomModal()">
+                                        <i class="fas fa-plus"></i> Add New Room
+                                    </button>
+                                </div>
+                                <div id="roomsContainer" class="rooms-list">
+                                    <!-- Will be populated by JavaScript -->
+                                    <div class="loading-text">Loading rooms...</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Working Hours Settings Tab -->
+                    <div id="hoursSettingsTab" class="settings-tab-content">
+                        <div class="settings-content">
+                            <div class="setting-group">
+                                <h4>Weekly Operating Hours</h4>
+                                <div id="workingHoursContainer" class="working-hours-container">
+                                    <!-- Will be populated by JavaScript -->
+                                    <div class="loading-text">Loading working hours...</div>
+                                </div>
+                                <div class="setting-actions">
+                                    <button id="saveWorkingHours" class="btn btn-primary">
+                                        <i class="fas fa-save"></i> Save Working Hours
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Table Layout Settings Tab -->
+                    <div id="layoutSettingsTab" class="settings-tab-content">
+                        <div class="settings-content">
+                            <div class="setting-group">
+                                <h4>Table Layout Editor</h4>
+                                <div class="layout-controls">
+                                    <div class="form-group">
+                                        <label for="layoutRoomSelect">Select Room</label>
+                                        <select id="layoutRoomSelect" class="form-control">
+                                            <option value="">Choose a room...</option>
+                                        </select>
+                                    </div>
+                                    <div class="layout-toolbar">
+                                        <button type="button" class="btn btn-secondary" onclick="addTableToLayout('square')">
+                                            <i class="fas fa-square"></i> Square
+                                        </button>
+                                        <button type="button" class="btn btn-secondary" onclick="addTableToLayout('round')">
+                                            <i class="fas fa-circle"></i> Round
+                                        </button>
+                                        <button type="button" class="btn btn-secondary" onclick="addTableToLayout('bar_stool')">
+                                            <i class="fas fa-dot-circle"></i> Bar Stool
+                                        </button>
+                                        <button type="button" class="btn btn-secondary" onclick="addTableToLayout('rectangular')">
+                                            <i class="fas fa-rectangle-portrait"></i> Rectangle
+                                        </button>
+                                        <button type="button" class="btn btn-secondary" onclick="toggleGrid()">
+                                            <i class="fas fa-th"></i> Grid
+                                        </button>
+                                        <button type="button" class="btn btn-primary" onclick="saveLayout()">
+                                            <i class="fas fa-save"></i> Save Layout
+                                        </button>
+                                        <button type="button" class="btn btn-secondary" onclick="exportLayout()">
+                                            <i class="fas fa-download"></i> Export
+                                        </button>
+                                        <button type="button" class="btn btn-secondary" onclick="printLayout()">
+                                            <i class="fas fa-print"></i> Print
+                                        </button>
                                     </div>
                                 </div>
                                 
-                                <div class="layout-sidebar">
-                                    <div class="layout-properties">
-                                        <h5>Table Properties</h5>
-                                        <div id="tableProperties" class="properties-form" style="display: none;">
-                                            <div class="form-group">
-                                                <label for="layoutTableName">Table Name</label>
-                                                <input type="text" id="layoutTableName" class="form-control">
-                                            </div>
-                                            <div class="form-group">
-                                                <label for="tableCapacity">Capacity</label>
-                                                <input type="number" id="tableCapacity" class="form-control" min="1" max="50">
-                                            </div>
-                                            <div class="form-group">
-                                                <label for="tableShape">Shape</label>
-                                                <select id="tableShape" class="form-control">
-                                                    <option value="square">Square</option>
-                                                    <option value="round">Round</option>
-                                                    <option value="rectangular">Rectangular</option>
-                                                    <option value="bar_stool">Bar Stool</option>
-                                                </select>
-                                            </div>
-                                            <div class="form-group">
-                                                <label for="tableColor">Color</label>
-                                                <input type="color" id="tableColor" class="form-control" value="#4A90E2">
-                                            </div>
-                                            <div class="form-group">
-                                                <label>
-                                                    <input type="checkbox" id="tableShowName" checked>
-                                                    Show Name
-                                                </label>
-                                            </div>
-                                            <div class="form-group">
-                                                <label>
-                                                    <input type="checkbox" id="tableShowCapacity" checked>
-                                                    Show Capacity
-                                                </label>
-                                            </div>
-                                            <div class="form-actions">
-                                                <button type="button" class="btn btn-primary" onclick="updateTableProperties()">
-                                                    <i class="fas fa-save"></i> Update
-                                                </button>
-                                                <button type="button" class="btn btn-danger" onclick="deleteSelectedTable()">
-                                                    <i class="fas fa-trash"></i> Delete
-                                                </button>
-                                            </div>
+                                <div class="layout-editor-container">
+                                    <div id="layoutCanvas" class="layout-canvas">
+                                        <div class="layout-placeholder">
+                                            <i class="fas fa-map"></i>
+                                            <p>Select a room to start designing the layout</p>
                                         </div>
                                     </div>
                                     
-                                    <div class="layout-reservations">
-                                        <h5>Reservations</h5>
-                                        <div id="layoutReservationsList" class="reservations-list">
-                                            <!-- Will be populated by JavaScript -->
+                                    <div class="layout-sidebar">
+                                        <div class="layout-properties">
+                                            <h5>Table Properties</h5>
+                                            <div id="tableProperties" class="properties-form" style="display: none;">
+                                                <div class="form-group">
+                                                    <label for="layoutTableName">Table Name</label>
+                                                    <input type="text" id="layoutTableName" class="form-control">
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="tableCapacity">Capacity</label>
+                                                    <input type="number" id="tableCapacity" class="form-control" min="1" max="50">
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="tableShape">Shape</label>
+                                                    <select id="tableShape" class="form-control">
+                                                        <option value="square">Square</option>
+                                                        <option value="round">Round</option>
+                                                        <option value="rectangular">Rectangular</option>
+                                                        <option value="bar_stool">Bar Stool</option>
+                                                    </select>
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="tableColor">Color</label>
+                                                    <input type="color" id="tableColor" class="form-control" value="#4A90E2">
+                                                </div>
+                                                <div class="form-group">
+                                                    <label>
+                                                        <input type="checkbox" id="tableShowName" checked>
+                                                        Show Name
+                                                    </label>
+                                                </div>
+                                                <div class="form-group">
+                                                    <label>
+                                                        <input type="checkbox" id="tableShowCapacity" checked>
+                                                        Show Capacity
+                                                    </label>
+                                                </div>
+                                                <div class="form-actions">
+                                                    <button type="button" class="btn btn-primary" onclick="updateTableProperties()">
+                                                        <i class="fas fa-save"></i> Update
+                                                    </button>
+                                                    <button type="button" class="btn btn-danger" onclick="deleteSelectedTable()">
+                                                        <i class="fas fa-trash"></i> Delete
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="layout-reservations">
+                                            <h5>Room Reservations</h5>
+                                            <div id="layoutReservationsList" class="reservations-list">
+                                                <!-- Reservations will be loaded here -->
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-
-                        <div class="setting-actions">
-                            <button id="saveAllSettings" class="btn btn-primary btn-large">
-                                <i class="fas fa-save"></i> Save All Settings
-                            </button>
                         </div>
                     </div>
                 </div>

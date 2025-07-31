@@ -1100,10 +1100,8 @@ function formatTime(timeString) {
 async function loadSettingsData() {
     try {
         await Promise.all([
-            loadWorkingHours(),
             loadRestaurantSettings(),
-            loadSpecialDays(),
-            loadRoomsForSettings() // Add this line
+            loadSpecialDays()
         ]);
         
         // Initialize layout editor
@@ -3711,5 +3709,37 @@ async function deleteRoom(roomId, roomName) {
     } catch (error) {
         console.error('Error deleting room:', error);
         showMessage('Error deleting room: ' + error.message, 'error');
+    }
+}
+
+// Settings Tab Management
+function showSettingsTab(tabName) {
+    // Hide all settings tab contents
+    const tabContents = document.querySelectorAll('.settings-tab-content');
+    tabContents.forEach(content => content.classList.remove('active'));
+    
+    // Remove active class from all settings tab buttons
+    const tabButtons = document.querySelectorAll('.settings-tab-btn');
+    tabButtons.forEach(btn => btn.classList.remove('active'));
+    
+    // Show selected tab content
+    const selectedTab = document.getElementById(tabName + 'SettingsTab');
+    if (selectedTab) {
+        selectedTab.classList.add('active');
+    }
+    
+    // Add active class to selected tab button
+    const selectedButton = document.querySelector(`[onclick="showSettingsTab('${tabName}')"]`);
+    if (selectedButton) {
+        selectedButton.classList.add('active');
+    }
+    
+    // Load specific data for each tab
+    if (tabName === 'rooms') {
+        loadRoomsForSettings();
+    } else if (tabName === 'hours') {
+        loadWorkingHours();
+    } else if (tabName === 'layout') {
+        initializeLayoutEditor();
     }
 }
