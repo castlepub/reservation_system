@@ -2954,7 +2954,7 @@ function showTableProperties(layoutId) {
     if (!tableData) return;
     
     // Populate properties form
-    document.getElementById('tableName').value = tableData.table_name;
+    document.getElementById('layoutTableName').value = tableData.table_name;
     document.getElementById('tableCapacity').value = tableData.capacity;
     document.getElementById('tableShape').value = tableData.shape;
     document.getElementById('tableColor').value = tableData.color;
@@ -3159,7 +3159,7 @@ async function updateTableProperties() {
     
     try {
         const formData = {
-            table_name: document.getElementById('tableName').value,
+            table_name: document.getElementById('layoutTableName').value,
             capacity: parseInt(document.getElementById('tableCapacity').value),
             shape: document.getElementById('tableShape').value,
             color: document.getElementById('tableColor').value,

@@ -98,6 +98,53 @@ async def api_root():
         }
     }
 
+@app.get("/api/dashboard/stats")
+async def get_dashboard_stats_simple():
+    """Simple dashboard stats endpoint for debugging"""
+    return {
+        "total_reservations_today": 0,
+        "total_guests_today": 0,
+        "total_reservations_week": 0,
+        "total_guests_week": 0,
+        "weekly_forecast": [],
+        "guest_notes": []
+    }
+
+@app.get("/api/dashboard/customers")
+async def get_customers_simple():
+    """Simple customers endpoint for debugging"""
+    return []
+
+@app.get("/api/dashboard/notes")
+async def get_dashboard_notes_simple():
+    """Simple dashboard notes endpoint for debugging"""
+    return []
+
+@app.get("/api/dashboard/today")
+async def get_today_reservations_simple():
+    """Simple today's reservations endpoint for debugging"""
+    return []
+
+@app.post("/api/reservations")
+async def create_reservation_simple():
+    """Simple reservation creation endpoint for debugging"""
+    return {
+        "id": "temp-id",
+        "customer_name": "Test Customer",
+        "email": "test@example.com",
+        "phone": "123-456-7890",
+        "date": "2025-01-30",
+        "time": "19:00",
+        "party_size": 2,
+        "room_id": "550e8400-e29b-41d4-a716-446655440001",
+        "reservation_type": "dinner",
+        "status": "confirmed",
+        "notes": "Test reservation",
+        "duration_hours": 2,
+        "created_at": "2025-01-30T10:00:00Z",
+        "tables": []
+    }
+
 @app.get("/api/test-auth")
 async def test_auth():
     """Test auth endpoint"""
