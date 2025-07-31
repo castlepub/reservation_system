@@ -1811,7 +1811,19 @@ function displayReservations(reservations) {
 }
 
 function showAddReservationForm() {
-    document.getElementById('addReservationModal').classList.remove('hidden');
+    console.log('showAddReservationForm called');
+    
+    const modal = document.getElementById('addReservationModal');
+    console.log('Modal element:', modal);
+    
+    if (!modal) {
+        console.error('addReservationModal not found!');
+        showMessage('Modal not found - please refresh the page', 'error');
+        return;
+    }
+    
+    modal.classList.remove('hidden');
+    console.log('Modal should now be visible');
     
     // Load and populate rooms
     loadRooms();
