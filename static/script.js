@@ -1850,13 +1850,23 @@ async function handleAddReservation(event) {
     event.preventDefault();
     
     const formData = new FormData(event.target);
+    // Parse time string to proper format
+    const timeString = formData.get('time');
+    let timeValue = timeString;
+    
+    // If time is in HH:MM format, convert it to proper time format
+    if (timeString && timeString.includes(':')) {
+        const [hours, minutes] = timeString.split(':');
+        timeValue = `${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}:00`;
+    }
+    
     const reservationData = {
         customer_name: formData.get('customerName'),
         email: formData.get('email'),
         phone: formData.get('phone'),
         party_size: parseInt(formData.get('partySize')),
         date: formData.get('date'),
-        time: formData.get('time'),
+        time: timeValue,
         duration_hours: parseInt(formData.get('duration')),
         room_id: formData.get('room') || null,
         reservation_type: formData.get('reservationType'),
