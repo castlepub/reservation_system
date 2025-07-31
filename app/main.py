@@ -80,7 +80,7 @@ async def root():
 @app.get("/ping")
 async def ping():
     """Simple ping endpoint"""
-    return {"message": "pong"}
+    return {"message": "pong", "timestamp": datetime.utcnow().isoformat()}
 
 @app.get("/health")
 async def health_check():
