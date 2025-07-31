@@ -12,7 +12,7 @@ from app.services.table_service import TableService
 from app.services.email_service import EmailService
 from app.models.room import Room
 
-router = APIRouter(prefix="/api", tags=["public"])
+router = APIRouter(tags=["public"])
 
 
 @router.post("/reservations", response_model=ReservationWithTables)

@@ -107,6 +107,15 @@ async def api_root():
         }
     }
 
+@app.get("/api/test-reservations")
+async def test_reservations_endpoint():
+    """Test endpoint to verify routing is working"""
+    return {
+        "message": "Reservations endpoint test",
+        "status": "working",
+        "endpoint": "/api/reservations should be available"
+    }
+
 @app.get("/api/dashboard/stats")
 async def get_dashboard_stats_simple():
     """Simple dashboard stats endpoint for debugging"""
