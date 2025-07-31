@@ -1,13 +1,40 @@
-# ULTRA MINIMAL FASTAPI APP FOR RAILWAY HEALTH CHECK
+# GRADUALLY RESTORING FUNCTIONALITY AFTER SUCCESSFUL HEALTH CHECK
+import os
 from datetime import datetime
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
-# Create minimal FastAPI app
+# Create FastAPI app
 app = FastAPI(title="The Castle Pub Reservation System")
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Mount static files
+static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
+try:
+    if os.path.exists(static_dir):
+        app.mount("/static", StaticFiles(directory=static_dir), name="static")
+except Exception:
+    pass  # Ignore static file mounting errors
 
 @app.get("/")
 async def root():
-    """Root endpoint"""
+    """Serve the main HTML file"""
+    try:
+        html_file = os.path.join(static_dir, "index.html")
+        if os.path.exists(html_file):
+            return FileResponse(html_file)
+    except Exception:
+        pass
     return {"message": "The Castle Pub Reservation System", "status": "running"}
 
 @app.get("/health")
@@ -20,4 +47,33 @@ async def ping():
     """Simple ping endpoint"""
     return {"message": "pong", "timestamp": datetime.utcnow().isoformat()}
 
-# All other endpoints temporarily disabled for health check debugging
+# Basic API endpoints (without database)
+@app.get("/api")
+async def api_root():
+    """API root endpoint"""
+    return {"message": "The Castle Pub Reservation System API", "status": "running"}
+
+# Temporary simple endpoints for frontend compatibility
+@app.get("/api/rooms")
+async def get_rooms_temp():
+    """Temporary rooms endpoint"""
+    return []
+
+@app.get("/api/dashboard/stats")
+async def get_dashboard_stats_temp():
+    """Temporary dashboard stats"""
+    return {
+        "total_reservations_today": 0,
+        "total_guests_today": 0,
+        "total_reservations_week": 0,
+        "total_guests_week": 0,
+        "weekly_forecast": [],
+        "guest_notes": []
+    }
+
+@app.post("/api/reservations")
+async def create_reservation_temp():
+    """Temporary reservation endpoint"""
+    return {"status": "success", "message": "System temporarily in maintenance mode"}
+
+# All complex endpoints with database dependencies are temporarily disabled

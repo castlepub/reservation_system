@@ -1,4 +1,4 @@
-CRITICAL FIX - RAILWAY STARTUP COMMAND CORRECTED
+GRADUAL RESTORATION - STATIC FILES + BASIC ENDPOINTS
 Timestamp: 2025-01-30 
-Changes: Fixed railway.json to use uvicorn instead of deleted startup file
-Version: 2.4.1 - STARTUP FIX
+Changes: Added back static files, CORS, basic API endpoints (no database yet)
+Version: 2.5.0 - BASIC RESTORATION
