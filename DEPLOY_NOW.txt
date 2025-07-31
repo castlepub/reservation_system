@@ -1,0 +1,4 @@
+CRITICAL FIX - TIME SLOTS FORMAT CORRECTED
+Timestamp: 2025-01-30 
+Changes: Fixed time-slots endpoint to return time_slots array as expected by frontend
+Version: 2.9.0 - TIME SLOTS WORK!

@@ -4,16 +4,18 @@ let authToken = localStorage.getItem('authToken');
 let dashboardStats = null;
 let chartInstance = null;
 
-// DOM Elements
-const sections = {
-    home: document.getElementById('home'),
-    reservations: document.getElementById('reservations'),
-    admin: document.getElementById('admin'),
-    adminDashboard: document.getElementById('adminDashboard')
-};
+// DOM Elements - will be initialized after DOM loads
+let sections = {};
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
+    // Initialize sections after DOM is loaded
+    sections = {
+        home: document.getElementById('home'),
+        reservations: document.getElementById('reservations'),
+        admin: document.getElementById('admin'),
+        adminDashboard: document.getElementById('adminDashboard')
+    };
     console.log('Initializing app...');
     
     try {
@@ -99,6 +101,37 @@ function initializeApp() {
         loadDashboardData();
     } else {
         console.log('No token, user needs to login');
+    }
+}
+
+async function checkAuth() {
+    if (!authToken) {
+        console.log('No auth token, redirecting to login');
+        return false;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+        
+        if (response.ok) {
+            const user = await response.json();
+            console.log('Auth check successful for user:', user.username);
+            return true;
+        } else {
+            console.log('Auth check failed, clearing token');
+            authToken = null;
+            localStorage.removeItem('authToken');
+            return false;
+        }
+    } catch (error) {
+        console.error('Auth check error:', error);
+        authToken = null;
+        localStorage.removeItem('authToken');
+        return false;
     }
 }
 
@@ -528,6 +561,38 @@ function filterTodayReservations() {
     loadTodayReservations(); // Reload with filters
 }
 
+// PDF Generation Functions
+async function generateDailyPDF() {
+    try {
+        const today = new Date().toISOString().split('T')[0];
+        const response = await fetch(`${API_BASE_URL}/admin/reports/daily?report_date=${today}`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+
+        if (response.ok) {
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = `daily_report_${today}.html`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            showMessage('Daily PDF report generated successfully!', 'success');
+        } else {
+            throw new Error('Failed to generate PDF');
+        }
+    } catch (error) {
+        console.error('Error generating daily PDF:', error);
+        showMessage('Error generating PDF report', 'error');
+    }
+}
+
 // Print Functions
 function printNameTags() {
     const reservations = Array.from(document.querySelectorAll('.today-reservation-card'));
@@ -631,39 +696,33 @@ async function checkAvailabilityAdmin() {
 
 // Tab Management
 function showTab(tabName) {
-    // Hide all tabs
-    document.querySelectorAll('.tab-content').forEach(tab => {
-        tab.classList.remove('active');
-    });
+    // Hide all tab contents
+    const tabContents = document.querySelectorAll('.tab-content');
+    tabContents.forEach(content => content.classList.remove('active'));
     
     // Remove active class from all tab buttons
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.classList.remove('active');
-    });
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    tabButtons.forEach(btn => btn.classList.remove('active'));
     
-    // Show selected tab
+    // Show selected tab content
     const selectedTab = document.getElementById(tabName + 'Tab');
     if (selectedTab) {
         selectedTab.classList.add('active');
     }
     
-    // Add active class to clicked tab button
-    event.target.classList.add('active');
+    // Add active class to selected tab button
+    const selectedButton = document.querySelector(`[onclick="showTab('${tabName}')"]`);
+    if (selectedButton) {
+        selectedButton.classList.add('active');
+    }
     
     // Load data for specific tabs
-    if (tabName === 'dashboard') {
-        loadDashboardStats();
-    } else if (tabName === 'customers') {
-        loadCustomers();
+    if (tabName === 'dailyView') {
+        loadDailyView();
     } else if (tabName === 'today') {
         loadTodayReservations();
-    } else if (tabName === 'reservations') {
-        loadAllReservations();
-    } else if (tabName === 'settings') {
-        loadSettingsData();
-        loadRestaurantSettings(); // Load restaurant settings for dynamic forms
-    } else if (tabName === 'tables') {
-        loadTablesData();
+    } else if (tabName === 'dashboard') {
+        loadDashboardData();
     }
 }
 
@@ -679,6 +738,7 @@ async function handleReservationSubmit(e) {
         party_size: parseInt(formData.get('partySize')),
         date: formData.get('date'),
         time: formData.get('time'),
+        duration_hours: parseInt(formData.get('duration')),
         room_id: formData.get('room') || null,
         reservation_type: formData.get('reservationType') || 'dining',
         notes: formData.get('notes') || null
@@ -727,13 +787,22 @@ async function handleAdminLogin(e) {
     e.preventDefault();
     
     const formData = new FormData(e.target);
+    const username = formData.get('username');
+    const password = formData.get('password');
     
     try {
         showLoading();
         
+        // Use proper auth endpoint
         const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
             method: 'POST',
-            body: formData
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: new URLSearchParams({
+                'username': username,
+                'password': password
+            })
         });
 
         console.log('Login response status:', response.status);
@@ -782,7 +851,9 @@ function showSection(sectionName) {
 }
 
 function showReservationForm() {
-    showSection('reservations');
+    console.log('showReservationForm called');
+    // Open the same modal as the "+ Add Reservation" button
+    showAddReservationForm();
 }
 
 function hideReservationForm() {
@@ -823,7 +894,7 @@ async function loadRooms() {
 }
 
 function populateRoomOptions(rooms) {
-    const roomSelects = ['room', 'adminRoom'];
+    const roomSelects = ['room', 'adminRoom', 'newRoom'];
     
     roomSelects.forEach(selectId => {
         const select = document.getElementById(selectId);
@@ -922,8 +993,36 @@ function setMinDate() {
 }
 
 async function checkAvailability() {
-    // This function can be enhanced to show real-time availability
-    console.log('Checking availability...');
+    const date = document.getElementById('date').value;
+    const partySize = document.getElementById('partySize').value;
+    const duration = document.getElementById('duration').value;
+    const room = document.getElementById('room').value;
+    
+    if (date && partySize && duration) {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/availability`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    date: date,
+                    party_size: parseInt(partySize),
+                    duration_hours: parseInt(duration),
+                    room_id: room || null
+                })
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                updateTimeSlotsDisplay(data.available_slots);
+            } else {
+                console.error('Availability check failed');
+            }
+        } catch (error) {
+            console.error('Error checking availability:', error);
+        }
+    }
 }
 
 function showLoading() {
@@ -995,9 +1094,13 @@ async function loadSettingsData() {
             loadRestaurantSettings(),
             loadSpecialDays()
         ]);
+        
+        // Initialize layout editor
+        initializeLayoutEditorOnLoad();
+        
     } catch (error) {
-        console.error('Error loading settings:', error);
-        showMessage('Error loading settings data', 'error');
+        console.error('Error loading settings data:', error);
+        showMessage('Error loading settings', 'error');
     }
 }
 
@@ -1381,7 +1484,7 @@ async function loadTablesData() {
 
 async function loadRoomsForTables() {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/admin/rooms`, {
+        const response = await fetch(`${API_BASE_URL}/admin/rooms`, {
             headers: {
                 'Authorization': `Bearer ${authToken}`
             }
@@ -1405,7 +1508,7 @@ async function loadRoomsForTables() {
 
 async function loadTables() {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/admin/tables`, {
+        const response = await fetch(`${API_BASE_URL}/admin/tables`, {
             headers: {
                 'Authorization': `Bearer ${authToken}`
             }
@@ -1502,7 +1605,7 @@ async function handleAddTable(event) {
     };
     
     try {
-        const response = await fetch(`${API_BASE_URL}/api/admin/tables`, {
+        const response = await fetch(`${API_BASE_URL}/admin/tables`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${authToken}`,
@@ -1531,7 +1634,7 @@ async function deleteTable(tableId, tableName) {
     }
     
     try {
-        const response = await fetch(`${API_BASE_URL}/api/admin/tables/${tableId}`, {
+        const response = await fetch(`${API_BASE_URL}/admin/tables/${tableId}`, {
             method: 'DELETE',
             headers: {
                 'Authorization': `Bearer ${authToken}`
@@ -1542,11 +1645,12 @@ async function deleteTable(tableId, tableName) {
             showMessage('Table deleted successfully', 'success');
             loadTables(); // Reload tables
         } else {
-            throw new Error('Failed to delete table');
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to delete table');
         }
     } catch (error) {
         console.error('Error deleting table:', error);
-        showMessage('Error deleting table', 'error');
+        showMessage('Error deleting table: ' + error.message, 'error');
     }
 }
 
@@ -1614,7 +1718,7 @@ async function loadAllReservations() {
     try {
         // Get the selected date filter
         const dateFilter = document.getElementById('reservationDateFilter').value;
-        let url = `${API_BASE_URL}/api/admin/reservations`;
+        let url = `${API_BASE_URL}/admin/reservations`;
         
         // Add date filter if selected
         if (dateFilter) {
@@ -1682,14 +1786,6 @@ function displayReservations(reservations) {
                         <i class="fas fa-phone"></i>
                         <span>${reservation.phone}</span>
                     </div>
-                    <div class="detail-row">
-                        <i class="fas fa-table"></i>
-                        <span class="table-assignment">
-                            ${reservation.tables && reservation.tables.length > 0 
-                                ? reservation.tables.map(table => `<span class="table-tag">${table.table_name} (${table.capacity})</span>`).join(' ') 
-                                : 'No tables assigned'}
-                        </span>
-                    </div>
                     ${reservation.notes ? `
                         <div class="detail-row">
                             <i class="fas fa-comment"></i>
@@ -1698,9 +1794,6 @@ function displayReservations(reservations) {
                     ` : ''}
                 </div>
                 <div class="reservation-actions">
-                    <button class="btn-small btn-primary" onclick="editReservationTables('${reservation.id}')">
-                        <i class="fas fa-table"></i> Edit Tables
-                    </button>
                     <button class="btn-small btn-secondary" onclick="editReservation('${reservation.id}')">
                         <i class="fas fa-edit"></i> Edit
                     </button>
@@ -1717,15 +1810,33 @@ function displayReservations(reservations) {
 }
 
 function showAddReservationForm() {
-    document.getElementById('addReservationModal').classList.remove('hidden');
+    console.log('showAddReservationForm called');
+    
+    const modal = document.getElementById('addReservationModal');
+    console.log('Modal element:', modal);
+    
+    if (!modal) {
+        console.error('addReservationModal not found!');
+        showMessage('Modal not found - please refresh the page', 'error');
+        return;
+    }
+    
+    modal.classList.remove('hidden');
+    console.log('Modal should now be visible');
     
     // Load and populate rooms
-    loadRooms('newRoom');
+    loadRooms();
     
     // Load restaurant settings and update party size
     loadRestaurantSettings().then(() => {
         // Populate time slots
         populateTimeSlots('newTime');
+        
+        // Populate party size dropdown
+        const partySizeSelect = document.getElementById('newPartySize');
+        if (partySizeSelect) {
+            populatePartySizeDropdown(partySizeSelect, 20);
+        }
     });
 }
 
@@ -1738,13 +1849,24 @@ async function handleAddReservation(event) {
     event.preventDefault();
     
     const formData = new FormData(event.target);
+    // Parse time string to proper format
+    const timeString = formData.get('time');
+    let timeValue = timeString;
+    
+    // If time is in HH:MM format, convert it to proper time format
+    if (timeString && timeString.includes(':')) {
+        const [hours, minutes] = timeString.split(':');
+        timeValue = `${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}:00`;
+    }
+    
     const reservationData = {
         customer_name: formData.get('customerName'),
         email: formData.get('email'),
         phone: formData.get('phone'),
         party_size: parseInt(formData.get('partySize')),
         date: formData.get('date'),
-        time: formData.get('time'),
+        time: timeValue,
+        duration_hours: parseInt(formData.get('duration')),
         room_id: formData.get('room') || null,
         reservation_type: formData.get('reservationType'),
         notes: formData.get('notes') || null,
@@ -1767,11 +1889,22 @@ async function handleAddReservation(event) {
             loadAllReservations(); // Reload reservations list
         } else {
             const error = await response.json();
-            throw new Error(error.detail || 'Failed to create reservation');
+            console.error('Reservation creation failed:', error);
+            
+            // Show detailed validation errors for 422
+            if (response.status === 422 && error.detail && Array.isArray(error.detail)) {
+                const errorMessages = error.detail.map(err => {
+                    const field = err.loc?.slice(1).join('.') || 'unknown field';
+                    return `${field}: ${err.msg}`;
+                }).join('\n');
+                throw new Error(`Validation errors:\n${errorMessages}`);
+            }
+            
+            throw new Error(error.detail || JSON.stringify(error) || 'Failed to create reservation');
         }
     } catch (error) {
         console.error('Error creating reservation:', error);
-        showMessage('Error creating reservation: ' + error.message, 'error');
+        showMessage(error.message || 'Failed to create reservation', 'error');
     }
 }
 
@@ -1812,7 +1945,7 @@ function editReservation(reservationId) {
 async function showEditReservationForm(reservationId) {
     try {
         // Fetch the current reservation data
-        const response = await fetch(`${API_BASE_URL}/api/admin/reservations/${reservationId}`, {
+        const response = await fetch(`${API_BASE_URL}/admin/reservations/${reservationId}`, {
             headers: {
                 'Authorization': `Bearer ${authToken}`
             }
@@ -1820,6 +1953,10 @@ async function showEditReservationForm(reservationId) {
         
         if (response.ok) {
             const reservation = await response.json();
+            
+            // Load rooms and tables for the form
+            await loadRooms();
+            await loadTablesData();
             
             // Create and show edit modal
             const modal = document.createElement('div');
@@ -1866,7 +2003,9 @@ async function showEditReservationForm(reservationId) {
                             </div>
                             <div class="form-group">
                                 <label for="editTime">Time *</label>
-                                <input type="time" id="editTime" name="time" value="${reservation.time}" required>
+                                <select id="editTime" name="time" required>
+                                    <option value="${reservation.time}">${reservation.time}</option>
+                                </select>
                             </div>
                         </div>
                         <div class="form-row">
@@ -1884,6 +2023,33 @@ async function showEditReservationForm(reservationId) {
                                     <option value="cancelled" ${reservation.status === 'cancelled' ? 'selected' : ''}>Cancelled</option>
                                     <option value="completed" ${reservation.status === 'completed' ? 'selected' : ''}>Completed</option>
                                 </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="editRoom">Room</label>
+                                <select id="editRoom" name="room">
+                                    <option value="">Any room</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="editTables">Assigned Tables</label>
+                                <div id="editTablesContainer" class="tables-selection">
+                                    <div class="current-tables">
+                                        <strong>Current Tables:</strong>
+                                        <div id="currentTablesList">
+                                            ${reservation.tables ? reservation.tables.map(t => `${t.table_name} (${t.capacity})`).join(', ') : 'None assigned'}
+                                        </div>
+                                    </div>
+                                    <div class="table-selection-controls">
+                                        <button type="button" class="btn btn-sm btn-secondary" onclick="showTableSelectionModal('${reservationId}')">
+                                            <i class="fas fa-edit"></i> Change Tables
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-danger" onclick="clearAssignedTables('${reservationId}')">
+                                            <i class="fas fa-times"></i> Clear Tables
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <div class="form-group">
@@ -1907,23 +2073,41 @@ async function showEditReservationForm(reservationId) {
             document.body.appendChild(modal);
             
             // Populate party size dropdown
-            updateMaxPartySizeOptions(20); // Will be replaced by settings value
-            
-            // Set the current party size
             const partySizeSelect = document.getElementById('editPartySize');
             if (partySizeSelect) {
+                populatePartySizeDropdown(partySizeSelect, 20);
                 partySizeSelect.value = reservation.party_size;
             }
             
-            // Show modal
-            modal.classList.remove('hidden');
+            // Populate room dropdown
+            const roomSelect = document.getElementById('editRoom');
+            if (roomSelect && window.loadedRooms) {
+                window.loadedRooms.forEach(room => {
+                    const option = document.createElement('option');
+                    option.value = room.id;
+                    option.textContent = room.name;
+                    if (reservation.room_id === room.id) {
+                        option.selected = true;
+                    }
+                    roomSelect.appendChild(option);
+                });
+            }
+            
+            // Set up date change handler to update time slots
+            const dateInput = document.getElementById('editDate');
+            const timeSelect = document.getElementById('editTime');
+            if (dateInput && timeSelect) {
+                dateInput.addEventListener('change', function() {
+                    updateTimeSlotsForDate(this, 'editTime');
+                });
+            }
             
         } else {
             throw new Error('Failed to load reservation data');
         }
     } catch (error) {
-        console.error('Error loading reservation for edit:', error);
-        showMessage('Error loading reservation data', 'error');
+        console.error('Error showing edit form:', error);
+        showMessage('Error loading reservation data: ' + error.message, 'error');
     }
 }
 
@@ -1931,6 +2115,236 @@ function hideEditReservationForm() {
     const modal = document.getElementById('editReservationModal');
     if (modal) {
         modal.remove();
+    }
+}
+
+async function showTableSelectionModal(reservationId) {
+    try {
+        // Fetch available tables for the reservation
+        const response = await fetch(`${API_BASE_URL}/admin/reservations/${reservationId}/available-tables`, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            const availableTables = data.available_tables;
+            const currentTables = data.current_tables || [];
+            const partySize = data.party_size;
+            const currentTotalCapacity = data.current_total_capacity;
+            const seatsShortage = data.seats_shortage;
+            const seatsExcess = data.seats_excess;
+            const capacityStatus = data.capacity_status;
+            
+            // Create capacity status message
+            let capacityMessage = '';
+            let capacityClass = '';
+            if (capacityStatus === 'perfect') {
+                capacityMessage = `Perfect! ${currentTotalCapacity} seats for ${partySize} people`;
+                capacityClass = 'capacity-perfect';
+            } else if (capacityStatus === 'shortage') {
+                capacityMessage = `Need ${seatsShortage} more seats (${currentTotalCapacity}/${partySize})`;
+                capacityClass = 'capacity-shortage';
+            } else {
+                capacityMessage = `${seatsExcess} extra seats (${currentTotalCapacity}/${partySize})`;
+                capacityClass = 'capacity-excess';
+            }
+            
+            // Create table selection modal
+            const modal = document.createElement('div');
+            modal.id = 'tableSelectionModal';
+            modal.className = 'modal';
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h4>Select Tables for Reservation</h4>
+                        <button class="close-btn" onclick="hideTableSelectionModal()">&times;</button>
+                    </div>
+                    <div class="table-selection-content">
+                        <div class="capacity-info ${capacityClass}">
+                            <h5>Party Size: ${partySize} people</h5>
+                            <div class="capacity-status">${capacityMessage}</div>
+                        </div>
+                        <div class="current-selection">
+                            <h5>Currently Selected:</h5>
+                            <div id="selectedTablesList">
+                                ${currentTables.map(t => `<span class="selected-table" data-table-id="${t.id}">${t.table_name} (${t.capacity})</span>`).join('')}
+                            </div>
+                            <div id="currentCapacityInfo" class="capacity-summary">
+                                Total: ${currentTotalCapacity} seats
+                            </div>
+                        </div>
+                        <div class="available-tables">
+                            <h5>Available Tables:</h5>
+                            <div class="tables-grid">
+                                ${availableTables.map(table => `
+                                    <div class="table-option ${currentTables.some(t => t.id === table.id) ? 'selected' : ''}" 
+                                         data-table-id="${table.id}"
+                                         onclick="toggleTableSelection('${table.id}', '${table.name}', ${table.capacity})">
+                                        <div class="table-name">${table.name}</div>
+                                        <div class="table-capacity">${table.capacity} seats</div>
+                                        <div class="table-room">${table.room_name}</div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn-secondary" onclick="hideTableSelectionModal()">Cancel</button>
+                        <button type="button" class="btn btn-primary" onclick="saveTableSelection('${reservationId}')">
+                            <i class="fas fa-save"></i> Save Table Selection
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+        } else {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || 'Failed to load available tables');
+        }
+    } catch (error) {
+        console.error('Error showing table selection modal:', error);
+        showMessage('Error loading available tables: ' + error.message, 'error');
+    }
+}
+
+function hideTableSelectionModal() {
+    const modal = document.getElementById('tableSelectionModal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+function toggleTableSelection(tableId, tableName, capacity) {
+    const tableOption = document.querySelector(`[data-table-id="${tableId}"]`);
+    const selectedTablesList = document.getElementById('selectedTablesList');
+    const currentCapacityInfo = document.getElementById('currentCapacityInfo');
+    
+    if (tableOption.classList.contains('selected')) {
+        // Remove from selection
+        tableOption.classList.remove('selected');
+        const tableSpan = selectedTablesList.querySelector(`[data-table-id="${tableId}"]`);
+        if (tableSpan) {
+            tableSpan.remove();
+        }
+    } else {
+        // Add to selection
+        tableOption.classList.add('selected');
+        const tableSpan = document.createElement('span');
+        tableSpan.className = 'selected-table';
+        tableSpan.setAttribute('data-table-id', tableId);
+        tableSpan.textContent = `${tableName} (${capacity})`;
+        selectedTablesList.appendChild(tableSpan);
+    }
+    
+    // Update capacity summary
+    if (currentCapacityInfo) {
+        const selectedTables = Array.from(selectedTablesList.querySelectorAll('.selected-table'));
+        const totalCapacity = selectedTables.reduce((sum, span) => {
+            const capacityText = span.textContent.match(/\((\d+)\)/);
+            return sum + (capacityText ? parseInt(capacityText[1]) : 0);
+        }, 0);
+        
+        // Get party size from the modal header
+        const partySizeElement = document.querySelector('.capacity-info h5');
+        const partySizeMatch = partySizeElement?.textContent.match(/(\d+)/);
+        const partySize = partySizeMatch ? parseInt(partySizeMatch[1]) : 0;
+        
+        let capacityMessage = `Total: ${totalCapacity} seats`;
+        if (partySize > 0) {
+            if (totalCapacity === partySize) {
+                capacityMessage += ` (Perfect!)`;
+            } else if (totalCapacity < partySize) {
+                const shortage = partySize - totalCapacity;
+                capacityMessage += ` (Need ${shortage} more)`;
+            } else {
+                const excess = totalCapacity - partySize;
+                capacityMessage += ` (${excess} extra)`;
+            }
+        }
+        
+        currentCapacityInfo.textContent = capacityMessage;
+    }
+}
+
+async function saveTableSelection(reservationId) {
+    try {
+        const selectedTables = Array.from(document.querySelectorAll('#selectedTablesList .selected-table'))
+            .map(span => span.getAttribute('data-table-id'));
+        
+        const response = await fetch(`${API_BASE_URL}/admin/reservations/${reservationId}/tables`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                table_ids: selectedTables
+            })
+        });
+        
+        if (response.ok) {
+            showMessage('Table assignment updated successfully', 'success');
+            hideTableSelectionModal();
+            
+            // Update the current tables display in the edit form
+            const currentTablesList = document.getElementById('currentTablesList');
+            if (currentTablesList) {
+                const tableNames = selectedTables.map(tableId => {
+                    const tableOption = document.querySelector(`[data-table-id="${tableId}"]`);
+                    if (tableOption) {
+                        const name = tableOption.querySelector('.table-name')?.textContent || 'Unknown';
+                        const capacity = tableOption.querySelector('.table-capacity')?.textContent || '';
+                        return `${name} (${capacity})`;
+                    }
+                    return '';
+                }).filter(name => name);
+                currentTablesList.textContent = tableNames.join(', ') || 'None assigned';
+            }
+        } else {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || 'Failed to update table assignment');
+        }
+    } catch (error) {
+        console.error('Error saving table selection:', error);
+        showMessage('Error updating table assignment: ' + error.message, 'error');
+    }
+}
+
+async function clearAssignedTables(reservationId) {
+    if (!confirm('Are you sure you want to clear all assigned tables for this reservation?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/admin/reservations/${reservationId}/tables`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                table_ids: []
+            })
+        });
+        
+        if (response.ok) {
+            showMessage('Table assignment cleared successfully', 'success');
+            
+            // Update the current tables display
+            const currentTablesList = document.getElementById('currentTablesList');
+            if (currentTablesList) {
+                currentTablesList.textContent = 'None assigned';
+            }
+        } else {
+            throw new Error('Failed to clear table assignment');
+        }
+    } catch (error) {
+        console.error('Error clearing table assignment:', error);
+        showMessage('Error clearing table assignment: ' + error.message, 'error');
     }
 }
 
@@ -1952,7 +2366,7 @@ async function handleEditReservation(event, reservationId) {
     };
     
     try {
-        const response = await fetch(`${API_BASE_URL}/api/admin/reservations/${reservationId}`, {
+        const response = await fetch(`${API_BASE_URL}/admin/reservations/${reservationId}`, {
             method: 'PUT',
             headers: {
                 'Authorization': `Bearer ${authToken}`,
@@ -1973,125 +2387,1102 @@ async function handleEditReservation(event, reservationId) {
         console.error('Error updating reservation:', error);
         showMessage('Error updating reservation: ' + error.message, 'error');
     }
-}
+} 
 
-async function editReservationTables(reservationId) {
-    try {
-        // First, get the current reservation details
-        const reservationResponse = await fetch(`${API_BASE_URL}/api/admin/reservations/${reservationId}`, {
-            headers: { 'Authorization': `Bearer ${authToken}` }
-        });
-        
-        if (!reservationResponse.ok) {
-            throw new Error('Failed to load reservation details');
-        }
-        
-        const reservation = await reservationResponse.json();
-        
-        // Get available tables for the reservation's room, date, and time
-        const availabilityResponse = await fetch(
-            `${API_BASE_URL}/api/availability?date=${reservation.date}&party_size=${reservation.party_size}&room_id=${reservation.room_id}`, {
-            headers: { 'Authorization': `Bearer ${authToken}` }
-        });
-        
-        if (!availabilityResponse.ok) {
-            throw new Error('Failed to load available tables');
-        }
-        
-        const availability = await availabilityResponse.json();
-        
-        // Create modal for table selection
-        const modal = document.createElement('div');
-        modal.className = 'modal-overlay';
-        modal.innerHTML = `
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3>Edit Tables for ${reservation.customer_name}</h3>
-                    <span class="modal-close" onclick="this.closest('.modal-overlay').remove()">&times;</span>
-                </div>
-                <div class="modal-body">
-                    <div class="reservation-info">
-                        <p><strong>Date:</strong> ${new Date(reservation.date).toLocaleDateString()}</p>
-                        <p><strong>Time:</strong> ${reservation.time}</p>
-                        <p><strong>Party Size:</strong> ${reservation.party_size} people</p>
-                        <p><strong>Room:</strong> ${reservation.room_name}</p>
-                    </div>
-                    
-                    <div class="current-tables">
-                        <h4>Current Tables:</h4>
-                        <div class="table-list">
-                            ${reservation.tables && reservation.tables.length > 0 
-                                ? reservation.tables.map(table => 
-                                    `<span class="table-tag current">${table.table_name} (${table.capacity} seats)</span>`
-                                ).join('')
-                                : '<span class="no-tables">No tables assigned</span>'}
-                        </div>
-                    </div>
-                    
-                    <div class="available-tables">
-                        <h4>Available Tables:</h4>
-                        <div class="table-grid">
-                            ${availability.tables.map(table => `
-                                <label class="table-option">
-                                    <input type="checkbox" value="${table.table_id}" 
-                                           ${reservation.tables && reservation.tables.some(t => t.table_id === table.table_id) ? 'checked' : ''}>
-                                    <span class="table-card">
-                                        <div class="table-name">${table.table_name}</div>
-                                        <div class="table-capacity">${table.capacity} seats</div>
-                                    </span>
-                                </label>
-                            `).join('')}
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
-                    <button type="button" class="btn btn-primary" onclick="saveTableAssignment('${reservationId}')">Save Changes</button>
-                </div>
-            </div>
-        `;
-        
-        document.body.appendChild(modal);
-        
-    } catch (error) {
-        console.error('Error loading table editor:', error);
-        showMessage('Error loading table editor: ' + error.message, 'error');
+// Daily View Variables
+let currentViewDate = new Date();
+let currentRoomId = null;
+let dailyViewData = null;
+
+// Daily View Functions
+function showTab(tabName) {
+    // Hide all tab contents
+    const tabContents = document.querySelectorAll('.tab-content');
+    tabContents.forEach(content => content.classList.remove('active'));
+    
+    // Remove active class from all tab buttons
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    tabButtons.forEach(btn => btn.classList.remove('active'));
+    
+    // Show selected tab content
+    const selectedTab = document.getElementById(tabName + 'Tab');
+    if (selectedTab) {
+        selectedTab.classList.add('active');
+    }
+    
+    // Add active class to selected tab button
+    const selectedButton = document.querySelector(`[onclick="showTab('${tabName}')"]`);
+    if (selectedButton) {
+        selectedButton.classList.add('active');
+    }
+    
+    // Load data for specific tabs
+    if (tabName === 'dailyView') {
+        loadDailyView();
+    } else if (tabName === 'today') {
+        loadTodayReservations();
+    } else if (tabName === 'dashboard') {
+        loadDashboardData();
+    } else if (tabName === 'tables') {
+        loadTablesData();
+    } else if (tabName === 'reservations') {
+        loadAllReservations();
+    } else if (tabName === 'settings') {
+        loadSettingsData();
     }
 }
 
-async function saveTableAssignment(reservationId) {
+async function loadDailyView() {
     try {
-        const selectedTables = [];
-        const checkboxes = document.querySelectorAll('.table-option input[type="checkbox"]:checked');
-        
-        checkboxes.forEach(checkbox => {
-            selectedTables.push(checkbox.value);
+        const dateStr = currentViewDate.toISOString().split('T')[0];
+        const response = await fetch(`${API_BASE_URL}/api/layout/daily/${dateStr}`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
         });
         
-        if (selectedTables.length === 0) {
-            showMessage('Please select at least one table', 'error');
-            return;
+        if (response.ok) {
+            dailyViewData = await response.json();
+            updateDateDisplay();
+            renderReservationsList();
+            renderRoomTabs();
+            renderTableLayout();
+        } else {
+            throw new Error('Failed to load daily view');
+        }
+    } catch (error) {
+        console.error('Error loading daily view:', error);
+        showMessage('Error loading daily view', 'error');
+    }
+}
+
+function updateDateDisplay() {
+    const dateDisplay = document.getElementById('currentDate');
+    if (dateDisplay) {
+        const options = { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' };
+        dateDisplay.textContent = currentViewDate.toLocaleDateString('en-US', options);
+    }
+}
+
+function renderReservationsList() {
+    const container = document.getElementById('dailyReservationsList');
+    if (!container || !dailyViewData) return;
+    
+    container.innerHTML = '';
+    
+    // Handle case where reservations array is undefined or empty
+    if (!dailyViewData.reservations || !Array.isArray(dailyViewData.reservations) || dailyViewData.reservations.length === 0) {
+        container.innerHTML = '<div class="no-reservations-message">No reservations for this date</div>';
+        return;
+    }
+    
+    dailyViewData.reservations.forEach(reservation => {
+        const reservationElement = document.createElement('div');
+        reservationElement.className = 'reservation-item';
+        reservationElement.onclick = () => selectReservation(reservation.id);
+        
+        const timeRange = `${reservation.time}-${addHours(reservation.time, reservation.duration_hours || 2)}`;
+        
+        reservationElement.innerHTML = `
+            <div class="reservation-header">
+                <span class="reservation-time">${timeRange}</span>
+                <span class="reservation-party">${reservation.party_size}p</span>
+            </div>
+            <div class="reservation-customer">${reservation.customer_name}</div>
+            <div class="reservation-details">
+                ${reservation.room_name} • ${reservation.reservation_type}
+                ${reservation.notes ? `<br><small>${reservation.notes}</small>` : ''}
+            </div>
+            ${reservation.table_names && reservation.table_names.length > 0 ? 
+                `<div class="reservation-tables">Tables: ${reservation.table_names.join(', ')}</div>` : 
+                '<div class="reservation-tables">No tables assigned</div>'
+            }
+        `;
+        
+        container.appendChild(reservationElement);
+    });
+}
+
+function renderRoomTabs() {
+    const container = document.getElementById('roomTabs');
+    if (!container || !dailyViewData || !dailyViewData.rooms) return;
+    
+    container.innerHTML = '';
+    
+    // Handle case where rooms array is empty
+    if (!Array.isArray(dailyViewData.rooms) || dailyViewData.rooms.length === 0) {
+        container.innerHTML = '<div class="no-rooms-message">No rooms available</div>';
+        return;
+    }
+    
+    dailyViewData.rooms.forEach((room, index) => {
+        const tabElement = document.createElement('button');
+        tabElement.className = `room-tab ${index === 0 ? 'active' : ''}`;
+        tabElement.textContent = room.name;
+        tabElement.onclick = () => switchRoom(room.id);
+        
+        container.appendChild(tabElement);
+        
+        if (index === 0) {
+            currentRoomId = room.id;
+        }
+    });
+}
+
+function renderTableLayout() {
+    const container = document.getElementById('tableLayout');
+    if (!container || !dailyViewData || !currentRoomId) return;
+    
+    container.innerHTML = '';
+    
+    const currentRoom = dailyViewData.rooms.find(room => room.id === currentRoomId);
+    if (!currentRoom) {
+        container.innerHTML = '<div class="no-room-message">Room not found</div>';
+        return;
+    }
+    
+    // Add room features
+    if (currentRoom.layout?.show_entrance) {
+        const entrance = document.createElement('div');
+        entrance.className = 'room-entrance';
+        entrance.textContent = 'ENTRANCE';
+        container.appendChild(entrance);
+    }
+    
+    if (currentRoom.layout?.show_bar) {
+        const bar = document.createElement('div');
+        bar.className = 'room-bar';
+        bar.textContent = 'BAR';
+        container.appendChild(bar);
+    }
+    
+    // Handle case where tables array is undefined or empty
+    if (!currentRoom.tables || !Array.isArray(currentRoom.tables) || currentRoom.tables.length === 0) {
+        container.innerHTML += '<div class="no-tables-message">No tables in this room</div>';
+        return;
+    }
+    
+    // Add tables
+    currentRoom.tables.forEach(table => {
+        const tableElement = document.createElement('div');
+        tableElement.className = `table-element ${table.layout?.shape || 'rectangular'}`;
+        tableElement.style.left = `${table.layout?.x_position || 50}px`;
+        tableElement.style.top = `${table.layout?.y_position || 50}px`;
+        tableElement.style.width = `${table.layout?.width || 80}px`;
+        tableElement.style.height = `${table.layout?.height || 60}px`;
+        tableElement.style.backgroundColor = table.layout?.color || '#4A90E2';
+        tableElement.style.borderColor = table.layout?.border_color || '#2E5BBA';
+        tableElement.style.color = table.layout?.text_color || '#FFFFFF';
+        tableElement.style.fontSize = `${table.layout?.font_size || 12}px`;
+        tableElement.style.zIndex = table.layout?.z_index || 1;
+        
+        tableElement.innerHTML = `
+            ${table.layout?.show_name !== false ? `<div class="table-name">${table.name}</div>` : ''}
+            ${table.layout?.show_capacity !== false ? `<div class="table-capacity">${table.capacity}p</div>` : ''}
+        `;
+        
+        // Determine table status
+        const tableReservations = getTableReservations(table.id);
+        if (tableReservations.length > 0) {
+            tableElement.classList.add('reserved');
+            tableElement.title = `Reserved: ${tableReservations.map(r => `${r.customer_name} (${r.time})`).join(', ')}`;
+        } else {
+            tableElement.classList.add('available');
+            tableElement.title = `Available: ${table.name} (${table.capacity} seats)`;
         }
         
-        const response = await fetch(`${API_BASE_URL}/api/admin/reservations/${reservationId}/tables`, {
+        tableElement.onclick = () => showTableDetails(table.id);
+        container.appendChild(tableElement);
+    });
+}
+
+function getTableReservations(tableId) {
+    if (!dailyViewData) return [];
+    
+    return dailyViewData.reservations.filter(reservation => 
+        reservation.table_names.some(tableName => {
+            const table = dailyViewData.rooms
+                .flatMap(room => room.tables)
+                .find(t => t.id === tableId);
+            return table && table.name === tableName;
+        })
+    );
+}
+
+function switchRoom(roomId) {
+    currentRoomId = roomId;
+    
+    // Update active tab
+    const tabs = document.querySelectorAll('.room-tab');
+    tabs.forEach(tab => tab.classList.remove('active'));
+    event.target.classList.add('active');
+    
+    renderTableLayout();
+}
+
+function selectReservation(reservationId) {
+    // Remove previous selection
+    document.querySelectorAll('.reservation-item').forEach(item => 
+        item.classList.remove('selected')
+    );
+    
+    // Add selection to clicked item
+    event.target.closest('.reservation-item').classList.add('selected');
+    
+    // Highlight related tables
+    highlightReservationTables(reservationId);
+}
+
+function highlightReservationTables(reservationId) {
+    const reservation = dailyViewData.reservations.find(r => r.id === reservationId);
+    if (!reservation) return;
+    
+    // Reset all table highlights
+    document.querySelectorAll('.table-element').forEach(table => {
+        table.style.boxShadow = '';
+        table.style.transform = '';
+    });
+    
+    // Highlight tables for this reservation
+    reservation.table_names.forEach(tableName => {
+        const tableElement = document.querySelector(`[title*="${tableName}"]`);
+        if (tableElement) {
+            tableElement.style.boxShadow = '0 0 10px #667eea';
+            tableElement.style.transform = 'scale(1.1)';
+        }
+    });
+}
+
+function showTableDetails(tableId) {
+    const table = dailyViewData.rooms
+        .flatMap(room => room.tables)
+        .find(t => t.id === tableId);
+    
+    if (!table) return;
+    
+    const reservations = getTableReservations(tableId);
+    let details = `Table: ${table.name}\nCapacity: ${table.capacity} seats\nRoom: ${table.room_name}`;
+    
+    if (reservations.length > 0) {
+        details += '\n\nReservations:';
+        reservations.forEach(r => {
+            details += `\n• ${r.customer_name} (${r.time}-${addHours(r.time, r.duration_hours)})`;
+        });
+    } else {
+        details += '\n\nStatus: Available';
+    }
+    
+    alert(details);
+}
+
+function previousDay() {
+    currentViewDate.setDate(currentViewDate.getDate() - 1);
+    loadDailyView();
+}
+
+function nextDay() {
+    currentViewDate.setDate(currentViewDate.getDate() + 1);
+    loadDailyView();
+}
+
+function goToToday() {
+    currentViewDate = new Date();
+    loadDailyView();
+}
+
+function filterReservations(filter) {
+    // Update active filter button
+    document.querySelectorAll('.filter-buttons .btn').forEach(btn => 
+        btn.classList.remove('active')
+    );
+    event.target.classList.add('active');
+    
+    // Filter reservations (implement based on your needs)
+    console.log('Filtering reservations:', filter);
+}
+
+function addHours(timeStr, hours) {
+    const [hours_str, minutes] = timeStr.split(':');
+    const date = new Date();
+    date.setHours(parseInt(hours_str), parseInt(minutes), 0);
+    date.setHours(date.getHours() + hours);
+    return date.toTimeString().slice(0, 5);
+}
+
+async function editTable(tableId) {
+    try {
+        // Get table details
+        const response = await fetch(`${API_BASE_URL}/admin/tables/${tableId}`, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to fetch table details');
+        }
+        
+        const table = await response.json();
+        
+        // Populate room dropdown in edit modal
+        const editRoomSelect = document.getElementById('editTableRoom');
+        if (editRoomSelect) {
+            // Get rooms data from the current state or fetch it
+            const roomsResponse = await fetch(`${API_BASE_URL}/admin/rooms`, {
+                headers: {
+                    'Authorization': `Bearer ${authToken}`
+                }
+            });
+            
+            if (roomsResponse.ok) {
+                const rooms = await roomsResponse.json();
+                editRoomSelect.innerHTML = '<option value="">Select Room</option>';
+                rooms.forEach(room => {
+                    const option = document.createElement('option');
+                    option.value = room.id;
+                    option.textContent = room.name;
+                    editRoomSelect.appendChild(option);
+                });
+            }
+        }
+        
+        // Populate edit form
+        document.getElementById('editTableId').value = table.id;
+        document.getElementById('editTableName').value = table.name;
+        document.getElementById('editTableCapacity').value = table.capacity;
+        document.getElementById('editTableCombinable').checked = table.combinable;
+        document.getElementById('editTableRoom').value = table.room_id;
+        
+        // Show edit modal
+        document.getElementById('editTableModal').classList.remove('hidden');
+        
+    } catch (error) {
+        console.error('Error loading table for edit:', error);
+        showMessage('Error loading table details: ' + error.message, 'error');
+    }
+}
+
+async function handleEditTable(event) {
+    event.preventDefault();
+    
+    const formData = new FormData(event.target);
+    const tableId = formData.get('table_id');
+    const tableData = {
+        room_id: formData.get('room_id'),
+        name: formData.get('name'),
+        capacity: parseInt(formData.get('capacity')),
+        combinable: formData.get('combinable') === 'on'
+    };
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/admin/tables/${tableId}`, {
             method: 'PUT',
             headers: {
                 'Authorization': `Bearer ${authToken}`,
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ table_ids: selectedTables })
+            body: JSON.stringify(tableData)
         });
         
         if (response.ok) {
-            showMessage('Table assignment updated successfully', 'success');
-            document.querySelector('.modal-overlay').remove();
-            loadAllReservations(); // Reload reservations list
+            showMessage('Table updated successfully', 'success');
+            hideEditTableForm();
+            loadTables(); // Reload tables
         } else {
             const error = await response.json();
-            throw new Error(error.detail || 'Failed to update table assignment');
+            throw new Error(error.detail || 'Failed to update table');
         }
     } catch (error) {
-        console.error('Error saving table assignment:', error);
-        showMessage('Error saving table assignment: ' + error.message, 'error');
+        console.error('Error updating table:', error);
+        showMessage('Error updating table: ' + error.message, 'error');
     }
-} 
+}
+
+function hideEditTableForm() {
+    document.getElementById('editTableModal').classList.add('hidden');
+    document.getElementById('editTableForm').reset();
+}
+
+// Layout Editor Variables
+let currentLayoutRoom = null;
+let currentLayoutData = null;
+let selectedTable = null;
+let isDragging = false;
+let dragOffset = { x: 0, y: 0 };
+let gridEnabled = true;
+let tableCounter = 1;
+
+// Layout Editor Functions
+async function initializeLayoutEditor() {
+    try {
+        // Load rooms for layout editor
+        const response = await fetch(`${API_BASE_URL}/admin/rooms`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        
+        if (response.ok) {
+            const rooms = await response.json();
+            const roomSelect = document.getElementById('layoutRoomSelect');
+            roomSelect.innerHTML = '<option value="">Choose a room...</option>';
+            
+            rooms.forEach(room => {
+                const option = document.createElement('option');
+                option.value = room.id;
+                option.textContent = room.name;
+                roomSelect.appendChild(option);
+            });
+            
+            // Add event listener for room selection
+            roomSelect.addEventListener('change', handleRoomSelection);
+        }
+    } catch (error) {
+        console.error('Error initializing layout editor:', error);
+        showMessage('Error loading rooms for layout editor', 'error');
+    }
+}
+
+async function handleRoomSelection(event) {
+    const roomId = event.target.value;
+    if (!roomId) {
+        clearLayoutCanvas();
+        return;
+    }
+    
+    currentLayoutRoom = roomId;
+    await loadRoomLayout(roomId);
+}
+
+async function loadRoomLayout(roomId) {
+    try {
+        const today = new Date().toISOString().split('T')[0];
+        const response = await fetch(`${API_BASE_URL}/api/layout/editor/${roomId}?target_date=${today}`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        
+        if (response.ok) {
+            currentLayoutData = await response.json();
+            renderLayoutCanvas();
+            renderLayoutReservations();
+        } else {
+            throw new Error('Failed to load room layout');
+        }
+    } catch (error) {
+        console.error('Error loading room layout:', error);
+        showMessage('Error loading room layout', 'error');
+    }
+}
+
+function renderLayoutCanvas() {
+    const canvas = document.getElementById('layoutCanvas');
+    canvas.innerHTML = '';
+    
+    if (!currentLayoutData) return;
+    
+    // Set canvas size based on room layout
+    const roomLayout = currentLayoutData.room_layout;
+    canvas.style.width = `${roomLayout.width}px`;
+    canvas.style.height = `${roomLayout.height}px`;
+    canvas.style.backgroundColor = roomLayout.background_color;
+    
+    // Add grid if enabled
+    if (gridEnabled) {
+        canvas.classList.add('grid-enabled');
+    } else {
+        canvas.classList.remove('grid-enabled');
+    }
+    
+    // Add room features
+    if (roomLayout.show_entrance) {
+        const entrance = document.createElement('div');
+        entrance.className = 'room-entrance';
+        entrance.textContent = 'ENTRANCE';
+        canvas.appendChild(entrance);
+    }
+    
+    if (roomLayout.show_bar) {
+        const bar = document.createElement('div');
+        bar.className = 'room-bar';
+        bar.textContent = 'BAR';
+        canvas.appendChild(bar);
+    }
+    
+    // Render tables
+    currentLayoutData.tables.forEach(table => {
+        const tableElement = createTableElement(table);
+        canvas.appendChild(tableElement);
+    });
+    
+    // Add click handler for canvas
+    canvas.addEventListener('click', handleCanvasClick);
+}
+
+function createTableElement(tableData) {
+    const tableElement = document.createElement('div');
+    tableElement.className = `layout-table ${tableData.shape} ${getTableStatus(tableData)}`;
+    tableElement.style.left = `${tableData.x_position}px`;
+    tableElement.style.top = `${tableData.y_position}px`;
+    tableElement.style.width = `${tableData.width}px`;
+    tableElement.style.height = `${tableData.height}px`;
+    tableElement.style.backgroundColor = tableData.color;
+    tableElement.style.borderColor = tableData.border_color;
+    tableElement.style.color = tableData.text_color;
+    tableElement.style.fontSize = `${tableData.font_size}px`;
+    tableElement.style.zIndex = tableData.z_index;
+    
+    // Add table content
+    let content = '';
+    if (tableData.show_name) {
+        content += `<div class="table-name">${tableData.table_name}</div>`;
+    }
+    if (tableData.show_capacity) {
+        content += `<div class="table-capacity">${tableData.capacity}p</div>`;
+    }
+    tableElement.innerHTML = content;
+    
+    // Add event listeners
+    tableElement.addEventListener('click', (e) => {
+        e.stopPropagation();
+        selectTable(tableData.layout_id, tableElement);
+    });
+    
+    tableElement.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        openTableReservation(tableData);
+    });
+    
+    // Make draggable
+    makeTableDraggable(tableElement, tableData);
+    
+    return tableElement;
+}
+
+function getTableStatus(tableData) {
+    if (tableData.reservations && tableData.reservations.length > 0) {
+        return 'reserved';
+    }
+    return 'available';
+}
+
+function selectTable(layoutId, element) {
+    // Remove previous selection
+    document.querySelectorAll('.layout-table.selected').forEach(table => {
+        table.classList.remove('selected');
+    });
+    
+    // Add selection
+    element.classList.add('selected');
+    selectedTable = layoutId;
+    
+    // Show properties panel
+    showTableProperties(layoutId);
+}
+
+function showTableProperties(layoutId) {
+    const tableData = currentLayoutData.tables.find(t => t.layout_id === layoutId);
+    if (!tableData) return;
+    
+    // Populate properties form
+    document.getElementById('layoutTableName').value = tableData.table_name;
+    document.getElementById('tableCapacity').value = tableData.capacity;
+    document.getElementById('tableShape').value = tableData.shape;
+    document.getElementById('tableColor').value = tableData.color;
+    document.getElementById('tableShowName').checked = tableData.show_name;
+    document.getElementById('tableShowCapacity').checked = tableData.show_capacity;
+    
+    // Show properties panel
+    document.getElementById('tableProperties').style.display = 'block';
+}
+
+function makeTableDraggable(element, tableData) {
+    element.addEventListener('mousedown', (e) => {
+        if (e.target === element) {
+            isDragging = true;
+            selectedTable = tableData.layout_id;
+            
+            const rect = element.getBoundingClientRect();
+            const canvasRect = document.getElementById('layoutCanvas').getBoundingClientRect();
+            
+            dragOffset.x = e.clientX - rect.left;
+            dragOffset.y = e.clientY - rect.top;
+            
+            element.classList.add('dragging');
+            
+            e.preventDefault();
+        }
+    });
+    
+    document.addEventListener('mousemove', (e) => {
+        if (isDragging && selectedTable) {
+            const canvas = document.getElementById('layoutCanvas');
+            const canvasRect = canvas.getBoundingClientRect();
+            
+            let newX = e.clientX - canvasRect.left - dragOffset.x;
+            let newY = e.clientY - canvasRect.top - dragOffset.y;
+            
+            // Snap to grid if enabled
+            if (gridEnabled) {
+                newX = Math.round(newX / 20) * 20;
+                newY = Math.round(newY / 20) * 20;
+            }
+            
+            // Keep within canvas bounds
+            newX = Math.max(0, Math.min(newX, canvas.offsetWidth - element.offsetWidth));
+            newY = Math.max(0, Math.min(newY, canvas.offsetHeight - element.offsetHeight));
+            
+            element.style.left = `${newX}px`;
+            element.style.top = `${newY}px`;
+        }
+    });
+    
+    document.addEventListener('mouseup', () => {
+        if (isDragging) {
+            isDragging = false;
+            document.querySelectorAll('.layout-table.dragging').forEach(table => {
+                table.classList.remove('dragging');
+            });
+            
+            // Auto-save position
+            if (selectedTable) {
+                updateTablePosition(selectedTable);
+            }
+        }
+    });
+}
+
+async function updateTablePosition(layoutId) {
+    try {
+        const tableElement = document.querySelector(`.layout-table.selected`);
+        if (!tableElement) return;
+        
+        const x = parseFloat(tableElement.style.left);
+        const y = parseFloat(tableElement.style.top);
+        
+        const response = await fetch(`${API_BASE_URL}/api/layout/tables/${layoutId}`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                x_position: x,
+                y_position: y
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to update table position');
+        }
+        
+        // Update local data
+        const tableData = currentLayoutData.tables.find(t => t.layout_id === layoutId);
+        if (tableData) {
+            tableData.x_position = x;
+            tableData.y_position = y;
+        }
+    } catch (error) {
+        console.error('Error updating table position:', error);
+        showMessage('Error updating table position', 'error');
+    }
+}
+
+function addTableToLayout(shape) {
+    if (!currentLayoutRoom) {
+        showMessage('Please select a room first', 'warning');
+        return;
+    }
+    
+    const canvas = document.getElementById('layoutCanvas');
+    const rect = canvas.getBoundingClientRect();
+    
+    // Default position (center of canvas)
+    const x = Math.round((rect.width / 2 - 50) / 20) * 20;
+    const y = Math.round((rect.height / 2 - 40) / 20) * 20;
+    
+    // Create new table data
+    const newTable = {
+        table_id: `temp_${Date.now()}`,
+        room_id: currentLayoutRoom,
+        x_position: x,
+        y_position: y,
+        width: shape === 'bar_stool' ? 40 : 100,
+        height: shape === 'bar_stool' ? 40 : 80,
+        shape: shape,
+        color: '#4A90E2',
+        border_color: '#2E5BBA',
+        text_color: '#FFFFFF',
+        show_capacity: true,
+        show_name: true,
+        font_size: 12,
+        custom_capacity: 4,
+        is_connected: false,
+        connected_to: null,
+        z_index: 1,
+        table_name: `T${tableCounter++}`,
+        capacity: 4,
+        reservations: []
+    };
+    
+    // Add to local data
+    currentLayoutData.tables.push(newTable);
+    
+    // Create and add table element
+    const tableElement = createTableElement(newTable);
+    canvas.appendChild(tableElement);
+    
+    // Select the new table
+    selectTable(newTable.layout_id, tableElement);
+    
+    // Save to backend
+    saveNewTable(newTable);
+}
+
+async function saveNewTable(tableData) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/layout/tables`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                table_id: tableData.table_id,
+                room_id: tableData.room_id,
+                x_position: tableData.x_position,
+                y_position: tableData.y_position,
+                width: tableData.width,
+                height: tableData.height,
+                shape: tableData.shape,
+                color: tableData.color,
+                border_color: tableData.border_color,
+                text_color: tableData.text_color,
+                show_capacity: tableData.show_capacity,
+                show_name: tableData.show_name,
+                font_size: tableData.font_size,
+                custom_capacity: tableData.custom_capacity,
+                is_connected: tableData.is_connected,
+                connected_to: tableData.connected_to,
+                z_index: tableData.z_index
+            })
+        });
+        
+        if (response.ok) {
+            const savedTable = await response.json();
+            // Update the temporary ID with the real one
+            const tableData = currentLayoutData.tables.find(t => t.table_id === `temp_${Date.now()}`);
+            if (tableData) {
+                tableData.layout_id = savedTable.id;
+                tableData.table_id = savedTable.table_id;
+            }
+        } else {
+            throw new Error('Failed to save new table');
+        }
+    } catch (error) {
+        console.error('Error saving new table:', error);
+        showMessage('Error saving new table', 'error');
+    }
+}
+
+async function updateTableProperties() {
+    if (!selectedTable) return;
+    
+    try {
+        const formData = {
+            table_name: document.getElementById('layoutTableName').value,
+            capacity: parseInt(document.getElementById('tableCapacity').value),
+            shape: document.getElementById('tableShape').value,
+            color: document.getElementById('tableColor').value,
+            show_name: document.getElementById('tableShowName').checked,
+            show_capacity: document.getElementById('tableShowCapacity').checked
+        };
+        
+        const response = await fetch(`${API_BASE_URL}/api/layout/tables/${selectedTable}`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(formData)
+        });
+        
+        if (response.ok) {
+            // Update local data
+            const tableData = currentLayoutData.tables.find(t => t.layout_id === selectedTable);
+            if (tableData) {
+                Object.assign(tableData, formData);
+            }
+            
+            // Re-render canvas
+            renderLayoutCanvas();
+            showMessage('Table properties updated successfully', 'success');
+        } else {
+            throw new Error('Failed to update table properties');
+        }
+    } catch (error) {
+        console.error('Error updating table properties:', error);
+        showMessage('Error updating table properties', 'error');
+    }
+}
+
+async function deleteSelectedTable() {
+    if (!selectedTable) return;
+    
+    if (!confirm('Are you sure you want to delete this table?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/layout/tables/${selectedTable}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+        
+        if (response.ok) {
+            // Remove from local data
+            currentLayoutData.tables = currentLayoutData.tables.filter(t => t.layout_id !== selectedTable);
+            
+            // Re-render canvas
+            renderLayoutCanvas();
+            
+            // Hide properties panel
+            document.getElementById('tableProperties').style.display = 'none';
+            selectedTable = null;
+            
+            showMessage('Table deleted successfully', 'success');
+        } else {
+            throw new Error('Failed to delete table');
+        }
+    } catch (error) {
+        console.error('Error deleting table:', error);
+        showMessage('Error deleting table', 'error');
+    }
+}
+
+function toggleGrid() {
+    gridEnabled = !gridEnabled;
+    const canvas = document.getElementById('layoutCanvas');
+    
+    if (gridEnabled) {
+        canvas.classList.add('grid-enabled');
+    } else {
+        canvas.classList.remove('grid-enabled');
+    }
+}
+
+function renderLayoutReservations() {
+    const container = document.getElementById('layoutReservationsList');
+    if (!container || !currentLayoutData) return;
+    
+    container.innerHTML = '';
+    
+    if (!currentLayoutData.reservations || currentLayoutData.reservations.length === 0) {
+        container.innerHTML = '<div class="no-reservations">No reservations for today</div>';
+        return;
+    }
+    
+    currentLayoutData.reservations.forEach(reservation => {
+        const reservationElement = document.createElement('div');
+        reservationElement.className = 'reservation-item';
+        reservationElement.onclick = () => openReservationDetails(reservation.id);
+        
+        reservationElement.innerHTML = `
+            <div class="reservation-header">
+                <span class="reservation-time">${reservation.time}</span>
+                <span class="reservation-party">${reservation.party_size}p</span>
+            </div>
+            <div class="reservation-customer">${reservation.customer_name}</div>
+            <div class="reservation-type">${reservation.reservation_type}</div>
+        `;
+        
+        container.appendChild(reservationElement);
+    });
+}
+
+function openTableReservation(tableData) {
+    if (tableData.reservations && tableData.reservations.length > 0) {
+        // Show reservation details
+        const reservation = tableData.reservations[0];
+        showReservationDetails(reservation);
+    } else {
+        // Show table assignment options
+        showTableAssignmentModal(tableData);
+    }
+}
+
+function showReservationDetails(reservation) {
+    // Create and show modal with reservation details
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4>Reservation Details</h4>
+                <button class="close-btn" onclick="this.closest('.modal').remove()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p><strong>Customer:</strong> ${reservation.customer_name}</p>
+                <p><strong>Time:</strong> ${reservation.time}</p>
+                <p><strong>Party Size:</strong> ${reservation.party_size}</p>
+                <p><strong>Type:</strong> ${reservation.reservation_type}</p>
+                <p><strong>Status:</strong> ${reservation.status}</p>
+                ${reservation.notes ? `<p><strong>Notes:</strong> ${reservation.notes}</p>` : ''}
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    modal.classList.remove('hidden');
+}
+
+function showTableAssignmentModal(tableData) {
+    // Create modal for table assignment
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4>Assign Reservation to ${tableData.table_name}</h4>
+                <button class="close-btn" onclick="this.closest('.modal').remove()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Select a reservation to assign to this table:</p>
+                <div id="assignmentReservationsList">
+                    <!-- Will be populated with available reservations -->
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    modal.classList.remove('hidden');
+    
+    // Populate with available reservations
+    populateAssignmentReservations(tableData);
+}
+
+function populateAssignmentReservations(tableData) {
+    const container = document.getElementById('assignmentReservationsList');
+    if (!container || !currentLayoutData) return;
+    
+    const availableReservations = currentLayoutData.reservations.filter(r => 
+        !r.table_names || r.table_names.length === 0
+    );
+    
+    if (availableReservations.length === 0) {
+        container.innerHTML = '<p>No unassigned reservations available</p>';
+        return;
+    }
+    
+    availableReservations.forEach(reservation => {
+        const element = document.createElement('div');
+        element.className = 'reservation-option';
+        element.onclick = () => assignReservationToTable(reservation.id, tableData.table_id);
+        
+        element.innerHTML = `
+            <div class="reservation-info">
+                <strong>${reservation.customer_name}</strong> - ${reservation.time} (${reservation.party_size}p)
+            </div>
+        `;
+        
+        container.appendChild(element);
+    });
+}
+
+async function assignReservationToTable(reservationId, tableId) {
+    try {
+        // This would need to be implemented in the reservation service
+        // For now, just show a message
+        showMessage('Table assignment feature coming soon!', 'info');
+        
+        // Close modal
+        document.querySelector('.modal').remove();
+    } catch (error) {
+        console.error('Error assigning reservation to table:', error);
+        showMessage('Error assigning reservation to table', 'error');
+    }
+}
+
+async function saveLayout() {
+    if (!currentLayoutRoom) {
+        showMessage('No room selected', 'warning');
+        return;
+    }
+    
+    showMessage('Layout saved automatically', 'success');
+}
+
+async function exportLayout() {
+    if (!currentLayoutRoom) {
+        showMessage('No room selected', 'warning');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/layout/export/${currentLayoutRoom}`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            
+            // Create download link
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `layout_${currentLayoutRoom}_${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            showMessage('Layout exported successfully', 'success');
+        } else {
+            throw new Error('Failed to export layout');
+        }
+    } catch (error) {
+        console.error('Error exporting layout:', error);
+        showMessage('Error exporting layout', 'error');
+    }
+}
+
+function printLayout() {
+    if (!currentLayoutRoom) {
+        showMessage('No room selected', 'warning');
+        return;
+    }
+    
+    // Open print dialog
+    window.print();
+}
+
+function clearLayoutCanvas() {
+    const canvas = document.getElementById('layoutCanvas');
+    canvas.innerHTML = `
+        <div class="layout-placeholder">
+            <i class="fas fa-map"></i>
+            <p>Select a room to start designing the layout</p>
+        </div>
+    `;
+    
+    currentLayoutData = null;
+    selectedTable = null;
+    document.getElementById('tableProperties').style.display = 'none';
+}
+
+function handleCanvasClick(event) {
+    // Deselect table if clicking on empty canvas
+    if (event.target.id === 'layoutCanvas') {
+        document.querySelectorAll('.layout-table.selected').forEach(table => {
+            table.classList.remove('selected');
+        });
+        selectedTable = null;
+        document.getElementById('tableProperties').style.display = 'none';
+    }
+}
+
+// Initialize layout editor when settings tab is loaded
+function initializeLayoutEditorOnLoad() {
+    if (document.getElementById('layoutRoomSelect')) {
+        initializeLayoutEditor();
+    }
+}

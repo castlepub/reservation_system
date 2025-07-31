@@ -1,6 +1,12 @@
+import os
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+
+# For local development, use SQLite if DATABASE_URL is not set
+if not os.getenv("DATABASE_URL"):
+    os.environ["DATABASE_URL"] = "sqlite:///./castle_reservations.db"
+
 from app.core.config import settings
 
 # Create database engine

@@ -15,6 +15,7 @@ class User(Base):
 
     id = Column(Text, primary_key=True, default=lambda: str(uuid.uuid4()))
     username = Column(String, unique=True, index=True, nullable=False)
+    email = Column(String, unique=True, index=True, nullable=True)  # Optional email for admin users
     password_hash = Column(String, nullable=False)
     role = Column(Enum(UserRole), default=UserRole.STAFF, nullable=False)
     created_at = Column(DateTime, server_default=func.now())

@@ -17,4 +17,6 @@ class Room(Base):
 
     # Relationships
     tables = relationship("Table", back_populates="room", cascade="all, delete-orphan")
-    reservations = relationship("Reservation", back_populates="room") 
+    reservations = relationship("Reservation", back_populates="room")
+    table_layouts = relationship("TableLayout", back_populates="room", cascade="all, delete-orphan")
+    room_layout = relationship("RoomLayout", back_populates="room", uselist=False, cascade="all, delete-orphan") 

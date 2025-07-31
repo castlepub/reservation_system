@@ -30,6 +30,7 @@ class Reservation(Base):
     party_size = Column(Integer, nullable=False)
     date = Column(Date, nullable=False)
     time = Column(Time, nullable=False)
+    duration_hours = Column(Integer, default=2, nullable=False)  # Duration in hours (2, 3, or 4)
     room_id = Column(Text, ForeignKey("rooms.id"), nullable=False)
     status = Column(Enum(ReservationStatus), default=ReservationStatus.CONFIRMED, nullable=False)
     reservation_type = Column(Enum(ReservationType), default=ReservationType.DINING, nullable=False)
@@ -41,6 +42,20 @@ class Reservation(Base):
     # Relationships
     room = relationship("Room", back_populates="reservations")
     reservation_tables = relationship("ReservationTable", back_populates="reservation", cascade="all, delete-orphan")
+    
+    def __init__(self, **kwargs):
+        # Set default duration if not provided
+        if 'duration_hours' not in kwargs:
+            kwargs['duration_hours'] = 2
+        super().__init__(**kwargs)
+    
+    @property
+    def duration_hours_safe(self):
+        """Safe access to duration_hours with fallback"""
+        try:
+            return self.duration_hours if hasattr(self, 'duration_hours') else 2
+        except:
+            return 2
 
 
 class ReservationTable(Base):

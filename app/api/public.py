@@ -12,7 +12,7 @@ from app.services.table_service import TableService
 from app.services.email_service import EmailService
 from app.models.room import Room
 
-router = APIRouter(prefix="/api", tags=["public"])
+router = APIRouter(tags=["public"])
 
 
 @router.post("/reservations", response_model=ReservationWithTables)
@@ -37,44 +37,50 @@ def create_reservation(
         )
 
 
-@router.get("/availability", response_model=AvailabilityResponse)
+@router.post("/availability", response_model=AvailabilityResponse)
 def check_availability(
-    date: str,
-    party_size: int,
-    room_id: str = None,
+    availability_request: AvailabilityRequest,
     db: Session = Depends(get_db)
 ):
-    """Check availability for a specific date and party size"""
-    from datetime import datetime
-    
+    """Check availability for a specific date, party size, and duration"""
     try:
-        # Parse date
-        target_date = datetime.strptime(date, "%Y-%m-%d").date()
-        
         # Validate party size
-        if party_size < 1 or party_size > 20:
+        if availability_request.party_size < 1 or availability_request.party_size > 20:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Party size must be between 1 and 20"
             )
         
+        # Validate duration
+        duration = getattr(availability_request, 'duration_hours', 2)
+        if duration not in [2, 3, 4]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Duration must be 2, 3, or 4 hours"
+            )
+        
         table_service = TableService(db)
         
-        if room_id:
+        if availability_request.room_id:
             # Check specific room
-            room = db.query(Room).filter(Room.id == room_id, Room.active == True).first()
+            room = db.query(Room).filter(Room.id == availability_request.room_id, Room.active == True).first()
             if not room:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Room not found"
                 )
             
-            time_slots = table_service.get_availability_for_date(room_id, target_date, party_size)
+            time_slots = table_service.get_availability_for_date(
+                availability_request.room_id, 
+                availability_request.date, 
+                availability_request.party_size,
+                duration
+            )
             
             return AvailabilityResponse(
-                date=target_date,
-                party_size=party_size,
-                room_id=room_id,
+                date=availability_request.date,
+                party_size=availability_request.party_size,
+                room_id=availability_request.room_id,
                 available_slots=time_slots
             )
         else:
@@ -83,15 +89,20 @@ def check_availability(
             all_time_slots = []
             
             for room in rooms:
-                room_slots = table_service.get_availability_for_date(str(room.id), target_date, party_size)
+                room_slots = table_service.get_availability_for_date(
+                    str(room.id), 
+                    availability_request.date, 
+                    availability_request.party_size,
+                    duration
+                )
                 all_time_slots.extend(room_slots)
             
             # Sort by time
             all_time_slots.sort(key=lambda x: x.time)
             
             return AvailabilityResponse(
-                date=target_date,
-                party_size=party_size,
+                date=availability_request.date,
+                party_size=availability_request.party_size,
                 room_id=None,
                 available_slots=all_time_slots
             )
@@ -99,7 +110,12 @@ def check_availability(
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid date format: {str(e)}"
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error checking availability: {str(e)}"
         )
 
 

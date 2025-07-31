@@ -11,6 +11,7 @@ class ReservationCreate(BaseModel):
     party_size: int
     date: date
     time: time
+    duration_hours: Optional[int] = 2  # Default 2 hours, can be 2, 3, or 4
     room_id: Optional[str] = None
     reservation_type: Optional[ReservationType] = ReservationType.DINING
     notes: Optional[str] = None
@@ -24,6 +25,7 @@ class ReservationUpdate(BaseModel):
     party_size: Optional[int] = None
     date: Optional[date] = None
     time: Optional[time] = None
+    duration_hours: Optional[int] = None
     room_id: Optional[str] = None
     status: Optional[ReservationStatus] = None
     reservation_type: Optional[ReservationType] = None
@@ -45,6 +47,7 @@ class ReservationResponse(BaseModel):
     party_size: int
     date: date
     time: time
+    duration_hours: int
     room_id: str
     room_name: str
     status: ReservationStatus
@@ -65,6 +68,7 @@ class ReservationWithTables(ReservationResponse):
 class AvailabilityRequest(BaseModel):
     date: date
     party_size: int
+    duration_hours: Optional[int] = 2
     room_id: Optional[str] = None
 
 
