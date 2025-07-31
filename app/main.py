@@ -108,22 +108,123 @@ async def get_auth_me_temp():
 @app.get("/api/settings/restaurant")
 async def get_restaurant_settings_temp():
     """Temporary restaurant settings"""
-    return {
-        "name": "The Castle Pub",
-        "address": "123 Castle Street",
-        "phone": "+1 234 567 8900",
-        "email": "info@castlepub.com",
-        "website": "www.castlepub.com"
-    }
+    return [
+        {"key": "name", "value": "The Castle Pub"},
+        {"key": "address", "value": "123 Castle Street"},
+        {"key": "phone", "value": "+1 234 567 8900"},
+        {"key": "email", "value": "info@castlepub.com"},
+        {"key": "website", "value": "www.castlepub.com"}
+    ]
 
 @app.get("/admin/reservations")
 async def get_admin_reservations_temp():
     """Temporary admin reservations"""
     return []
 
+@app.get("/admin/rooms")
+async def get_admin_rooms_temp():
+    """Temporary admin rooms with sample data"""
+    return [
+        {
+            "id": "room_1",
+            "name": "Main Dining Room",
+            "active": True,
+            "description": "Main dining area with 20 tables"
+        },
+        {
+            "id": "room_2", 
+            "name": "Private Dining",
+            "active": True,
+            "description": "Private dining room for special events"
+        },
+        {
+            "id": "room_3",
+            "name": "Bar Area",
+            "active": True,
+            "description": "Bar seating and high tables"
+        }
+    ]
+
+@app.get("/admin/tables")
+async def get_admin_tables_temp():
+    """Temporary admin tables with sample data"""
+    return [
+        {
+            "id": "table_1",
+            "name": "Table 1",
+            "room_id": "room_1",
+            "room_name": "Main Dining Room",
+            "capacity": 4,
+            "combinable": True,
+            "active": True,
+            "description": "Window table for 4"
+        },
+        {
+            "id": "table_2",
+            "name": "Table 2", 
+            "room_id": "room_1",
+            "room_name": "Main Dining Room",
+            "capacity": 6,
+            "combinable": True,
+            "active": True,
+            "description": "Large table for 6"
+        },
+        {
+            "id": "table_3",
+            "name": "Table 3",
+            "room_id": "room_2",
+            "room_name": "Private Dining",
+            "capacity": 8,
+            "combinable": False,
+            "active": True,
+            "description": "Private dining table"
+        },
+        {
+            "id": "table_4",
+            "name": "Bar 1",
+            "room_id": "room_3", 
+            "room_name": "Bar Area",
+            "capacity": 2,
+            "combinable": True,
+            "active": True,
+            "description": "Bar seating"
+        }
+    ]
+
 @app.post("/api/reservations")
 async def create_reservation_temp():
     """Temporary reservation endpoint"""
     return {"status": "success", "message": "System temporarily in maintenance mode", "id": "temp_reservation_123"}
+
+# Additional missing endpoints
+@app.get("/api/settings/working-hours/friday/time-slots")
+async def get_working_hours_temp():
+    """Temporary working hours"""
+    return [
+        {"time": "17:00", "available": True},
+        {"time": "17:30", "available": True},
+        {"time": "18:00", "available": True},
+        {"time": "18:30", "available": True},
+        {"time": "19:00", "available": True},
+        {"time": "19:30", "available": True},
+        {"time": "20:00", "available": True},
+        {"time": "20:30", "available": True},
+        {"time": "21:00", "available": True}
+    ]
+
+@app.get("/api/layout/daily/{date}")
+async def get_layout_daily_temp(date: str):
+    """Temporary daily layout"""
+    return {
+        "date": date,
+        "rooms": [
+            {
+                "id": "room_1",
+                "name": "Main Dining Room",
+                "tables": [],
+                "reservations": []
+            }
+        ]
+    }
 
 # All complex endpoints with database dependencies are temporarily disabled
