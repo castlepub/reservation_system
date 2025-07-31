@@ -259,19 +259,16 @@ async def get_working_hours_by_day_temp(day: str):
 
 @app.get("/api/settings/working-hours/{day}/time-slots")
 async def get_working_hours_time_slots_temp(day: str):
-    """Temporary working hours time slots"""
-    return [
-        {"time": "17:00", "available": True},
-        {"time": "17:30", "available": True},
-        {"time": "18:00", "available": True},
-        {"time": "18:30", "available": True},
-        {"time": "19:00", "available": True},
-        {"time": "19:30", "available": True},
-        {"time": "20:00", "available": True},
-        {"time": "20:30", "available": True},
-        {"time": "21:00", "available": True},
-        {"time": "21:30", "available": True}
-    ]
+    """Temporary working hours time slots - returns time_slots array as expected by frontend"""
+    return {
+        "time_slots": [
+            "17:00", "17:30", "18:00", "18:30", "19:00", 
+            "19:30", "20:00", "20:30", "21:00", "21:30"
+        ],
+        "day": day,
+        "open": True,
+        "message": "Restaurant is open"
+    }
 
 @app.get("/api/settings/special-days")
 async def get_special_days_temp():

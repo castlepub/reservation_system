@@ -1,4 +1,4 @@
-PHASE 4 - WORKING HOURS + RESERVATION FIX
+CRITICAL FIX - TIME SLOTS FORMAT CORRECTED
 Timestamp: 2025-01-30 
-Changes: Added all working hours endpoints, fixed auth/me, better reservation flow
-Version: 2.8.0 - RESERVATIONS WORK!
+Changes: Fixed time-slots endpoint to return time_slots array as expected by frontend
+Version: 2.9.0 - TIME SLOTS WORK!
