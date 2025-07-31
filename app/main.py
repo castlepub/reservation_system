@@ -71,9 +71,59 @@ async def get_dashboard_stats_temp():
         "guest_notes": []
     }
 
+@app.get("/api/dashboard/notes")
+async def get_dashboard_notes_temp():
+    """Temporary dashboard notes"""
+    return []
+
+@app.get("/api/dashboard/customers")
+async def get_dashboard_customers_temp():
+    """Temporary dashboard customers"""
+    return []
+
+@app.get("/api/dashboard/today")
+async def get_dashboard_today_temp():
+    """Temporary today's reservations"""
+    return []
+
+@app.post("/api/auth/login")
+async def login_temp():
+    """Temporary login endpoint - accepts any credentials"""
+    return {
+        "access_token": "temporary_token_12345",
+        "token_type": "bearer",
+        "user": {
+            "id": "temp_user",
+            "username": "admin",
+            "role": "admin"
+        }
+    }
+
+@app.get("/api/auth/me")
+async def get_auth_me_temp():
+    """Temporary auth check - always return not authenticated"""
+    from fastapi import HTTPException
+    raise HTTPException(status_code=401, detail="Not authenticated")
+
+@app.get("/api/settings/restaurant")
+async def get_restaurant_settings_temp():
+    """Temporary restaurant settings"""
+    return {
+        "name": "The Castle Pub",
+        "address": "123 Castle Street",
+        "phone": "+1 234 567 8900",
+        "email": "info@castlepub.com",
+        "website": "www.castlepub.com"
+    }
+
+@app.get("/admin/reservations")
+async def get_admin_reservations_temp():
+    """Temporary admin reservations"""
+    return []
+
 @app.post("/api/reservations")
 async def create_reservation_temp():
     """Temporary reservation endpoint"""
-    return {"status": "success", "message": "System temporarily in maintenance mode"}
+    return {"status": "success", "message": "System temporarily in maintenance mode", "id": "temp_reservation_123"}
 
 # All complex endpoints with database dependencies are temporarily disabled

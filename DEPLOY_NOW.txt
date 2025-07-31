@@ -1,4 +1,4 @@
-GRADUAL RESTORATION - STATIC FILES + BASIC ENDPOINTS
+PHASE 2 - ALL MISSING ENDPOINTS ADDED
 Timestamp: 2025-01-30 
-Changes: Added back static files, CORS, basic API endpoints (no database yet)
-Version: 2.5.0 - BASIC RESTORATION
+Changes: Added all missing API endpoints that frontend calls (temporary/mock data)
+Version: 2.6.0 - NO MORE 404s
