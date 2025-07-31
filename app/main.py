@@ -9,7 +9,6 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 
 # Import routers
-from app.api.settings import router as settings_router
 from app.api.admin import router as admin_router
 
 # Create FastAPI app
@@ -25,7 +24,6 @@ app.add_middleware(
 )
 
 # Include routers
-app.include_router(settings_router, prefix="/api")
 app.include_router(admin_router, prefix="/admin")
 
 # Mount static files
@@ -146,6 +144,7 @@ async def get_auth_me_temp():
         "email": "admin@castlepub.com"
     }
 
+# Settings endpoints (temporary - no auth required)
 @app.get("/api/settings/restaurant")
 async def get_restaurant_settings_temp():
     """Temporary restaurant settings - no auth required"""
@@ -156,6 +155,70 @@ async def get_restaurant_settings_temp():
         {"key": "email", "value": "info@castlepub.com"},
         {"key": "website", "value": "www.castlepub.com"}
     ]
+
+@app.get("/api/settings/rooms")
+async def get_rooms_settings_temp():
+    """Temporary rooms settings - no auth required"""
+    return [
+        {
+            "id": "room_1",
+            "name": "Main Dining Room",
+            "description": "Main dining area with 20 tables",
+            "active": True,
+            "created_at": "2025-01-30T10:00:00",
+            "updated_at": "2025-01-30T10:00:00"
+        },
+        {
+            "id": "room_2", 
+            "name": "Private Dining",
+            "description": "Private dining room for special events",
+            "active": True,
+            "created_at": "2025-01-30T10:00:00",
+            "updated_at": "2025-01-30T10:00:00"
+        },
+        {
+            "id": "room_3",
+            "name": "Bar Area",
+            "description": "Bar seating and high tables",
+            "active": True,
+            "created_at": "2025-01-30T10:00:00",
+            "updated_at": "2025-01-30T10:00:00"
+        }
+    ]
+
+@app.post("/api/settings/rooms")
+async def create_room_settings_temp():
+    """Temporary create room - no auth required"""
+    return {
+        "id": "new_room_1",
+        "name": "New Room",
+        "description": "New room created",
+        "active": True,
+        "created_at": datetime.utcnow().isoformat(),
+        "updated_at": datetime.utcnow().isoformat()
+    }
+
+@app.put("/api/settings/rooms/{room_id}")
+async def update_room_settings_temp(room_id: str):
+    """Temporary update room - no auth required"""
+    return {
+        "id": room_id,
+        "name": "Updated Room",
+        "description": "Room updated",
+        "active": True,
+        "created_at": "2025-01-30T10:00:00",
+        "updated_at": datetime.utcnow().isoformat()
+    }
+
+@app.delete("/api/settings/rooms/{room_id}")
+async def delete_room_settings_temp(room_id: str):
+    """Temporary delete room - no auth required"""
+    return {"message": "Room deleted successfully"}
+
+@app.get("/api/settings/special-days")
+async def get_special_days_temp():
+    """Temporary special days - no auth required"""
+    return []
 
 # Admin endpoints with proper authentication bypass for now
 @app.get("/admin/reservations")
@@ -306,11 +369,6 @@ async def get_working_hours_time_slots_temp(day: str):
         "open": True,
         "message": "Restaurant is open"
     }
-
-@app.get("/api/settings/special-days")
-async def get_special_days_temp():
-    """Temporary special days"""
-    return []
 
 @app.get("/api/layout/daily/{date}")
 async def get_layout_daily_temp(date: str):
