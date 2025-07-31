@@ -134,25 +134,7 @@ async def get_today_reservations_simple():
     """Simple today's reservations endpoint for debugging"""
     return []
 
-@app.post("/api/reservations")
-async def create_reservation_simple():
-    """Simple reservation creation endpoint for debugging"""
-    return {
-        "id": "temp-id",
-        "customer_name": "Test Customer",
-        "email": "test@example.com",
-        "phone": "123-456-7890",
-        "date": "2025-01-30",
-        "time": "19:00",
-        "party_size": 2,
-        "room_id": "550e8400-e29b-41d4-a716-446655440001",
-        "reservation_type": "dinner",
-        "status": "confirmed",
-        "notes": "Test reservation",
-        "duration_hours": 2,
-        "created_at": "2025-01-30T10:00:00Z",
-        "tables": []
-    }
+
 
 @app.get("/api/test-auth")
 async def test_auth():
