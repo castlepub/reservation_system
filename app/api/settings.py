@@ -4,12 +4,14 @@ from sqlalchemy.orm import Session
 from datetime import time, datetime, timedelta
 from app.core.database import get_db
 from app.models.settings import WorkingHours, RestaurantSettings, DayOfWeek
+from app.models.room import Room
 from app.models.user import User
 from app.schemas.settings import (
     WorkingHoursCreate, WorkingHoursUpdate, WorkingHoursResponse,
     RestaurantSettingCreate, RestaurantSettingUpdate, RestaurantSettingResponse,
     WeeklySchedule
 )
+from app.schemas.room import RoomCreate, RoomUpdate, RoomResponse
 from app.api.deps import get_current_user
 
 router = APIRouter(prefix="/settings", tags=["settings"])
@@ -301,4 +303,112 @@ def remove_special_day(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error removing special day"
-        ) 
+        )
+
+
+# Room Management Endpoints
+@router.get("/rooms", response_model=List[RoomResponse])
+def get_rooms_settings(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get all rooms for settings management"""
+    rooms = db.query(Room).all()
+    return rooms
+
+
+@router.post("/rooms", response_model=RoomResponse)
+def create_room_settings(
+    room_data: RoomCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Create a new room"""
+    # Check if room name already exists
+    existing_room = db.query(Room).filter(Room.name == room_data.name).first()
+    if existing_room:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Room name already exists"
+        )
+    
+    room = Room(
+        name=room_data.name,
+        description=room_data.description
+    )
+    db.add(room)
+    db.commit()
+    db.refresh(room)
+    return room
+
+
+@router.put("/rooms/{room_id}", response_model=RoomResponse)
+def update_room_settings(
+    room_id: str,
+    room_data: RoomUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Update a room"""
+    room = db.query(Room).filter(Room.id == room_id).first()
+    if not room:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Room not found"
+        )
+    
+    # Check if new name conflicts with existing room
+    if room_data.name and room_data.name != room.name:
+        existing_room = db.query(Room).filter(
+            Room.name == room_data.name,
+            Room.id != room_id
+        ).first()
+        if existing_room:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Room name already exists"
+            )
+    
+    if room_data.name is not None:
+        room.name = room_data.name
+    if room_data.description is not None:
+        room.description = room_data.description
+    if room_data.active is not None:
+        room.active = room_data.active
+    
+    db.commit()
+    db.refresh(room)
+    return room
+
+
+@router.delete("/rooms/{room_id}")
+def delete_room_settings(
+    room_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Delete a room (only if no tables or reservations are associated)"""
+    room = db.query(Room).filter(Room.id == room_id).first()
+    if not room:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Room not found"
+        )
+    
+    # Check if room has tables
+    if room.tables:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot delete room with existing tables. Please remove all tables first."
+        )
+    
+    # Check if room has reservations
+    if room.reservations:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot delete room with existing reservations. Please handle all reservations first."
+        )
+    
+    db.delete(room)
+    db.commit()
+    return {"message": "Room deleted successfully"} 

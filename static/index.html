@@ -657,6 +657,20 @@
                             </div>
                         </div>
 
+                        <!-- Room Management -->
+                        <div class="setting-group">
+                            <h4>Room Management</h4>
+                            <div class="room-management-header">
+                                <button type="button" class="btn btn-primary" onclick="showAddRoomModal()">
+                                    <i class="fas fa-plus"></i> Add New Room
+                                </button>
+                            </div>
+                            <div id="roomsContainer" class="rooms-list">
+                                <!-- Will be populated by JavaScript -->
+                                <div class="loading-text">Loading rooms...</div>
+                            </div>
+                        </div>
+
                         <!-- Table Layout Editor -->
                         <div class="setting-group">
                             <h4>Table Layout Editor</h4>
@@ -864,6 +878,69 @@
                     <button type="button" class="btn btn-secondary" onclick="hideAddNoteModal()">Cancel</button>
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-save"></i> Save Note
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Room Modal -->
+    <div id="addRoomModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add New Room</h3>
+                <button class="modal-close" onclick="hideAddRoomModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="addRoomForm" class="modal-form">
+                <div class="form-group">
+                    <label for="roomName">Room Name *</label>
+                    <input type="text" id="roomName" name="name" required placeholder="e.g., Main Dining Room">
+                </div>
+                <div class="form-group">
+                    <label for="roomDescription">Description</label>
+                    <textarea id="roomDescription" name="description" rows="3" placeholder="e.g., Main dining area with 20 tables"></textarea>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="hideAddRoomModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Create Room
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Room Modal -->
+    <div id="editRoomModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Edit Room</h3>
+                <button class="modal-close" onclick="hideEditRoomModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="editRoomForm" class="modal-form">
+                <input type="hidden" id="editRoomId" name="roomId">
+                <div class="form-group">
+                    <label for="editRoomName">Room Name *</label>
+                    <input type="text" id="editRoomName" name="name" required>
+                </div>
+                <div class="form-group">
+                    <label for="editRoomDescription">Description</label>
+                    <textarea id="editRoomDescription" name="description" rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="editRoomActive" name="active">
+                        Active (visible to customers)
+                    </label>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="hideEditRoomModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Update Room
                     </button>
                 </div>
             </form>

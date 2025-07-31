@@ -1,10 +1,12 @@
 # GRADUALLY RESTORING FUNCTIONALITY AFTER SUCCESSFUL HEALTH CHECK
 import os
 from datetime import datetime
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from sqlalchemy.orm import Session
+from app.core.database import get_db
 
 # Create FastAPI app
 app = FastAPI(title="The Castle Pub Reservation System")
@@ -53,11 +55,20 @@ async def api_root():
     """API root endpoint"""
     return {"message": "The Castle Pub Reservation System API", "status": "running"}
 
-# Temporary simple endpoints for frontend compatibility
+# Public API endpoints (with database access)
 @app.get("/api/rooms")
-async def get_rooms_temp():
-    """Temporary rooms endpoint"""
-    return []
+async def get_rooms_public(db: Session = Depends(get_db)):
+    """Get all active rooms for public use"""
+    from app.models.room import Room
+    rooms = db.query(Room).filter(Room.active == True).all()
+    return [
+        {
+            "id": room.id,
+            "name": room.name,
+            "description": room.description
+        }
+        for room in rooms
+    ]
 
 @app.get("/api/dashboard/stats")
 async def get_dashboard_stats_temp():
