@@ -1,0 +1,4 @@
+EMERGENCY DEPLOYMENT - FIX RESERVATION 500 ERROR
+Timestamp: 2025-01-30 
+Changes: Completely bypass time validation
+Version: 2.1.0
