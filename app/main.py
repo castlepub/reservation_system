@@ -89,7 +89,7 @@ async def health_check():
         "status": "healthy",
         "timestamp": datetime.utcnow().isoformat(),
         "service": "The Castle Pub Reservation System",
-        "version": "1.0.0"
+        "version": "2.0.0"
     }
 
 @app.get("/api")
