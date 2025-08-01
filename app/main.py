@@ -162,24 +162,32 @@ async def get_rooms_settings_temp():
     return [
         {
             "id": "room_1",
-            "name": "Main Dining Room",
-            "description": "Main dining area with 20 tables",
+            "name": "Front Room",
+            "description": "Front dining area with window views",
             "active": True,
             "created_at": "2025-01-30T10:00:00",
             "updated_at": "2025-01-30T10:00:00"
         },
         {
             "id": "room_2", 
-            "name": "Private Dining",
-            "description": "Private dining room for special events",
+            "name": "Back Room",
+            "description": "Back dining area for larger groups",
             "active": True,
             "created_at": "2025-01-30T10:00:00",
             "updated_at": "2025-01-30T10:00:00"
         },
         {
             "id": "room_3",
-            "name": "Bar Area",
-            "description": "Bar seating and high tables",
+            "name": "Middle Room",
+            "description": "Middle dining area with flexible seating",
+            "active": True,
+            "created_at": "2025-01-30T10:00:00",
+            "updated_at": "2025-01-30T10:00:00"
+        },
+        {
+            "id": "room_4",
+            "name": "Biergarten",
+            "description": "Outdoor beer garden seating",
             "active": True,
             "created_at": "2025-01-30T10:00:00",
             "updated_at": "2025-01-30T10:00:00"
@@ -223,8 +231,41 @@ async def get_special_days_temp():
 # Admin endpoints with proper authentication bypass for now
 @app.get("/admin/reservations")
 async def get_admin_reservations_temp():
-    """Temporary admin reservations"""
-    return []
+    """Temporary admin reservations with sample data"""
+    return [
+        {
+            "id": "res_1",
+            "customer_name": "John Smith",
+            "email": "john@example.com",
+            "phone": "+1 234 567 8900",
+            "date": "2025-01-30",
+            "time": "19:00",
+            "party_size": 4,
+            "room_id": "room_1",
+            "room_name": "Front Room",
+            "status": "confirmed",
+            "reservation_type": "dinner",
+            "notes": "Window seat preferred",
+            "created_at": "2025-01-29T15:30:00",
+            "updated_at": "2025-01-29T15:30:00"
+        },
+        {
+            "id": "res_2",
+            "customer_name": "Jane Doe",
+            "email": "jane@example.com",
+            "phone": "+1 234 567 8901",
+            "date": "2025-01-30",
+            "time": "20:00",
+            "party_size": 6,
+            "room_id": "room_2",
+            "room_name": "Back Room",
+            "status": "confirmed",
+            "reservation_type": "dinner",
+            "notes": "Birthday celebration",
+            "created_at": "2025-01-29T16:00:00",
+            "updated_at": "2025-01-29T16:00:00"
+        }
+    ]
 
 @app.get("/admin/rooms")
 async def get_admin_rooms_temp():
@@ -232,21 +273,27 @@ async def get_admin_rooms_temp():
     return [
         {
             "id": "room_1",
-            "name": "Main Dining Room",
+            "name": "Front Room",
             "active": True,
-            "description": "Main dining area with 20 tables"
+            "description": "Front dining area with window views"
         },
         {
             "id": "room_2", 
-            "name": "Private Dining",
+            "name": "Back Room",
             "active": True,
-            "description": "Private dining room for special events"
+            "description": "Back dining area for larger groups"
         },
         {
             "id": "room_3",
-            "name": "Bar Area",
+            "name": "Middle Room",
             "active": True,
-            "description": "Bar seating and high tables"
+            "description": "Middle dining area with flexible seating"
+        },
+        {
+            "id": "room_4",
+            "name": "Biergarten",
+            "active": True,
+            "description": "Outdoor beer garden seating"
         }
     ]
 
@@ -258,7 +305,7 @@ async def get_admin_tables_temp():
             "id": "table_1",
             "name": "Table 1",
             "room_id": "room_1",
-            "room_name": "Main Dining Room",
+            "room_name": "Front Room",
             "capacity": 4,
             "combinable": True,
             "active": True,
@@ -268,7 +315,7 @@ async def get_admin_tables_temp():
             "id": "table_2",
             "name": "Table 2", 
             "room_id": "room_1",
-            "room_name": "Main Dining Room",
+            "room_name": "Front Room",
             "capacity": 6,
             "combinable": True,
             "active": True,
@@ -278,7 +325,7 @@ async def get_admin_tables_temp():
             "id": "table_3",
             "name": "Table 3",
             "room_id": "room_2",
-            "room_name": "Private Dining",
+            "room_name": "Back Room",
             "capacity": 8,
             "combinable": False,
             "active": True,
@@ -286,13 +333,13 @@ async def get_admin_tables_temp():
         },
         {
             "id": "table_4",
-            "name": "Bar 1",
+            "name": "Table 4",
             "room_id": "room_3", 
-            "room_name": "Bar Area",
+            "room_name": "Middle Room",
             "capacity": 2,
             "combinable": True,
             "active": True,
-            "description": "Bar seating"
+            "description": "Small table for 2"
         }
     ]
 
@@ -378,7 +425,7 @@ async def get_layout_daily_temp(date: str):
         "rooms": [
             {
                 "id": "room_1",
-                "name": "Main Dining Room",
+                "name": "Front Room",
                 "tables": [],
                 "reservations": []
             }

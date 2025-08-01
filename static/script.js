@@ -98,7 +98,18 @@ function initializeApp() {
     if (authToken) {
         console.log('Token found, showing admin dashboard');
         showAdminDashboard();
-        loadDashboardData();
+        
+        // Check URL parameters for tab
+        const urlParams = new URLSearchParams(window.location.search);
+        const tabParam = urlParams.get('tab');
+        
+        if (tabParam) {
+            // Show the tab from URL parameter
+            showTab(tabParam);
+        } else {
+            // Default to dashboard
+            loadDashboardData();
+        }
     } else {
         console.log('No token, user needs to login');
     }
@@ -706,6 +717,11 @@ async function checkAvailabilityAdmin() {
 
 // Tab Management
 function showTab(tabName) {
+    // Update URL without page reload
+    const url = new URL(window.location);
+    url.searchParams.set('tab', tabName);
+    window.history.pushState({}, '', url);
+    
     // Hide all tab contents
     const tabContents = document.querySelectorAll('.tab-content');
     tabContents.forEach(content => content.classList.remove('active'));
@@ -2405,6 +2421,11 @@ let dailyViewData = null;
 
 // Daily View Functions
 function showTab(tabName) {
+    // Update URL without page reload
+    const url = new URL(window.location);
+    url.searchParams.set('tab', tabName);
+    window.history.pushState({}, '', url);
+    
     // Hide all tab contents
     const tabContents = document.querySelectorAll('.tab-content');
     tabContents.forEach(content => content.classList.remove('active'));
@@ -2432,12 +2453,6 @@ function showTab(tabName) {
         loadTodayReservations();
     } else if (tabName === 'dashboard') {
         loadDashboardData();
-    } else if (tabName === 'tables') {
-        loadTablesData();
-    } else if (tabName === 'reservations') {
-        loadAllReservations();
-    } else if (tabName === 'settings') {
-        loadSettingsData();
     }
 }
 
