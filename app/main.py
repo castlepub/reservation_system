@@ -520,6 +520,132 @@ async def get_admin_reservations_temp(db: Session = Depends(get_db), date: str =
     
     return result
 
+@app.get("/admin/reservations/{reservation_id}")
+async def get_admin_reservation_temp(reservation_id: str, db: Session = Depends(get_db)):
+    """Get specific reservation for admin - no auth required for now"""
+    from app.models.reservation import Reservation
+    from app.models.room import Room
+    from app.models.table import Table
+    
+    reservation = db.query(Reservation).filter(Reservation.id == reservation_id).first()
+    if not reservation:
+        raise HTTPException(status_code=404, detail="Reservation not found")
+    
+    # Get room name if room_id exists
+    room_name = None
+    if reservation.room_id:
+        room = db.query(Room).filter(Room.id == reservation.room_id).first()
+        room_name = room.name if room else None
+    
+    # Get assigned tables if table_id exists
+    tables = []
+    if reservation.table_id:
+        table = db.query(Table).filter(Table.id == reservation.table_id).first()
+        if table:
+            tables.append({
+                "id": table.id,
+                "table_name": table.name,
+                "capacity": table.capacity
+            })
+    
+    return {
+        "id": reservation.id,
+        "customer_name": reservation.customer_name,
+        "email": reservation.email,
+        "phone": reservation.phone,
+        "date": reservation.date.isoformat() if reservation.date else None,
+        "time": str(reservation.time),
+        "party_size": reservation.party_size,
+        "duration_hours": reservation.duration_hours,
+        "status": reservation.status,
+        "reservation_type": reservation.reservation_type.value if reservation.reservation_type else "dining",
+        "notes": reservation.notes,
+        "admin_notes": reservation.admin_notes,
+        "room_id": reservation.room_id,
+        "room_name": room_name,
+        "table_id": reservation.table_id,
+        "tables": tables,
+        "created_at": reservation.created_at.isoformat() if reservation.created_at else None
+    }
+
+@app.put("/admin/reservations/{reservation_id}")
+async def update_admin_reservation_temp(reservation_id: str, reservation_data: dict, db: Session = Depends(get_db)):
+    """Update specific reservation for admin - no auth required for now"""
+    from app.models.reservation import Reservation, ReservationStatus, ReservationType
+    from datetime import datetime
+    
+    reservation = db.query(Reservation).filter(Reservation.id == reservation_id).first()
+    if not reservation:
+        raise HTTPException(status_code=404, detail="Reservation not found")
+    
+    try:
+        # Update reservation fields
+        if "customer_name" in reservation_data:
+            reservation.customer_name = reservation_data["customer_name"]
+        if "email" in reservation_data:
+            reservation.email = reservation_data["email"]
+        if "phone" in reservation_data:
+            reservation.phone = reservation_data["phone"]
+        if "date" in reservation_data:
+            reservation.date = datetime.strptime(reservation_data["date"], "%Y-%m-%d").date()
+        if "time" in reservation_data:
+            time_str = reservation_data["time"]
+            if isinstance(time_str, str):
+                if len(time_str.split(':')) == 2:
+                    time_str = f"{time_str}:00"
+                reservation.time = datetime.strptime(time_str, "%H:%M:%S").time()
+        if "party_size" in reservation_data:
+            reservation.party_size = reservation_data["party_size"]
+        if "duration_hours" in reservation_data:
+            reservation.duration_hours = reservation_data["duration_hours"]
+        if "status" in reservation_data:
+            reservation.status = ReservationStatus(reservation_data["status"])
+        if "reservation_type" in reservation_data:
+            reservation.reservation_type = ReservationType(reservation_data["reservation_type"])
+        if "notes" in reservation_data:
+            reservation.notes = reservation_data["notes"]
+        if "admin_notes" in reservation_data:
+            reservation.admin_notes = reservation_data["admin_notes"]
+        if "room_id" in reservation_data:
+            reservation.room_id = reservation_data["room_id"] if reservation_data["room_id"] else None
+        
+        db.commit()
+        db.refresh(reservation)
+        
+        return {
+            "id": reservation.id,
+            "customer_name": reservation.customer_name,
+            "email": reservation.email,
+            "phone": reservation.phone,
+            "date": reservation.date.isoformat() if reservation.date else None,
+            "time": str(reservation.time),
+            "party_size": reservation.party_size,
+            "status": reservation.status.value,
+            "message": "Reservation updated successfully"
+        }
+    except Exception as e:
+        db.rollback()
+        print(f"Error updating reservation: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Failed to update reservation: {str(e)}")
+
+@app.delete("/admin/reservations/{reservation_id}")
+async def delete_admin_reservation_temp(reservation_id: str, db: Session = Depends(get_db)):
+    """Delete specific reservation for admin - no auth required for now"""
+    from app.models.reservation import Reservation
+    
+    reservation = db.query(Reservation).filter(Reservation.id == reservation_id).first()
+    if not reservation:
+        raise HTTPException(status_code=404, detail="Reservation not found")
+    
+    try:
+        db.delete(reservation)
+        db.commit()
+        return {"message": "Reservation deleted successfully"}
+    except Exception as e:
+        db.rollback()
+        print(f"Error deleting reservation: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Failed to delete reservation: {str(e)}")
+
 @app.post("/api/reservations")
 async def create_reservation_temp(reservation_data: dict, db: Session = Depends(get_db)):
     """Create a new reservation - no auth required for now"""
