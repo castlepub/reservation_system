@@ -2652,6 +2652,34 @@ function updateDateDisplay() {
     }
 }
 
+function getReservationTableInfo(reservation) {
+    // Check if reservation has table assignments
+    if (reservation.tables && reservation.tables.length > 0) {
+        const tableNames = reservation.tables.map(t => t.table_name || t.name).join(', ');
+        return `Tables: ${tableNames}`;
+    }
+    
+    // Check legacy table_id field
+    if (reservation.table_id) {
+        return `Table: ${getTableNameById(reservation.table_id)}`;
+    }
+    
+    // Check if table is assigned in layout but not showing correctly
+    if (dailyViewData && dailyViewData.rooms) {
+        for (const room of dailyViewData.rooms) {
+            if (room.tables) {
+                for (const table of room.tables) {
+                    if (table.reservations && table.reservations.some(r => r.id === reservation.id)) {
+                        return `Table: ${table.table_name}`;
+                    }
+                }
+            }
+        }
+    }
+    
+    return 'No table assigned';
+}
+
 function renderReservationsList() {
     const container = document.getElementById('dailyReservationsList');
     if (!container || !dailyViewData) return;
@@ -2675,7 +2703,7 @@ function renderReservationsList() {
                 <div class="reservation-status ${reservation.status.toLowerCase()}">${reservation.status}</div>
             </div>
             <div class="table-info">
-                ${reservation.table_id ? `Table: ${getTableNameById(reservation.table_id)}` : 'No table assigned'}
+                ${getReservationTableInfo(reservation)}
             </div>
         </div>
     `).join('');
@@ -3284,7 +3312,7 @@ function selectTable(tableElement) {
     
     // Select new table
     tableElement.classList.add('selected');
-    selectedTable = tableElement;
+    selectedTable = tableElement.getAttribute('data-layout-id');
     
     console.log('Selected table:', tableElement);
     console.log('Selected table attributes:', {
@@ -3296,9 +3324,7 @@ function selectTable(tableElement) {
     // Show table properties
     showTableProperties(tableElement);
     
-    // Show message
-    const tableName = tableElement.getAttribute('data-table-name');
-    showMessage(`Selected Table ${tableName}`, 'info');
+    // Note: Removed excessive "Selected Table" message to reduce popup spam
     
     console.log('=== selectTable END ===');
 }
@@ -3523,7 +3549,9 @@ async function saveNewTable(tableData) {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                table_id: tableData.table_id,
+                table_name: tableData.table_name,
+                capacity: tableData.capacity,
+                combinable: true,
                 room_id: tableData.room_id,
                 x_position: tableData.x_position,
                 y_position: tableData.y_position,
