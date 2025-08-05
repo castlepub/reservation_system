@@ -346,6 +346,54 @@ async def get_special_days_temp():
 
 # Admin endpoints are now handled by the admin router
 
+@app.get("/admin/rooms")
+async def get_admin_rooms_temp(db: Session = Depends(get_db)):
+    """Get all rooms for admin - no auth required for now"""
+    from app.models.room import Room
+    
+    rooms = db.query(Room).all()
+    result = []
+    
+    for room in rooms:
+        result.append({
+            "id": room.id,
+            "name": room.name,
+            "description": room.description,
+            "active": room.active,
+            "created_at": room.created_at.isoformat() if room.created_at else None,
+            "updated_at": room.updated_at.isoformat() if room.updated_at else None
+        })
+    
+    return result
+
+@app.get("/admin/tables")
+async def get_admin_tables_temp(db: Session = Depends(get_db)):
+    """Get all tables for admin - no auth required for now"""
+    from app.models.table import Table
+    from app.models.room import Room
+    
+    tables = db.query(Table).all()
+    result = []
+    
+    for table in tables:
+        # Get room name
+        room = db.query(Room).filter(Room.id == table.room_id).first()
+        room_name = room.name if room else "Unknown Room"
+        
+        result.append({
+            "id": table.id,
+            "name": table.name,
+            "room_id": table.room_id,
+            "room_name": room_name,
+            "capacity": table.capacity,
+            "combinable": table.combinable,
+            "active": table.active,
+            "created_at": table.created_at.isoformat() if table.created_at else None,
+            "updated_at": table.updated_at.isoformat() if table.updated_at else None
+        })
+    
+    return result
+
 @app.get("/admin/reservations")
 async def get_admin_reservations_temp(db: Session = Depends(get_db)):
     """Get all reservations for admin - no auth required for now"""
@@ -379,23 +427,54 @@ async def get_admin_reservations_temp(db: Session = Depends(get_db)):
     return result
 
 @app.post("/api/reservations")
-async def create_reservation_temp():
-    """Temporary reservation endpoint that accepts form data"""
+async def create_reservation_temp(reservation_data: dict, db: Session = Depends(get_db)):
+    """Create a new reservation - no auth required for now"""
+    from app.models.reservation import Reservation
+    from datetime import datetime
     import uuid
-    reservation_id = str(uuid.uuid4())
-    return {
-        "status": "success", 
-        "message": "Reservation created successfully (temporary mode)", 
-        "id": reservation_id,
-        "reservation": {
-            "id": reservation_id,
-            "customer_name": "Test Customer",
-            "date": "2025-01-30",
-            "time": "19:00",
-            "party_size": 4,
-            "status": "confirmed"
+    
+    try:
+        # Parse date
+        date_str = reservation_data.get("date")
+        if date_str:
+            reservation_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+        else:
+            reservation_date = datetime.now().date()
+        
+        # Create new reservation
+        new_reservation = Reservation(
+            id=str(uuid.uuid4()),
+            customer_name=reservation_data.get("customer_name", "Unknown Customer"),
+            email=reservation_data.get("email"),
+            phone=reservation_data.get("phone"),
+            date=reservation_date,
+            time=reservation_data.get("time", "19:00"),
+            party_size=reservation_data.get("party_size", 2),
+            status="confirmed",
+            notes=reservation_data.get("notes"),
+            room_id=reservation_data.get("room_id")
+        )
+        
+        db.add(new_reservation)
+        db.commit()
+        db.refresh(new_reservation)
+        
+        return {
+            "status": "success", 
+            "message": "Reservation created successfully", 
+            "id": new_reservation.id,
+            "reservation": {
+                "id": new_reservation.id,
+                "customer_name": new_reservation.customer_name,
+                "date": new_reservation.date.isoformat() if new_reservation.date else None,
+                "time": new_reservation.time,
+                "party_size": new_reservation.party_size,
+                "status": new_reservation.status
+            }
         }
-    }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"Failed to create reservation: {str(e)}")
 
 # Additional missing endpoints
 @app.get("/api/settings/working-hours")
