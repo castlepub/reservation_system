@@ -3461,12 +3461,12 @@ function makeTableDraggable(tableElement) {
             document.removeEventListener('mouseup', handleMouseUp);
             
             // Update position in database
-            const tableId = tableElement.getAttribute('data-table-id');
+            const layoutId = tableElement.getAttribute('data-layout-id');
             const newLeft = parseInt(tableElement.style.left);
             const newTop = parseInt(tableElement.style.top);
             
-            console.log('Updating table position in DB:', { tableId, newLeft, newTop });
-            updateTablePosition(tableId, newLeft, newTop);
+            console.log('Updating table position in DB:', { layoutId, newLeft, newTop });
+            updateTablePosition(layoutId, newLeft, newTop);
             
             // Prevent the canvas click handler from clearing selection
             e.stopPropagation();
