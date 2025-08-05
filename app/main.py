@@ -471,23 +471,30 @@ async def get_admin_tables_temp(db: Session = Depends(get_db)):
     return result
 
 @app.get("/admin/reservations")
-async def get_admin_reservations_temp(db: Session = Depends(get_db), date: str = None):
+async def get_admin_reservations_temp(db: Session = Depends(get_db), date: str = None, date_filter: str = None):
     """Get reservations for admin - defaults to today's date"""
     from app.models.reservation import Reservation
     from app.models.room import Room
     from datetime import date as date_type
     
     # If no date specified, use today
-    if not date:
+    if not date and not date_filter:
         target_date = date_type.today()
     else:
+        # Use date_filter if provided, otherwise use date
+        date_to_parse = date_filter if date_filter else date
         try:
-            target_date = datetime.strptime(date, "%Y-%m-%d").date()
+            target_date = datetime.strptime(date_to_parse, "%Y-%m-%d").date()
         except:
             target_date = date_type.today()
     
-    # Get reservations for the specified date
-    reservations = db.query(Reservation).filter(Reservation.date == target_date).order_by(Reservation.time).all()
+    # Get reservations for the specified date, or all reservations if no date filter
+    if date_filter or date:
+        reservations = db.query(Reservation).filter(Reservation.date == target_date).order_by(Reservation.time).all()
+    else:
+        # If no date filter, get all reservations from the last 30 days
+        thirty_days_ago = date_type.today() - timedelta(days=30)
+        reservations = db.query(Reservation).filter(Reservation.date >= thirty_days_ago).order_by(Reservation.date, Reservation.time).all()
     result = []
     
     for reservation in reservations:
@@ -748,7 +755,7 @@ async def get_layout_daily_temp(date: str, db: Session = Depends(get_db)):
     return daily_data
 
 @app.get("/api/layout/editor/{room_id}")
-async def get_layout_editor_temp(room_id: str, target_date: str, db: Session = Depends(get_db)):
+async def get_layout_editor_temp(room_id: str, target_date: str = None, db: Session = Depends(get_db)):
     """Temporary layout editor data"""
     from app.models.room import Room
     from app.models.table import Table
