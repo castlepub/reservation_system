@@ -994,14 +994,21 @@ async def delete_admin_table_temp(table_id: str, db: Session = Depends(get_db)):
             # Continue with table deletion even if layout deletion fails
         
         # Delete all reservation-table associations
-        db.query(ReservationTable).filter(ReservationTable.table_id == table_id).delete()
-        db.flush()
+        try:
+            db.query(ReservationTable).filter(ReservationTable.table_id == table_id).delete()
+            db.flush()
+        except Exception as e:
+            print(f"Warning: Could not delete reservation-table associations: {e}")
+            db.rollback()
+            # Start fresh transaction
+            db.begin()
         
         # Now delete the table
         db.delete(table)
         db.commit()
         return {"message": "Table deleted successfully"}
     except HTTPException:
+        db.rollback()
         raise
     except Exception as e:
         db.rollback()
@@ -1010,14 +1017,43 @@ async def delete_admin_table_temp(table_id: str, db: Session = Depends(get_db)):
 # Layout API endpoints for table positioning and management
 @app.put("/api/layout/tables/{layout_id}")
 async def update_table_position_temp(layout_id: str, position_data: dict, db: Session = Depends(get_db)):
-    """Update table position in layout - no auth required for now"""
-    # For now, just return success since we're not storing layout positions in the database yet
-    return {
-        "message": "Table position updated successfully",
-        "layout_id": layout_id,
-        "x_position": position_data.get("x_position"),
-        "y_position": position_data.get("y_position")
-    }
+    """Update table position in layout"""
+    from app.models.table_layout import TableLayout
+    
+    try:
+        # Find the table layout
+        layout = db.query(TableLayout).filter(TableLayout.id == layout_id).first()
+        if not layout:
+            raise HTTPException(status_code=404, detail="Table layout not found")
+        
+        # Update position and properties
+        if "x_position" in position_data:
+            layout.x_position = float(position_data["x_position"])
+        if "y_position" in position_data:
+            layout.y_position = float(position_data["y_position"])
+        if "width" in position_data:
+            layout.width = float(position_data["width"])
+        if "height" in position_data:
+            layout.height = float(position_data["height"])
+        if "color" in position_data:
+            layout.color = position_data["color"]
+        if "shape" in position_data:
+            layout.shape = position_data["shape"]
+        
+        db.commit()
+        db.refresh(layout)
+        
+        return {
+            "message": "Table position updated successfully",
+            "layout_id": layout_id,
+            "x_position": layout.x_position,
+            "y_position": layout.y_position
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to update table position: {str(e)}")
 
 @app.post("/api/layout/tables")
 async def create_layout_table_temp(table_data: dict, db: Session = Depends(get_db)):

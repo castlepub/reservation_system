@@ -21,20 +21,25 @@ class TableService:
         duration_hours: int = 2
     ) -> List[Table]:
         """Get all available tables for a given room, date, and time slot"""
-        print(f"DEBUG: Getting available tables for room {room_id}, bypassing complex validation")
+        print(f"DEBUG: Getting available tables for room {room_id} with proper conflict checking")
         print(f"DEBUG: Date: {date}, Time: {time}, Party size: {party_size}")
         
-        # EMERGENCY BYPASS: Just return all suitable tables without time conflict checking
-        # This is a temporary fix to avoid the datetime.combine() SQLAlchemy issues
-        tables = self.db.query(Table).filter(
+        # Get all tables in the room
+        all_tables = self.db.query(Table).filter(
             and_(
                 Table.room_id == room_id,
                 Table.active == True
             )
         ).all()
         
-        print(f"DEBUG: Found {len(tables)} tables in room")
-        return tables
+        # Get reserved table IDs for this time slot (with duration overlap checking)
+        reserved_table_ids = self.get_reserved_table_ids_with_duration(date, time, duration_hours)
+        
+        # Filter out reserved tables
+        available_tables = [table for table in all_tables if str(table.id) not in reserved_table_ids]
+        
+        print(f"DEBUG: Found {len(all_tables)} total tables, {len(reserved_table_ids)} reserved, {len(available_tables)} available")
+        return available_tables
 
     def get_available_tables_all_rooms(
         self, 
@@ -44,21 +49,26 @@ class TableService:
         duration_hours: int = 2
     ) -> List[Table]:
         """Get all available tables across all active rooms for a given date and time slot"""
-        print(f"DEBUG: Getting available tables from all rooms, bypassing complex validation")
+        print(f"DEBUG: Getting available tables from all rooms with proper conflict checking")
         print(f"DEBUG: Date: {date}, Time: {time}, Party size: {party_size}")
         
-        # EMERGENCY BYPASS: Just return all suitable tables without time conflict checking
-        # This is a temporary fix to avoid the datetime.combine() SQLAlchemy issues
+        # Get all tables across all active rooms
         from app.models.room import Room
-        tables = self.db.query(Table).join(Room).filter(
+        all_tables = self.db.query(Table).join(Room).filter(
             and_(
                 Table.active == True,
                 Room.active == True
             )
         ).all()
         
-        print(f"DEBUG: Found {len(tables)} tables across all active rooms")
-        return tables
+        # Get reserved table IDs for this time slot (with duration overlap checking)
+        reserved_table_ids = self.get_reserved_table_ids_with_duration(date, time, duration_hours)
+        
+        # Filter out reserved tables
+        available_tables = [table for table in all_tables if str(table.id) not in reserved_table_ids]
+        
+        print(f"DEBUG: Found {len(all_tables)} total tables, {len(reserved_table_ids)} reserved, {len(available_tables)} available")
+        return available_tables
 
     def find_best_table_combination(
         self, 
@@ -252,5 +262,48 @@ class TableService:
             
             for assignment in table_assignments:
                 reserved_table_ids.append(str(assignment.table_id))
+        
+        return reserved_table_ids
+    
+    def get_reserved_table_ids_with_duration(self, date: date, time: time, duration_hours: int = 2, exclude_reservation_id: str = None) -> List[str]:
+        """Get list of table IDs that are reserved with time overlap checking"""
+        from app.models.reservation import ReservationStatus, Reservation
+        from datetime import datetime, timedelta
+        
+        # Convert date and time to datetime for easier comparison
+        target_start = datetime.combine(date, time)
+        target_end = target_start + timedelta(hours=duration_hours)
+        
+        # Get all reservations on the same date
+        query = self.db.query(Reservation).filter(
+            and_(
+                Reservation.date == date,
+                Reservation.status == ReservationStatus.CONFIRMED
+            )
+        )
+        
+        # Exclude a specific reservation if provided (useful for editing)
+        if exclude_reservation_id:
+            query = query.filter(Reservation.id != exclude_reservation_id)
+        
+        reservations = query.all()
+        
+        reserved_table_ids = []
+        for reservation in reservations:
+            # Calculate reservation time window
+            res_start = datetime.combine(date, reservation.time)
+            res_duration = reservation.duration_hours if hasattr(reservation, 'duration_hours') and reservation.duration_hours else 2
+            res_end = res_start + timedelta(hours=res_duration)
+            
+            # Check for time overlap
+            # Two time ranges overlap if: start1 < end2 AND start2 < end1
+            if target_start < res_end and res_start < target_end:
+                # This reservation overlaps with our target time, get its tables
+                table_assignments = self.db.query(ReservationTable).filter(
+                    ReservationTable.reservation_id == reservation.id
+                ).all()
+                
+                for assignment in table_assignments:
+                    reserved_table_ids.append(str(assignment.table_id))
         
         return reserved_table_ids 
