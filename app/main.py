@@ -687,8 +687,10 @@ async def get_layout_daily_temp(date: str, db: Session = Depends(get_db)):
                 x_pos = 50 + (col * 120)
                 y_pos = 50 + (row * 100)
                 
-                # Check if table has reservations
-                table_reservations = [r for r in reservations if r.table_id == table.id]
+                # Check if table has reservations - ensure table_id exists
+                table_reservations = []
+                if hasattr(table, 'id'):
+                    table_reservations = [r for r in reservations if hasattr(r, 'table_id') and r.table_id == table.id]
                 status = "reserved" if table_reservations else "available"
                 
                 table_layouts.append({
@@ -743,7 +745,7 @@ async def get_layout_daily_temp(date: str, db: Session = Depends(get_db)):
                         "time": r.time,
                         "party_size": r.party_size,
                         "status": r.status,
-                        "table_id": r.table_id
+                        "table_id": getattr(r, 'table_id', None)
                     } for r in reservations
                 ]
             })
