@@ -142,6 +142,22 @@ function setupEventListeners() {
     // Removed adminReservationForm - it's now handled by the modal
     document.getElementById('addNoteForm').addEventListener('submit', handleAddNote);
 
+    // Settings save buttons
+    const saveGeneralSettingsBtn = document.getElementById('saveGeneralSettings');
+    if (saveGeneralSettingsBtn) {
+        saveGeneralSettingsBtn.addEventListener('click', saveAllSettings);
+    }
+    
+    const saveWorkingHoursBtn = document.getElementById('saveWorkingHours');
+    if (saveWorkingHoursBtn) {
+        saveWorkingHoursBtn.addEventListener('click', saveWorkingHours);
+    }
+    
+    const addSpecialDayBtn = document.getElementById('addSpecialDay');
+    if (addSpecialDayBtn) {
+        addSpecialDayBtn.addEventListener('click', addSpecialDay);
+    }
+
     // Date and party size changes
     document.getElementById('date').addEventListener('change', function() {
         updateTimeSlotsForDate(this, 'time');
@@ -698,7 +714,7 @@ async function checkAvailabilityAdmin() {
 function showTab(tabName) {
     // Hide all tab contents
     const tabContents = document.querySelectorAll('.tab-content');
-    tabContents.forEach(content => content.classList.remove('active'));
+    tabContents.forEach(content => content.style.display = 'none');
     
     // Remove active class from all tab buttons
     const tabButtons = document.querySelectorAll('.tab-btn');
@@ -707,7 +723,7 @@ function showTab(tabName) {
     // Show selected tab content
     const selectedTab = document.getElementById(tabName + 'Tab');
     if (selectedTab) {
-        selectedTab.classList.add('active');
+        selectedTab.style.display = 'block';
     }
     
     // Add active class to selected tab button
@@ -717,12 +733,51 @@ function showTab(tabName) {
     }
     
     // Load data for specific tabs
-    if (tabName === 'dailyView') {
-        loadDailyView();
+    if (tabName === 'dashboard') {
+        loadDashboardData();
+    } else if (tabName === 'customers') {
+        loadCustomers();
     } else if (tabName === 'today') {
         loadTodayReservations();
-    } else if (tabName === 'dashboard') {
-        loadDashboardData();
+    } else if (tabName === 'reservations') {
+        loadAllReservations();
+    } else if (tabName === 'tables') {
+        loadTablesData();
+    } else if (tabName === 'settings') {
+        loadSettingsData();
+    } else if (tabName === 'daily') {
+        loadDailyView();
+    }
+}
+
+function showSettingsTab(tabName) {
+    // Hide all settings tab contents
+    const settingsTabContents = document.querySelectorAll('.settings-tab-content');
+    settingsTabContents.forEach(content => content.classList.remove('active'));
+    
+    // Remove active class from all settings tab buttons
+    const settingsTabButtons = document.querySelectorAll('.settings-tab-btn');
+    settingsTabButtons.forEach(btn => btn.classList.remove('active'));
+    
+    // Show selected settings tab content
+    const selectedSettingsTab = document.getElementById(tabName + 'SettingsTab');
+    if (selectedSettingsTab) {
+        selectedSettingsTab.classList.add('active');
+    }
+    
+    // Add active class to selected settings tab button
+    const selectedSettingsButton = document.querySelector(`[onclick="showSettingsTab('${tabName}')"]`);
+    if (selectedSettingsButton) {
+        selectedSettingsButton.classList.add('active');
+    }
+    
+    // Load specific data for settings tabs
+    if (tabName === 'rooms') {
+        loadRoomsForSettings();
+    } else if (tabName === 'hours') {
+        loadWorkingHours();
+    } else if (tabName === 'layout') {
+        initializeLayoutEditor();
     }
 }
 
@@ -1206,7 +1261,8 @@ async function saveWorkingHours() {
         const workingHoursData = {};
         
         for (const day of days) {
-            const isOpenCheckbox = document.getElementById(`${day}-open-checkbox`);
+            const dayElement = document.querySelector(`.working-hours-day:has(#${day}-open)`);
+            const isOpenCheckbox = dayElement?.querySelector('input[type="checkbox"]');
             const openTimeInput = document.getElementById(`${day}-open`);
             const closeTimeInput = document.getElementById(`${day}-close`);
             
@@ -1459,7 +1515,60 @@ async function removeSpecialDay(dayId) {
         console.error('Error removing special day:', error);
         showMessage('Error removing special day', 'error');
     }
-} 
+}
+
+async function loadRoomsForSettings() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/rooms`, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (response.ok) {
+            const rooms = await response.json();
+            updateRoomsSettingsDisplay(rooms);
+        } else {
+            throw new Error('Failed to load rooms');
+        }
+    } catch (error) {
+        console.error('Error loading rooms for settings:', error);
+        showMessage('Error loading rooms', 'error');
+    }
+}
+
+function updateRoomsSettingsDisplay(rooms) {
+    const container = document.getElementById('roomsContainer');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    if (rooms.length === 0) {
+        container.innerHTML = '<div class="loading-text">No rooms configured</div>';
+        return;
+    }
+    
+    rooms.forEach(room => {
+        const roomElement = document.createElement('div');
+        roomElement.className = 'room-item';
+        roomElement.innerHTML = `
+            <div class="room-info">
+                <div class="room-name">${room.name}</div>
+                <div class="room-description">${room.description || 'No description'}</div>
+            </div>
+            <div class="room-actions">
+                <button class="btn btn-sm btn-secondary" onclick="editRoom('${room.id}')">
+                    <i class="fas fa-edit"></i> Edit
+                </button>
+                <button class="btn btn-sm btn-danger" onclick="deleteRoom('${room.id}', '${room.name}')">
+                    <i class="fas fa-trash"></i> Delete
+                </button>
+            </div>
+        `;
+        container.appendChild(roomElement);
+    });
+}
 
 // Table Management Functions
 async function loadTablesData() {
@@ -2396,42 +2505,6 @@ let currentRoomId = null;
 let dailyViewData = null;
 
 // Daily View Functions
-function showTab(tabName) {
-    // Hide all tab contents
-    const tabContents = document.querySelectorAll('.tab-content');
-    tabContents.forEach(content => content.classList.remove('active'));
-    
-    // Remove active class from all tab buttons
-    const tabButtons = document.querySelectorAll('.tab-btn');
-    tabButtons.forEach(btn => btn.classList.remove('active'));
-    
-    // Show selected tab content
-    const selectedTab = document.getElementById(tabName + 'Tab');
-    if (selectedTab) {
-        selectedTab.classList.add('active');
-    }
-    
-    // Add active class to selected tab button
-    const selectedButton = document.querySelector(`[onclick="showTab('${tabName}')"]`);
-    if (selectedButton) {
-        selectedButton.classList.add('active');
-    }
-    
-    // Load data for specific tabs
-    if (tabName === 'dailyView') {
-        loadDailyView();
-    } else if (tabName === 'today') {
-        loadTodayReservations();
-    } else if (tabName === 'dashboard') {
-        loadDashboardData();
-    } else if (tabName === 'tables') {
-        loadTablesData();
-    } else if (tabName === 'reservations') {
-        loadAllReservations();
-    } else if (tabName === 'settings') {
-        loadSettingsData();
-    }
-}
 
 async function loadDailyView() {
     try {
