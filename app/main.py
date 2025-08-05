@@ -858,9 +858,25 @@ async def get_layout_editor_temp(room_id: str, target_date: str = None, db: Sess
         layout = db.query(TableLayout).filter(TableLayout.table_id == table.id).first()
         
         if not layout:
-            # This shouldn't happen anymore, but provide fallback
-            print(f"Warning: No layout found for table {table.name} in editor")
-            continue
+            # Provide fallback layout if missing  
+            print(f"Warning: No layout found for table {table.name} in editor, using fallback")
+            # Create a basic fallback layout
+            fallback_layout = type('Layout', (), {
+                'id': table.id,  # Use table ID as fallback
+                'x_position': 100,
+                'y_position': 100, 
+                'width': 80,
+                'height': 80,
+                'shape': 'rectangular',
+                'color': '#4CAF50',
+                'border_color': '#2E7D32',
+                'text_color': '#FFFFFF',
+                'font_size': 12,
+                'z_index': 1,
+                'show_name': True,
+                'show_capacity': True
+            })()
+            layout = fallback_layout
         
         table_layouts.append({
             "layout_id": layout.id,
