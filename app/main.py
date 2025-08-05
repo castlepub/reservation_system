@@ -28,13 +28,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers
-app.include_router(auth_router, prefix="/auth")
-app.include_router(admin_router, prefix="/admin")
-app.include_router(settings_router, prefix="/api")
-app.include_router(public_router, prefix="/api")
-app.include_router(dashboard_router, prefix="/api")
-app.include_router(layout_router, prefix="/api")
+# Include routers - DISABLED temporarily to avoid conflicts with temporary endpoints
+# app.include_router(auth_router, prefix="/auth")
+# app.include_router(admin_router, prefix="/admin")
+# app.include_router(settings_router, prefix="/api")
+# app.include_router(public_router, prefix="/api")
+# app.include_router(dashboard_router, prefix="/api")
+# app.include_router(layout_router, prefix="/api")
 
 # Mount static files
 static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
@@ -790,7 +790,12 @@ async def get_layout_daily_temp(date: str, db: Session = Depends(get_db)):
     
     daily_data = {
         "date": target_date_obj.isoformat(),
-        "rooms": []
+        "rooms": [],
+        "debug_info": {
+            "total_rooms": len(rooms),
+            "requested_date": date,
+            "parsed_date": target_date_obj.isoformat()
+        }
     }
     
     for room in rooms:
@@ -819,6 +824,19 @@ async def get_layout_daily_temp(date: str, db: Session = Depends(get_db)):
                     table_reservations = [r for r in reservations if hasattr(r, 'table_id') and r.table_id == table.id]
                 status = "reserved" if table_reservations else "available"
                 
+                # Ensure reservations is always an array
+                reservation_list = []
+                if table_reservations:
+                    reservation_list = [
+                        {
+                            "id": r.id,
+                            "customer_name": r.customer_name,
+                            "time": str(r.time) if r.time else "",
+                            "party_size": r.party_size,
+                            "status": r.status.value if hasattr(r.status, 'value') else str(r.status)
+                        } for r in table_reservations if r is not None
+                    ]
+                
                 table_layouts.append({
                     "layout_id": table.id,
                     "table_id": table.id,
@@ -838,15 +856,7 @@ async def get_layout_daily_temp(date: str, db: Session = Depends(get_db)):
                     "show_capacity": True,
                     "status": status,
                     "combinable": table.combinable,
-                    "reservations": [
-                        {
-                            "id": r.id,
-                            "customer_name": r.customer_name,
-                            "time": r.time,
-                            "party_size": r.party_size,
-                            "status": r.status
-                        } for r in table_reservations
-                    ]
+                    "reservations": reservation_list
                 })
             
             # Create room layout data
