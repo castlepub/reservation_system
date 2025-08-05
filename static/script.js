@@ -3121,6 +3121,12 @@ async function initializeLayoutEditor() {
         
         if (response.ok) {
             const rooms = await response.json();
+            console.log('=== LAYOUT EDITOR ROOMS LOADED ===');
+            console.log('Total rooms:', rooms.length);
+            rooms.forEach(room => {
+                console.log(`Room: ${room.name} (ID: ${room.id})`);
+            });
+            
             const roomSelect = document.getElementById('layoutRoomSelect');
             roomSelect.innerHTML = '<option value="">Choose a room...</option>';
             
@@ -3142,6 +3148,16 @@ async function initializeLayoutEditor() {
 
 async function handleRoomSelection(event) {
     const roomId = event.target.value;
+    console.log('=== ROOM SELECTION HANDLER ===');
+    console.log('Selected room ID:', roomId);
+    console.log('Event target:', event.target);
+    console.log('Available options:');
+    Array.from(event.target.options).forEach(option => {
+        if (option.value) {
+            console.log(`  Option: ${option.textContent} (ID: ${option.value})`);
+        }
+    });
+    
     if (!roomId) {
         clearLayoutCanvas();
         return;
