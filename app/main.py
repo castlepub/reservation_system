@@ -959,6 +959,7 @@ async def update_admin_table_temp(table_id: str, table_data: dict, db: Session =
 async def delete_admin_table_temp(table_id: str, db: Session = Depends(get_db)):
     """Delete specific table for admin - temporary endpoint"""
     from app.models.table import Table
+    from app.models.table_layout import TableLayout
     from app.models.reservation import Reservation, ReservationTable, ReservationStatus
     from datetime import date
     
@@ -982,6 +983,21 @@ async def delete_admin_table_temp(table_id: str, db: Session = Depends(get_db)):
                 detail="Cannot delete table with active reservations"
             )
         
+        # Manually delete related table layout first to avoid cascade issues
+        try:
+            table_layout = db.query(TableLayout).filter(TableLayout.table_id == table_id).first()
+            if table_layout:
+                db.delete(table_layout)
+                db.flush()  # Ensure layout is deleted before table
+        except Exception as layout_error:
+            print(f"Warning: Could not delete table layout: {layout_error}")
+            # Continue with table deletion even if layout deletion fails
+        
+        # Delete all reservation-table associations
+        db.query(ReservationTable).filter(ReservationTable.table_id == table_id).delete()
+        db.flush()
+        
+        # Now delete the table
         db.delete(table)
         db.commit()
         return {"message": "Table deleted successfully"}
