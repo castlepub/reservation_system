@@ -73,27 +73,45 @@ def test_railway_schema():
         
         # Test a simple query on reservations
         print("\n4. Testing reservations query...")
+        cursor.execute("SELECT customer_name, duration_hours FROM reservations LIMIT 1")
+        result = cursor.fetchone()
+        if result:
+            print(f"   ✓ Query successful - Found reservation: {result[0]} (Duration: {result[1]} hours)")
+        else:
+            print("   ⚠ No reservations found")
+
+        print("\n5. Checking working_hours table...")
         try:
-            cursor.execute("""
-                SELECT id, customer_name, duration_hours 
-                FROM reservations 
-                LIMIT 1
-            """)
-            result = cursor.fetchone()
-            if result:
-                print(f"   ✓ Query successful - Found reservation: {result['customer_name']} (Duration: {result['duration_hours']} hours)")
+            cursor.execute("SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name = 'working_hours' ORDER BY ordinal_position")
+            columns = cursor.fetchall()
+            if columns:
+                print(f"   working_hours table exists with {len(columns)} columns:")
+                for col in columns:
+                    print(f"     - {col[0]} ({col[1]}) - Nullable: {col[2]}")
+                
+                # Test working hours query
+                cursor.execute("SELECT day_of_week, is_open FROM working_hours LIMIT 1")
+                wh_result = cursor.fetchone()
+                if wh_result:
+                    print(f"   ✓ Working hours query successful - Found: {wh_result[0]} (Open: {wh_result[1]})")
+                else:
+                    print("   ⚠ No working hours entries found")
             else:
-                print("   ✓ Query successful - No reservations found")
+                print("   ❌ working_hours table does not exist")
         except Exception as e:
-            print(f"   ❌ Query failed: {e}")
+            print(f"   ❌ Error checking working_hours table: {e}")
+
+        print("\n=== Schema Test completed ===")
         
         cursor.close()
         conn.close()
         
-        print("\n=== Schema Test completed ===")
-        
     except Exception as e:
         print(f"❌ Error testing schema: {e}")
+        if 'cursor' in locals():
+            cursor.close()
+        if 'conn' in locals():
+            conn.close()
 
 if __name__ == "__main__":
     test_railway_schema() 
