@@ -969,12 +969,6 @@
                     <label for="editRoomDescription">Description</label>
                     <textarea id="editRoomDescription" name="description" rows="3"></textarea>
                 </div>
-                <div class="form-group">
-                    <label>
-                        <input type="checkbox" id="editRoomActive" name="active">
-                        Active (visible to customers)
-                    </label>
-                </div>
                 <div class="modal-actions">
                     <button type="button" class="btn btn-secondary" onclick="hideEditRoomModal()">Cancel</button>
                     <button type="submit" class="btn btn-primary">
@@ -982,6 +976,13 @@
                     </button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Table Assignment Modal -->
+    <div id="tableAssignmentModal" class="modal hidden">
+        <div class="modal-content">
+            <!-- Content will be dynamically populated -->
         </div>
     </div>
 

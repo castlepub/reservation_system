@@ -2625,7 +2625,12 @@ async function loadDailyView() {
             updateDateDisplay();
             renderReservationsList();
             renderRoomTabs();
-            renderTableLayout();
+            
+            // Select first room by default if available
+            if (dailyViewData.rooms && dailyViewData.rooms.length > 0) {
+                currentRoomId = dailyViewData.rooms[0].id;
+                renderTableLayout();
+            }
         } else {
             throw new Error('Failed to load daily view');
         }
@@ -2638,8 +2643,12 @@ async function loadDailyView() {
 function updateDateDisplay() {
     const dateDisplay = document.getElementById('currentDate');
     if (dateDisplay) {
-        const options = { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' };
-        dateDisplay.textContent = currentViewDate.toLocaleDateString('en-US', options);
+        dateDisplay.textContent = currentViewDate.toLocaleDateString('en-US', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
     }
 }
 
@@ -2647,211 +2656,186 @@ function renderReservationsList() {
     const container = document.getElementById('dailyReservationsList');
     if (!container || !dailyViewData) return;
     
-    container.innerHTML = '';
+    let allReservations = [];
+    dailyViewData.rooms.forEach(room => {
+        allReservations = allReservations.concat(room.reservations);
+    });
     
-    // Handle case where reservations array is undefined or empty
-    if (!dailyViewData.reservations || !Array.isArray(dailyViewData.reservations) || dailyViewData.reservations.length === 0) {
-        container.innerHTML = '<div class="no-reservations-message">No reservations for this date</div>';
+    if (allReservations.length === 0) {
+        container.innerHTML = '<div class="no-reservations">No reservations for this date</div>';
         return;
     }
     
-    dailyViewData.reservations.forEach(reservation => {
-        const reservationElement = document.createElement('div');
-        reservationElement.className = 'reservation-item';
-        reservationElement.onclick = () => selectReservation(reservation.id);
-        
-        const timeRange = `${reservation.time}-${addHours(reservation.time, reservation.duration_hours || 2)}`;
-        
-        reservationElement.innerHTML = `
-            <div class="reservation-header">
-                <span class="reservation-time">${timeRange}</span>
-                <span class="reservation-party">${reservation.party_size}p</span>
-            </div>
-            <div class="reservation-customer">${reservation.customer_name}</div>
+    const reservationsHtml = allReservations.map(reservation => `
+        <div class="reservation-item" onclick="selectReservation('${reservation.id}')">
+            <div class="reservation-time">${formatTime(reservation.time)}</div>
             <div class="reservation-details">
-                ${reservation.room_name} • ${reservation.reservation_type}
-                ${reservation.notes ? `<br><small>${reservation.notes}</small>` : ''}
+                <div class="customer-name">${reservation.customer_name}</div>
+                <div class="party-size">${reservation.party_size} guests</div>
+                <div class="reservation-status ${reservation.status.toLowerCase()}">${reservation.status}</div>
             </div>
-            ${reservation.table_names && reservation.table_names.length > 0 ? 
-                `<div class="reservation-tables">Tables: ${reservation.table_names.join(', ')}</div>` : 
-                '<div class="reservation-tables">No tables assigned</div>'
-            }
-        `;
-        
-        container.appendChild(reservationElement);
-    });
+            <div class="table-info">
+                ${reservation.table_id ? `Table: ${getTableNameById(reservation.table_id)}` : 'No table assigned'}
+            </div>
+        </div>
+    `).join('');
+    
+    container.innerHTML = reservationsHtml;
 }
 
 function renderRoomTabs() {
     const container = document.getElementById('roomTabs');
-    if (!container || !dailyViewData || !dailyViewData.rooms) return;
+    if (!container || !dailyViewData) return;
     
-    container.innerHTML = '';
+    const roomTabsHtml = dailyViewData.rooms.map(room => `
+        <button class="room-tab ${room.id === currentRoomId ? 'active' : ''}" 
+                onclick="switchRoom('${room.id}')">
+            ${room.name}
+        </button>
+    `).join('');
     
-    // Handle case where rooms array is empty
-    if (!Array.isArray(dailyViewData.rooms) || dailyViewData.rooms.length === 0) {
-        container.innerHTML = '<div class="no-rooms-message">No rooms available</div>';
-        return;
-    }
-    
-    dailyViewData.rooms.forEach((room, index) => {
-        const tabElement = document.createElement('button');
-        tabElement.className = `room-tab ${index === 0 ? 'active' : ''}`;
-        tabElement.textContent = room.name;
-        tabElement.onclick = () => switchRoom(room.id);
-        
-        container.appendChild(tabElement);
-        
-        if (index === 0) {
-            currentRoomId = room.id;
-        }
-    });
+    container.innerHTML = roomTabsHtml;
 }
 
 function renderTableLayout() {
     const container = document.getElementById('tableLayout');
     if (!container || !dailyViewData || !currentRoomId) return;
     
+    const currentRoom = dailyViewData.rooms.find(room => room.id === currentRoomId);
+    if (!currentRoom) return;
+    
+    // Clear container
     container.innerHTML = '';
     
-    const currentRoom = dailyViewData.rooms.find(room => room.id === currentRoomId);
-    if (!currentRoom) {
-        container.innerHTML = '<div class="no-room-message">Room not found</div>';
-        return;
-    }
-    
-    // Add room features
-    if (currentRoom.layout?.show_entrance) {
-        const entrance = document.createElement('div');
-        entrance.className = 'room-entrance';
-        entrance.textContent = 'ENTRANCE';
-        container.appendChild(entrance);
-    }
-    
-    if (currentRoom.layout?.show_bar) {
-        const bar = document.createElement('div');
-        bar.className = 'room-bar';
-        bar.textContent = 'BAR';
-        container.appendChild(bar);
-    }
-    
-    // Handle case where tables array is undefined or empty
-    if (!currentRoom.tables || !Array.isArray(currentRoom.tables) || currentRoom.tables.length === 0) {
-        container.innerHTML += '<div class="no-tables-message">No tables in this room</div>';
-        return;
-    }
+    // Set container dimensions
+    container.style.width = `${currentRoom.layout.width}px`;
+    container.style.height = `${currentRoom.layout.height}px`;
+    container.style.backgroundColor = currentRoom.layout.background_color;
+    container.style.position = 'relative';
     
     // Add tables
     currentRoom.tables.forEach(table => {
         const tableElement = document.createElement('div');
-        tableElement.className = `table-element ${table.layout?.shape || 'rectangular'}`;
-        tableElement.style.left = `${table.layout?.x_position || 50}px`;
-        tableElement.style.top = `${table.layout?.y_position || 50}px`;
-        tableElement.style.width = `${table.layout?.width || 80}px`;
-        tableElement.style.height = `${table.layout?.height || 60}px`;
-        tableElement.style.backgroundColor = table.layout?.color || '#4A90E2';
-        tableElement.style.borderColor = table.layout?.border_color || '#2E5BBA';
-        tableElement.style.color = table.layout?.text_color || '#FFFFFF';
-        tableElement.style.fontSize = `${table.layout?.font_size || 12}px`;
-        tableElement.style.zIndex = table.layout?.z_index || 1;
+        tableElement.className = `table-element ${table.shape || 'rectangular'}`;
+        tableElement.style.left = `${table.x_position}px`;
+        tableElement.style.top = `${table.y_position}px`;
+        tableElement.style.width = `${table.width}px`;
+        tableElement.style.height = `${table.height}px`;
+        tableElement.style.backgroundColor = table.color;
+        tableElement.style.borderColor = table.border_color;
+        tableElement.style.color = table.text_color;
+        tableElement.style.fontSize = `${table.font_size}px`;
+        tableElement.style.zIndex = table.z_index;
+        tableElement.style.position = 'absolute';
+        tableElement.style.border = '2px solid';
+        tableElement.style.borderRadius = table.shape === 'circle' ? '50%' : '0';
+        tableElement.style.display = 'flex';
+        tableElement.style.flexDirection = 'column';
+        tableElement.style.justifyContent = 'center';
+        tableElement.style.alignItems = 'center';
+        tableElement.style.cursor = 'pointer';
         
-        tableElement.innerHTML = `
-            ${table.layout?.show_name !== false ? `<div class="table-name">${table.name}</div>` : ''}
-            ${table.layout?.show_capacity !== false ? `<div class="table-capacity">${table.capacity}p</div>` : ''}
-        `;
-        
-        // Determine table status
-        const tableReservations = getTableReservations(table.id);
-        if (tableReservations.length > 0) {
-            tableElement.classList.add('reserved');
-            tableElement.title = `Reserved: ${tableReservations.map(r => `${r.customer_name} (${r.time})`).join(', ')}`;
-        } else {
-            tableElement.classList.add('available');
-            tableElement.title = `Available: ${table.name} (${table.capacity} seats)`;
+        // Add table content
+        let tableContent = '';
+        if (table.show_name !== false) {
+            tableContent += `<div class="table-name">${table.table_name}</div>`;
+        }
+        if (table.show_capacity !== false) {
+            tableContent += `<div class="table-capacity">${table.capacity}p</div>`;
         }
         
-        tableElement.onclick = () => showTableDetails(table.id);
+        // Add reservation info if table has reservations
+        if (table.reservations && table.reservations.length > 0) {
+            const reservation = table.reservations[0]; // Show first reservation
+            tableContent += `<div class="table-reservation">${reservation.customer_name}<br>${formatTime(reservation.time)}</div>`;
+        }
+        
+        tableElement.innerHTML = tableContent;
+        
+        // Add click handler
+        tableElement.onclick = () => showTableDetails(table.table_id);
+        
         container.appendChild(tableElement);
     });
 }
 
-function getTableReservations(tableId) {
-    if (!dailyViewData) return [];
+function getTableNameById(tableId) {
+    if (!dailyViewData) return 'Unknown';
     
-    return dailyViewData.reservations.filter(reservation => 
-        reservation.table_names.some(tableName => {
-            const table = dailyViewData.rooms
-                .flatMap(room => room.tables)
-                .find(t => t.id === tableId);
-            return table && table.name === tableName;
-        })
-    );
+    for (const room of dailyViewData.rooms) {
+        const table = room.tables.find(t => t.table_id === tableId);
+        if (table) {
+            return table.table_name;
+        }
+    }
+    return 'Unknown';
 }
 
 function switchRoom(roomId) {
     currentRoomId = roomId;
-    
-    // Update active tab
-    const tabs = document.querySelectorAll('.room-tab');
-    tabs.forEach(tab => tab.classList.remove('active'));
-    event.target.classList.add('active');
-    
+    renderRoomTabs();
     renderTableLayout();
 }
 
 function selectReservation(reservationId) {
     // Remove previous selection
-    document.querySelectorAll('.reservation-item').forEach(item => 
-        item.classList.remove('selected')
-    );
+    document.querySelectorAll('.reservation-item').forEach(item => {
+        item.classList.remove('selected');
+    });
     
     // Add selection to clicked item
-    event.target.closest('.reservation-item').classList.add('selected');
+    const selectedItem = document.querySelector(`[onclick="selectReservation('${reservationId}')"]`);
+    if (selectedItem) {
+        selectedItem.classList.add('selected');
+    }
     
-    // Highlight related tables
+    // Highlight associated tables
     highlightReservationTables(reservationId);
 }
 
 function highlightReservationTables(reservationId) {
-    const reservation = dailyViewData.reservations.find(r => r.id === reservationId);
-    if (!reservation) return;
-    
-    // Reset all table highlights
+    // Remove previous highlights
     document.querySelectorAll('.table-element').forEach(table => {
         table.style.boxShadow = '';
-        table.style.transform = '';
     });
     
-    // Highlight tables for this reservation
-    reservation.table_names.forEach(tableName => {
-        const tableElement = document.querySelector(`[title*="${tableName}"]`);
-        if (tableElement) {
-            tableElement.style.boxShadow = '0 0 10px #667eea';
-            tableElement.style.transform = 'scale(1.1)';
+    if (!dailyViewData) return;
+    
+    // Find reservation and highlight its table
+    for (const room of dailyViewData.rooms) {
+        const reservation = room.reservations.find(r => r.id === reservationId);
+        if (reservation && reservation.table_id) {
+            const tableElement = document.querySelector(`[onclick*="${reservation.table_id}"]`);
+            if (tableElement) {
+                tableElement.style.boxShadow = '0 0 10px rgba(255, 255, 0, 0.8)';
+            }
         }
-    });
+    }
 }
 
 function showTableDetails(tableId) {
-    const table = dailyViewData.rooms
-        .flatMap(room => room.tables)
-        .find(t => t.id === tableId);
+    if (!dailyViewData) return;
     
-    if (!table) return;
-    
-    const reservations = getTableReservations(tableId);
-    let details = `Table: ${table.name}\nCapacity: ${table.capacity} seats\nRoom: ${table.room_name}`;
-    
-    if (reservations.length > 0) {
-        details += '\n\nReservations:';
-        reservations.forEach(r => {
-            details += `\n• ${r.customer_name} (${r.time}-${addHours(r.time, r.duration_hours)})`;
-        });
-    } else {
-        details += '\n\nStatus: Available';
+    // Find table data
+    let tableData = null;
+    for (const room of dailyViewData.rooms) {
+        tableData = room.tables.find(t => t.table_id === tableId);
+        if (tableData) break;
     }
     
-    alert(details);
+    if (!tableData) return;
+    
+    // Show table details in a modal or tooltip
+    const details = `
+        Table: ${tableData.table_name}
+        Capacity: ${tableData.capacity} people
+        Status: ${tableData.status}
+        ${tableData.reservations && tableData.reservations.length > 0 ? 
+            `Reservations: ${tableData.reservations.map(r => `${r.customer_name} (${formatTime(r.time)})`).join(', ')}` : 
+            'No reservations'}
+    `;
+    
+    showMessage(details, 'info');
 }
 
 function previousDay() {
@@ -2871,13 +2855,25 @@ function goToToday() {
 
 function filterReservations(filter) {
     // Update active filter button
-    document.querySelectorAll('.filter-buttons .btn').forEach(btn => 
-        btn.classList.remove('active')
-    );
+    document.querySelectorAll('.filter-buttons .btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
     event.target.classList.add('active');
     
-    // Filter reservations (implement based on your needs)
-    console.log('Filtering reservations:', filter);
+    // Filter reservations based on status
+    const container = document.getElementById('dailyReservationsList');
+    const reservationItems = container.querySelectorAll('.reservation-item');
+    
+    reservationItems.forEach(item => {
+        const statusElement = item.querySelector('.reservation-status');
+        const status = statusElement ? statusElement.textContent.toLowerCase() : '';
+        
+        if (filter === 'all' || status === filter) {
+            item.style.display = 'block';
+        } else {
+            item.style.display = 'none';
+        }
+    });
 }
 
 function addHours(timeStr, hours) {
@@ -2980,6 +2976,102 @@ async function handleEditTable(event) {
 function hideEditTableForm() {
     document.getElementById('editTableModal').classList.add('hidden');
     document.getElementById('editTableForm').reset();
+}
+
+async function assignReservationToTable(reservationId, tableId) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/reservations/${reservationId}/assign-table/${tableId}`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            showMessage(`Reservation assigned to table ${result.table_name} successfully`, 'success');
+            
+            // Refresh daily view to show updated assignments
+            if (currentViewDate) {
+                loadDailyView();
+            }
+            
+            return true;
+        } else {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to assign reservation to table');
+        }
+    } catch (error) {
+        console.error('Error assigning reservation to table:', error);
+        showMessage('Error assigning reservation to table: ' + error.message, 'error');
+        return false;
+    }
+}
+
+async function showTableAssignmentModal(reservationId) {
+    try {
+        // Get available tables for the current room
+        if (!currentRoomId) {
+            showMessage('Please select a room first', 'error');
+            return;
+        }
+        
+        const response = await fetch(`${API_BASE_URL}/api/rooms/${currentRoomId}/tables`, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to fetch tables');
+        }
+        
+        const tables = await response.json();
+        
+        // Create modal content
+        let modalContent = `
+            <div class="modal-header">
+                <h3>Assign Reservation to Table</h3>
+                <button type="button" class="close" onclick="hideTableAssignmentModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="table-selection">
+                    <h4>Available Tables:</h4>
+                    <div class="table-grid">
+        `;
+        
+        tables.forEach(table => {
+            const isAvailable = table.status === 'available';
+            modalContent += `
+                <div class="table-option ${isAvailable ? 'available' : 'reserved'}" 
+                     onclick="${isAvailable ? `assignReservationToTable('${reservationId}', '${table.id}')` : ''}">
+                    <div class="table-name">${table.name}</div>
+                    <div class="table-capacity">${table.capacity} seats</div>
+                    <div class="table-status">${table.status}</div>
+                </div>
+            `;
+        });
+        
+        modalContent += `
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Show modal
+        const modal = document.getElementById('tableAssignmentModal');
+        modal.querySelector('.modal-content').innerHTML = modalContent;
+        modal.classList.remove('hidden');
+        
+    } catch (error) {
+        console.error('Error showing table assignment modal:', error);
+        showMessage('Error loading tables: ' + error.message, 'error');
+    }
+}
+
+function hideTableAssignmentModal() {
+    document.getElementById('tableAssignmentModal').classList.add('hidden');
 }
 
 // Layout Editor Variables

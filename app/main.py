@@ -639,19 +639,108 @@ async def get_working_hours_time_slots_temp(day: str):
     }
 
 @app.get("/api/layout/daily/{date}")
-async def get_layout_daily_temp(date: str):
-    """Temporary daily layout"""
-    return {
-        "date": date,
-        "rooms": [
-            {
-                "id": "room_1",
-                "name": "Front Room",
-                "tables": [],
-                "reservations": []
-            }
-        ]
+async def get_layout_daily_temp(date: str, db: Session = Depends(get_db)):
+    """Get daily view with all room layouts and reservations"""
+    from app.models.room import Room
+    from app.models.table import Table
+    from app.models.reservation import Reservation
+    from datetime import datetime
+    
+    try:
+        # Parse date
+        target_date_obj = datetime.strptime(date, "%Y-%m-%d").date()
+    except:
+        target_date_obj = datetime.now().date()
+    
+    # Get all active rooms
+    rooms = db.query(Room).filter(Room.active == True).all()
+    
+    daily_data = {
+        "date": target_date_obj.isoformat(),
+        "rooms": []
     }
+    
+    for room in rooms:
+        # Get tables for this room
+        tables = db.query(Table).filter(Table.room_id == room.id, Table.active == True).all()
+        
+        # Get reservations for this date and room
+        reservations = db.query(Reservation).filter(
+            Reservation.date == target_date_obj,
+            Reservation.room_id == room.id
+        ).all()
+        
+        # Convert tables to layout format with positioning
+        table_layouts = []
+        for i, table in enumerate(tables):
+            # Position tables in a grid pattern
+            row = i // 4
+            col = i % 4
+            x_pos = 50 + (col * 120)
+            y_pos = 50 + (row * 100)
+            
+            # Check if table has reservations
+            table_reservations = [r for r in reservations if r.table_id == table.id]
+            status = "reserved" if table_reservations else "available"
+            
+            table_layouts.append({
+                "layout_id": table.id,
+                "table_id": table.id,
+                "table_name": table.name,
+                "capacity": table.capacity,
+                "x_position": x_pos,
+                "y_position": y_pos,
+                "width": 80,
+                "height": 80,
+                "shape": "rectangle",
+                "color": "#4CAF50" if status == "available" else "#FF9800",
+                "border_color": "#2E7D32" if status == "available" else "#E65100",
+                "text_color": "#FFFFFF",
+                "font_size": 12,
+                "z_index": 1,
+                "show_name": True,
+                "show_capacity": True,
+                "status": status,
+                "combinable": table.combinable,
+                "reservations": [
+                    {
+                        "id": r.id,
+                        "customer_name": r.customer_name,
+                        "time": r.time,
+                        "party_size": r.party_size,
+                        "status": r.status
+                    } for r in table_reservations
+                ]
+            })
+        
+        # Create room layout data
+        room_layout = {
+            "width": 800,
+            "height": 600,
+            "background_color": "#F5F5F5",
+            "show_entrance": True,
+            "show_bar": False
+        }
+        
+        daily_data["rooms"].append({
+            "id": room.id,
+            "name": room.name,
+            "description": room.description,
+            "layout": room_layout,
+            "tables": table_layouts,
+            "reservations": [
+                {
+                    "id": r.id,
+                    "customer_name": r.customer_name,
+                    "time": r.time,
+                    "party_size": r.party_size,
+                    "status": r.status,
+                    "table_id": r.table_id
+                } for r in reservations
+            ]
+        })
+    
+    return daily_data
 
 @app.get("/api/layout/editor/{room_id}")
 async def get_layout_editor_temp(room_id: str, target_date: str, db: Session = Depends(get_db)):
@@ -814,44 +903,124 @@ async def update_table_position_temp(layout_id: str, position_data: dict, db: Se
 
 @app.post("/api/layout/tables")
 async def create_layout_table_temp(table_data: dict, db: Session = Depends(get_db)):
-    """Create a new table in layout - no auth required for now"""
+    """Create new table in layout editor"""
     from app.models.table import Table
-    import uuid
+    from app.models.room import Room
     
-    # Create new table in database
-    new_table = Table(
-        id=str(uuid.uuid4()),
-        name=table_data.get("table_name", "New Table"),
-        room_id=table_data.get("room_id"),
-        capacity=table_data.get("capacity", 4),
-        combinable=table_data.get("combinable", False),
-        active=True
-    )
+    try:
+        # Validate room exists
+        room = db.query(Room).filter(Room.id == table_data.get("room_id")).first()
+        if not room:
+            raise HTTPException(status_code=404, detail="Room not found")
+        
+        # Create new table
+        new_table = Table(
+            name=table_data.get("table_name", "New Table"),
+            capacity=table_data.get("capacity", 4),
+            room_id=table_data.get("room_id"),
+            active=True,
+            combinable=table_data.get("combinable", False)
+        )
+        
+        db.add(new_table)
+        db.commit()
+        db.refresh(new_table)
+        
+        return {
+            "id": new_table.id,
+            "name": new_table.name,
+            "capacity": new_table.capacity,
+            "room_id": new_table.room_id,
+            "active": new_table.active,
+            "combinable": new_table.combinable
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to create table: {str(e)}")
+
+@app.post("/api/reservations/{reservation_id}/assign-table/{table_id}")
+async def assign_reservation_to_table_temp(reservation_id: str, table_id: str, db: Session = Depends(get_db)):
+    """Assign a reservation to a specific table"""
+    from app.models.reservation import Reservation
+    from app.models.table import Table
     
-    db.add(new_table)
-    db.commit()
-    db.refresh(new_table)
+    try:
+        # Get reservation
+        reservation = db.query(Reservation).filter(Reservation.id == reservation_id).first()
+        if not reservation:
+            raise HTTPException(status_code=404, detail="Reservation not found")
+        
+        # Get table
+        table = db.query(Table).filter(Table.id == table_id).first()
+        if not table:
+            raise HTTPException(status_code=404, detail="Table not found")
+        
+        # Check if table is available for this time
+        conflicting_reservations = db.query(Reservation).filter(
+            Reservation.table_id == table_id,
+            Reservation.date == reservation.date,
+            Reservation.id != reservation_id
+        ).all()
+        
+        # Simple conflict check - can be enhanced with time overlap logic
+        if conflicting_reservations:
+            raise HTTPException(status_code=400, detail="Table is already reserved for this date")
+        
+        # Assign table to reservation
+        reservation.table_id = table_id
+        db.commit()
+        
+        return {
+            "message": "Reservation assigned to table successfully",
+            "reservation_id": reservation_id,
+            "table_id": table_id,
+            "table_name": table.name
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to assign reservation to table: {str(e)}")
+
+@app.get("/api/tables/{table_id}/availability/{date}")
+async def get_table_availability_temp(table_id: str, date: str, db: Session = Depends(get_db)):
+    """Get table availability for a specific date"""
+    from app.models.table import Table
+    from app.models.reservation import Reservation
+    from datetime import datetime
     
-    # Return layout table data
+    try:
+        # Parse date
+        target_date = datetime.strptime(date, "%Y-%m-%d").date()
+    except:
+        raise HTTPException(status_code=400, detail="Invalid date format")
+    
+    # Get table
+    table = db.query(Table).filter(Table.id == table_id).first()
+    if not table:
+        raise HTTPException(status_code=404, detail="Table not found")
+    
+    # Get reservations for this table and date
+    reservations = db.query(Reservation).filter(
+        Reservation.table_id == table_id,
+        Reservation.date == target_date
+    ).all()
+    
     return {
-        "layout_id": new_table.id,
-        "table_id": new_table.id,
-        "table_name": new_table.name,
-        "capacity": new_table.capacity,
-        "x_position": table_data.get("x_position", 100),
-        "y_position": table_data.get("y_position", 100),
-        "width": 80,
-        "height": 80,
-        "shape": table_data.get("shape", "rectangle"),
-        "color": table_data.get("color", "#4CAF50"),
-        "border_color": table_data.get("border_color", "#2E7D32"),
-        "text_color": "#FFFFFF",
-        "font_size": 12,
-        "z_index": 1,
-        "show_name": True,
-        "show_capacity": True,
-        "status": "available",
-        "combinable": new_table.combinable
+        "table_id": table_id,
+        "table_name": table.name,
+        "capacity": table.capacity,
+        "date": date,
+        "reservations": [
+            {
+                "id": r.id,
+                "customer_name": r.customer_name,
+                "time": r.time,
+                "party_size": r.party_size,
+                "status": r.status
+            } for r in reservations
+        ],
+        "is_available": len(reservations) == 0
     }
 
 # All complex endpoints with database dependencies are temporarily disabled
