@@ -2049,7 +2049,9 @@ main {
 
 .layout-table.selected {
     border-color: #ff6b6b !important;
-    box-shadow: 0 0 10px rgba(255, 107, 107, 0.5);
+    box-shadow: 0 0 15px rgba(255, 107, 107, 0.8);
+    transform: scale(1.05);
+    z-index: 20;
 }
 
 .layout-table.square {

@@ -3107,6 +3107,7 @@ function createTableElement(tableData) {
     tableElement.style.color = tableData.text_color;
     tableElement.style.fontSize = `${tableData.font_size}px`;
     tableElement.style.zIndex = tableData.z_index;
+    tableElement.style.cursor = 'pointer';
     
     // Add table content
     let content = '';
@@ -3117,6 +3118,11 @@ function createTableElement(tableData) {
         content += `<div class="table-capacity">${tableData.capacity}p</div>`;
     }
     tableElement.innerHTML = content;
+    
+    // Add data attributes for easy identification
+    tableElement.setAttribute('data-layout-id', tableData.layout_id);
+    tableElement.setAttribute('data-table-id', tableData.table_id);
+    tableElement.setAttribute('data-table-name', tableData.table_name);
     
     // Add event listeners
     tableElement.addEventListener('click', (e) => {
@@ -3154,6 +3160,10 @@ function selectTable(layoutId, element) {
     
     // Show properties panel
     showTableProperties(layoutId);
+    
+    // Show feedback message
+    const tableName = element.getAttribute('data-table-name') || 'Table';
+    showMessage(`Selected ${tableName}`, 'info');
 }
 
 function showTableProperties(layoutId) {
@@ -3658,6 +3668,7 @@ function handleCanvasClick(event) {
         });
         selectedTable = null;
         document.getElementById('tableProperties').style.display = 'none';
+        showMessage('Selection cleared', 'info');
     }
 }
 
