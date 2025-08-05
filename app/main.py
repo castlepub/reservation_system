@@ -719,57 +719,70 @@ async def get_layout_daily_temp(date: str, db: Session = Depends(get_db)):
                 Reservation.room_id == room.id
             ).all()
             
-            # Convert tables to layout format with positioning
+            # Get actual table layouts from database
+            from app.models.table_layout import TableLayout
+            from app.models.reservation import ReservationTable
+            
             table_layouts = []
-            for i, table in enumerate(tables):
-                # Position tables in a grid pattern
-                row = i // 4
-                col = i % 4
-                x_pos = 50 + (col * 120)
-                y_pos = 50 + (row * 100)
+            for table in tables:
+                # Get the actual layout record for this table
+                layout = db.query(TableLayout).filter(TableLayout.table_id == table.id).first()
                 
-                # Check if table has reservations - FIXED VERSION
+                if not layout:
+                    # Fallback: create basic layout if missing
+                    print(f"Warning: No layout found for table {table.name}, creating default")
+                    layout_id = table.id  # Use table ID as fallback
+                    x_pos = 50
+                    y_pos = 50
+                else:
+                    layout_id = layout.id
+                    x_pos = layout.x_position
+                    y_pos = layout.y_position
+                
+                # Check if table has reservations using proper relationship
                 table_reservations = []
-                if hasattr(table, 'id'):
-                    # Check reservations through reservation_tables relationship
-                    for r in reservations:
-                        if hasattr(r, 'reservation_tables') and r.reservation_tables:
-                            for rt in r.reservation_tables:
-                                if hasattr(rt, 'table_id') and rt.table_id == table.id:
-                                    table_reservations.append(r)
-                                    break
+                reservation_table_assignments = db.query(ReservationTable).filter(
+                    ReservationTable.table_id == table.id
+                ).all()
+                
+                for rt in reservation_table_assignments:
+                    reservation = db.query(Reservation).filter(
+                        Reservation.id == rt.reservation_id,
+                        Reservation.date == target_date_obj
+                    ).first()
+                    if reservation:
+                        table_reservations.append(reservation)
+                
                 status = "reserved" if table_reservations else "available"
                 
-                # Ensure reservations is always an array
+                # Build reservation list for this table
                 reservation_list = []
-                if table_reservations:
-                    reservation_list = [
-                        {
-                            "id": r.id,
-                            "customer_name": r.customer_name,
-                            "time": str(r.time) if r.time else "",
-                            "party_size": r.party_size,
-                            "status": r.status.value if hasattr(r.status, 'value') else str(r.status)
-                        } for r in table_reservations if r is not None
-                    ]
+                for r in table_reservations:
+                    reservation_list.append({
+                        "id": r.id,
+                        "customer_name": r.customer_name,
+                        "time": str(r.time) if r.time else "",
+                        "party_size": r.party_size,
+                        "status": r.status.value if hasattr(r.status, 'value') else str(r.status)
+                    })
                 
                 table_layouts.append({
-                    "layout_id": table.id,
+                    "layout_id": layout_id,
                     "table_id": table.id,
                     "table_name": table.name,
                     "capacity": table.capacity,
                     "x_position": x_pos,
                     "y_position": y_pos,
-                    "width": 80,
-                    "height": 80,
-                    "shape": "rectangle",
-                    "color": "#4CAF50" if status == "available" else "#FF9800",
-                    "border_color": "#2E7D32" if status == "available" else "#E65100",
-                    "text_color": "#FFFFFF",
-                    "font_size": 12,
-                    "z_index": 1,
-                    "show_name": True,
-                    "show_capacity": True,
+                    "width": layout.width if layout else 80,
+                    "height": layout.height if layout else 80,
+                    "shape": layout.shape if layout else "rectangular",
+                    "color": (layout.color if layout else "#4CAF50") if status == "available" else "#FF9800",
+                    "border_color": (layout.border_color if layout else "#2E7D32") if status == "available" else "#E65100",
+                    "text_color": layout.text_color if layout else "#FFFFFF",
+                    "font_size": layout.font_size if layout else 12,
+                    "z_index": layout.z_index if layout else 1,
+                    "show_name": layout.show_name if layout else True,
+                    "show_capacity": layout.show_capacity if layout else True,
                     "status": status,
                     "combinable": table.combinable,
                     "reservations": reservation_list
@@ -836,35 +849,39 @@ async def get_layout_editor_temp(room_id: str, target_date: str = None, db: Sess
         Reservation.room_id == room_id
     ).all()
     
-    # Convert tables to layout format with proper positioning
+    # Get actual table layouts from database
+    from app.models.table_layout import TableLayout
+    
     table_layouts = []
-    for i, table in enumerate(tables):
-        # Position tables in a grid pattern with better spacing
-        row = i // 4  # 4 tables per row instead of 3
-        col = i % 4
-        x_pos = 50 + (col * 120)  # Reduced spacing
-        y_pos = 50 + (row * 100)  # Reduced spacing
+    for table in tables:
+        # Get the actual layout record for this table
+        layout = db.query(TableLayout).filter(TableLayout.table_id == table.id).first()
+        
+        if not layout:
+            # This shouldn't happen anymore, but provide fallback
+            print(f"Warning: No layout found for table {table.name} in editor")
+            continue
         
         table_layouts.append({
-             "layout_id": table.id,
-             "table_id": table.id,
-             "table_name": table.name,
-             "capacity": table.capacity,
-             "x_position": x_pos,
-             "y_position": y_pos,
-             "width": 80,
-             "height": 80,
-             "shape": "rectangle",
-             "color": "#4CAF50",
-             "border_color": "#2E7D32",
-             "text_color": "#FFFFFF",
-             "font_size": 12,
-             "z_index": 1,
-             "show_name": True,
-             "show_capacity": True,
-             "status": "available",
-             "combinable": table.combinable
-         })
+            "layout_id": layout.id,
+            "table_id": table.id,
+            "table_name": table.name,
+            "capacity": table.capacity,
+            "x_position": layout.x_position,
+            "y_position": layout.y_position,
+            "width": layout.width,
+            "height": layout.height,
+            "shape": layout.shape,
+            "color": layout.color,
+            "border_color": layout.border_color,
+            "text_color": layout.text_color,
+            "font_size": layout.font_size,
+            "z_index": layout.z_index,
+            "show_name": layout.show_name,
+            "show_capacity": layout.show_capacity,
+            "status": "available",
+            "combinable": table.combinable
+        })
     
     # Create room layout data
     room_layout = {
