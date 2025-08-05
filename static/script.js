@@ -3123,18 +3123,33 @@ async function initializeLayoutEditor() {
             const rooms = await response.json();
             console.log('=== LAYOUT EDITOR ROOMS LOADED ===');
             console.log('Total rooms:', rooms.length);
+            console.log('Raw rooms data:', JSON.stringify(rooms, null, 2));
             rooms.forEach(room => {
                 console.log(`Room: ${room.name} (ID: ${room.id})`);
             });
             
+            // Clear any existing options first
             const roomSelect = document.getElementById('layoutRoomSelect');
+            if (!roomSelect) {
+                console.error('ERROR: layoutRoomSelect element not found!');
+                return;
+            }
+            
+            console.log('Found roomSelect element:', roomSelect);
             roomSelect.innerHTML = '<option value="">Choose a room...</option>';
             
+            console.log('Adding room options...');
             rooms.forEach(room => {
+                console.log(`Adding option for room: ${room.name} (${room.id})`);
                 const option = document.createElement('option');
                 option.value = room.id;
                 option.textContent = room.name;
                 roomSelect.appendChild(option);
+            });
+            
+            console.log('Final roomSelect options:');
+            Array.from(roomSelect.options).forEach((option, index) => {
+                console.log(`  Option ${index}: ${option.textContent} (value: ${option.value})`);
             });
             
             // Add event listener for room selection
