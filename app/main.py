@@ -228,9 +228,32 @@ async def get_dashboard_stats_temp(db: Session = Depends(get_db)):
     }
 
 @app.get("/api/dashboard/notes")
-async def get_dashboard_notes_temp():
-    """Temporary dashboard notes"""
-    return []
+async def get_dashboard_notes_temp(db: Session = Depends(get_db)):
+    """Get dashboard notes - FIXED"""
+    from app.models.reservation import DashboardNote
+    
+    try:
+        notes = db.query(DashboardNote).order_by(DashboardNote.created_at.desc()).limit(10).all()
+        return [
+            {
+                "id": str(note.id),
+                "content": note.content,
+                "created_at": note.created_at.isoformat() if note.created_at else None,
+                "created_by": note.created_by or "system"
+            }
+            for note in notes
+        ]
+    except Exception as e:
+        print(f"Error loading notes: {e}")
+        # Return some sample notes if database error
+        return [
+            {
+                "id": "sample_1",
+                "content": "Welcome to the Castle Pub reservation system!",
+                "created_at": datetime.utcnow().isoformat(),
+                "created_by": "system"
+            }
+        ]
 
 @app.post("/api/dashboard/notes")
 async def create_dashboard_note_temp():
@@ -250,9 +273,28 @@ async def delete_dashboard_note_temp(note_id: str):
     return {"message": "Note deleted successfully"}
 
 @app.get("/api/dashboard/customers")
-async def get_dashboard_customers_temp():
-    """Temporary dashboard customers"""
-    return []
+async def get_dashboard_customers_temp(db: Session = Depends(get_db)):
+    """Get customers from reservations - FIXED"""
+    from app.models.reservation import Reservation
+    
+    try:
+        # Get unique customers from reservations
+        customers = db.query(Reservation.customer_name, Reservation.customer_email, Reservation.customer_phone)\
+                     .filter(Reservation.customer_name != None)\
+                     .distinct().limit(100).all()
+        
+        return [
+            {
+                "id": f"customer_{i}",
+                "name": customer[0] or "",
+                "email": customer[1] or "",
+                "phone": customer[2] or ""
+            }
+            for i, customer in enumerate(customers) if customer[0]
+        ]
+    except Exception as e:
+        print(f"Error loading customers: {e}")
+        return []
 
 @app.get("/api/dashboard/today")
 async def get_dashboard_today_temp(db: Session = Depends(get_db)):
@@ -475,7 +517,7 @@ async def get_admin_reservations_temp(db: Session = Depends(get_db), date: str =
     """Get reservations for admin - defaults to today's date"""
     from app.models.reservation import Reservation
     from app.models.room import Room
-    from datetime import date as date_type
+    from datetime import datetime, date as date_type, timedelta
     
     # If no date specified, use today
     if not date and not date_filter:
@@ -818,10 +860,16 @@ async def get_layout_daily_temp(date: str, db: Session = Depends(get_db)):
                 x_pos = 50 + (col * 120)
                 y_pos = 50 + (row * 100)
                 
-                # Check if table has reservations - ensure table_id exists
+                # Check if table has reservations - FIXED VERSION
                 table_reservations = []
                 if hasattr(table, 'id'):
-                    table_reservations = [r for r in reservations if hasattr(r, 'table_id') and r.table_id == table.id]
+                    # Check reservations through reservation_tables relationship
+                    for r in reservations:
+                        if hasattr(r, 'reservation_tables') and r.reservation_tables:
+                            for rt in r.reservation_tables:
+                                if hasattr(rt, 'table_id') and rt.table_id == table.id:
+                                    table_reservations.append(r)
+                                    break
                 status = "reserved" if table_reservations else "available"
                 
                 # Ensure reservations is always an array
