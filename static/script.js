@@ -3211,15 +3211,16 @@ function selectTable(tableElement) {
     console.log('=== selectTable END ===');
 }
 
-function showTableProperties(layoutId) {
-    console.log('=== showTableProperties START ===', layoutId);
-    
-    const tableData = currentLayoutData.tables.find(t => t.layout_id === layoutId);
-    if (!tableData) {
-        console.error('Table data not found for layoutId:', layoutId);
-        console.log('Available tables:', currentLayoutData.tables);
-        return;
-    }
+        function showTableProperties(tableElement) {
+            console.log('=== showTableProperties START ===', tableElement);
+            
+            const layoutId = tableElement.getAttribute('data-layout-id');
+            const tableData = currentLayoutData.tables.find(t => t.layout_id === layoutId);
+            if (!tableData) {
+                console.error('Table data not found for layoutId:', layoutId);
+                console.log('Available tables:', currentLayoutData.tables);
+                return;
+            }
     
     console.log('Found table data:', tableData);
     
@@ -3282,21 +3283,29 @@ function makeTableDraggable(tableElement) {
         }
     });
     
-    tableElement.addEventListener('mouseup', function(e) {
-        if (isDragging) {
-            console.log('Mouse up, stopping drag');
-            isDragging = false;
-            tableElement.style.zIndex = '1';
-            
-            // Update position in database
-            const tableId = tableElement.getAttribute('data-table-id');
-            const newLeft = parseInt(tableElement.style.left);
-            const newTop = parseInt(tableElement.style.top);
-            
-            console.log('Updating table position in DB:', { tableId, newLeft, newTop });
-            updateTablePosition(tableId, newLeft, newTop);
-        }
-    });
+                 tableElement.addEventListener('mouseup', function(e) {
+                 if (isDragging) {
+                     console.log('Mouse up, stopping drag');
+                     isDragging = false;
+                     tableElement.style.zIndex = '1';
+                     
+                     // Update position in database
+                     const tableId = tableElement.getAttribute('data-table-id');
+                     const newLeft = parseInt(tableElement.style.left);
+                     const newTop = parseInt(tableElement.style.top);
+                     
+                     console.log('Updating table position in DB:', { tableId, newLeft, newTop });
+                     updateTablePosition(tableId, newLeft, newTop);
+                     
+                     // Prevent the canvas click handler from clearing selection
+                     e.stopPropagation();
+                     
+                     // Ensure the table stays selected and properties panel is visible
+                     setTimeout(() => {
+                         selectTable(tableElement);
+                     }, 10);
+                 }
+             });
     
     tableElement.addEventListener('click', function(e) {
         console.log('Table clicked:', tableElement);
@@ -3305,6 +3314,9 @@ function makeTableDraggable(tableElement) {
         if (!isDragging) {
             e.stopPropagation();
             selectTable(tableElement);
+        } else {
+            // If we were dragging, prevent the canvas click handler from clearing selection
+            e.stopPropagation();
         }
     });
     
@@ -3750,18 +3762,18 @@ function handleCanvasClick(e) {
     console.log('Click target:', e.target);
     console.log('Click target classList:', e.target.classList);
     
-    if (e.target.classList.contains('layout-table')) {
-        console.log('Clicked on table, selecting it');
-        selectTable(e.target);
-    } else if (e.target.id === 'layoutCanvas') {
+    // Only handle clicks directly on the canvas, not on tables or other elements
+    if (e.target.id === 'layoutCanvas') {
         console.log('Clicked on empty canvas, clearing selection');
         selectedTable = null;
         document.querySelectorAll('.layout-table.selected').forEach(table => {
             table.classList.remove('selected');
             console.log('Removed selection from table:', table);
         });
+        document.getElementById('tableProperties').style.display = 'none';
         showMessage('Selection cleared', 'info');
     }
+    // Don't handle table clicks here - they have their own handlers
     
     console.log('=== handleCanvasClick END ===');
 }
