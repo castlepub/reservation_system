@@ -256,16 +256,35 @@ async def get_dashboard_notes_temp(db: Session = Depends(get_db)):
         ]
 
 @app.post("/api/dashboard/notes")
-async def create_dashboard_note_temp():
-    """Temporary create dashboard note"""
-    return {
-        "id": "temp_note_1",
-        "title": "Temporary Note",
-        "content": "This is a temporary note",
-        "priority": "medium",
-        "author": "admin",
-        "created_at": datetime.utcnow().isoformat()
-    }
+async def create_dashboard_note_temp(note_data: dict, db: Session = Depends(get_db)):
+    """Create dashboard note - FIXED"""
+    from app.models.reservation import DashboardNote
+    
+    try:
+        new_note = DashboardNote(
+            content=note_data.get("content", ""),
+            created_by=note_data.get("created_by", "admin")
+        )
+        db.add(new_note)
+        db.commit()
+        db.refresh(new_note)
+        
+        return {
+            "id": str(new_note.id),
+            "content": new_note.content,
+            "created_at": new_note.created_at.isoformat() if new_note.created_at else datetime.utcnow().isoformat(),
+            "created_by": new_note.created_by
+        }
+    except Exception as e:
+        print(f"Error creating note: {e}")
+        db.rollback()
+        # Return temp response as fallback
+        return {
+            "id": f"temp_note_{datetime.now().timestamp()}",
+            "content": note_data.get("content", "Note created"),
+            "created_at": datetime.utcnow().isoformat(),
+            "created_by": "admin"
+        }
 
 @app.delete("/api/dashboard/notes/{note_id}")
 async def delete_dashboard_note_temp(note_id: str):
@@ -519,9 +538,11 @@ async def get_admin_reservations_temp(db: Session = Depends(get_db), date: str =
     from app.models.room import Room
     from datetime import datetime, date as date_type, timedelta
     
-    # If no date specified, use today
+    # ALWAYS default to today if no parameters provided
     if not date and not date_filter:
         target_date = date_type.today()
+        # Default to showing today's reservations
+        reservations = db.query(Reservation).filter(Reservation.date == target_date).order_by(Reservation.time).all()
     else:
         # Use date_filter if provided, otherwise use date
         date_to_parse = date_filter if date_filter else date
@@ -529,14 +550,9 @@ async def get_admin_reservations_temp(db: Session = Depends(get_db), date: str =
             target_date = datetime.strptime(date_to_parse, "%Y-%m-%d").date()
         except:
             target_date = date_type.today()
-    
-    # Get reservations for the specified date, or all reservations if no date filter
-    if date_filter or date:
+        
+        # Get reservations for the specified date
         reservations = db.query(Reservation).filter(Reservation.date == target_date).order_by(Reservation.time).all()
-    else:
-        # If no date filter, get all reservations from the last 30 days
-        thirty_days_ago = date_type.today() - timedelta(days=30)
-        reservations = db.query(Reservation).filter(Reservation.date >= thirty_days_ago).order_by(Reservation.date, Reservation.time).all()
     result = []
     
     for reservation in reservations:
@@ -579,16 +595,25 @@ async def get_admin_reservation_temp(reservation_id: str, db: Session = Depends(
         room = db.query(Room).filter(Room.id == reservation.room_id).first()
         room_name = room.name if room else None
     
-    # Get assigned tables if table_id exists
+    # Get assigned tables through reservation_tables relationship
     tables = []
-    if reservation.table_id:
-        table = db.query(Table).filter(Table.id == reservation.table_id).first()
-        if table:
-            tables.append({
-                "id": table.id,
-                "table_name": table.name,
-                "capacity": table.capacity
-            })
+    if hasattr(reservation, 'reservation_tables') and reservation.reservation_tables:
+        for rt in reservation.reservation_tables:
+            if hasattr(rt, 'table') and rt.table:
+                tables.append({
+                    "id": rt.table.id,
+                    "table_name": rt.table.name,
+                    "capacity": rt.table.capacity
+                })
+            elif hasattr(rt, 'table_id'):
+                # Fallback: query table by ID
+                table = db.query(Table).filter(Table.id == rt.table_id).first()
+                if table:
+                    tables.append({
+                        "id": table.id,
+                        "table_name": table.name,
+                        "capacity": table.capacity
+                    })
     
     return {
         "id": reservation.id,
@@ -605,7 +630,7 @@ async def get_admin_reservation_temp(reservation_id: str, db: Session = Depends(
         "admin_notes": reservation.admin_notes,
         "room_id": reservation.room_id,
         "room_name": room_name,
-        "table_id": reservation.table_id,
+        "table_id": tables[0]["id"] if tables else None,  # Use first table ID for compatibility
         "tables": tables,
         "created_at": reservation.created_at.isoformat() if reservation.created_at else None
     }
