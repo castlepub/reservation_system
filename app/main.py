@@ -858,28 +858,48 @@ async def get_layout_editor_temp(room_id: str, target_date: str = None, db: Sess
         layout = db.query(TableLayout).filter(TableLayout.table_id == table.id).first()
         
         if not layout:
-            # Provide fallback layout if missing  
-            print(f"Warning: No layout found for table {table.name} in editor, using fallback")
-            # Create a basic fallback layout
-            fallback_layout = type('Layout', (), {
-                'id': table.id,  # Use table ID as fallback
-                'x_position': 100,
-                'y_position': 100, 
-                'width': 80,
-                'height': 80,
-                'shape': 'rectangular',
-                'color': '#4CAF50',
-                'border_color': '#2E7D32',
-                'text_color': '#FFFFFF',
-                'font_size': 12,
-                'z_index': 1,
-                'show_name': True,
-                'show_capacity': True
-            })()
-            layout = fallback_layout
+            # Create a proper layout record instead of using fallback
+            print(f"Warning: No layout found for table {table.name}, creating proper layout")
+            import uuid
+            
+            # Calculate position based on table index for a grid layout
+            tables_in_room = db.query(Table).filter(Table.room_id == room_id).all()
+            table_index = [t.id for t in tables_in_room].index(table.id)
+            
+            # Grid positioning (4 tables per row)
+            row = table_index // 4
+            col = table_index % 4
+            x_pos = 50 + (col * 120)
+            y_pos = 50 + (row * 100)
+            
+            # Create actual layout record
+            layout = TableLayout(
+                id=str(uuid.uuid4()),
+                table_id=table.id,
+                room_id=room_id,
+                x_position=float(x_pos),
+                y_position=float(y_pos),
+                width=100.0,
+                height=80.0,
+                shape="rectangular",
+                color="#4CAF50",
+                border_color="#2E7D32",
+                text_color="#FFFFFF",
+                show_capacity=True,
+                show_name=True,
+                font_size=12,
+                custom_capacity=table.capacity,
+                is_connected=False,
+                z_index=1
+            )
+            
+            db.add(layout)
+            db.commit()
+            db.refresh(layout)
+            print(f"Created layout {layout.id} for table {table.name}")
         
         table_layouts.append({
-            "layout_id": layout.id,
+            "layout_id": layout.id,  # Use the actual layout ID from database
             "table_id": table.id,
             "table_name": table.name,
             "capacity": table.capacity,
