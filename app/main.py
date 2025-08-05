@@ -516,7 +516,7 @@ async def get_admin_reservations_temp(db: Session = Depends(get_db), date: str =
 @app.post("/api/reservations")
 async def create_reservation_temp(reservation_data: dict, db: Session = Depends(get_db)):
     """Create a new reservation - no auth required for now"""
-    from app.models.reservation import Reservation
+    from app.models.reservation import Reservation, ReservationStatus, ReservationType
     from datetime import datetime
     import uuid
     
@@ -528,20 +528,37 @@ async def create_reservation_temp(reservation_data: dict, db: Session = Depends(
         else:
             reservation_date = datetime.now().date()
         
+        # Parse time
+        time_str = reservation_data.get("time", "19:00")
+        if isinstance(time_str, str):
+            # Handle time format conversion
+            if len(time_str.split(':')) == 2:
+                time_str = f"{time_str}:00"
+            reservation_time = datetime.strptime(time_str, "%H:%M:%S").time()
+        else:
+            reservation_time = time_str
+        
+        # Ensure duration_hours is provided and valid
+        duration_hours = reservation_data.get("duration_hours", 2)
+        if duration_hours is None:
+            duration_hours = 2
+        
         # Create new reservation
         new_reservation = Reservation(
-             id=str(uuid.uuid4()),
-             customer_name=reservation_data.get("customer_name", "Unknown Customer"),
-             email=reservation_data.get("email"),
-             phone=reservation_data.get("phone"),
-             date=reservation_date,
-             time=reservation_data.get("time", "19:00"),
-             party_size=reservation_data.get("party_size", 2),
-             duration_hours=reservation_data.get("duration_hours", 2),
-             status=ReservationStatus.CONFIRMED,
-             notes=reservation_data.get("notes"),
-             room_id=reservation_data.get("room_id")
-         )
+            id=str(uuid.uuid4()),
+            customer_name=reservation_data.get("customer_name", "Unknown Customer"),
+            email=reservation_data.get("email", ""),
+            phone=reservation_data.get("phone", ""),
+            date=reservation_date,
+            time=reservation_time,
+            party_size=reservation_data.get("party_size", 2),
+            duration_hours=duration_hours,
+            status=ReservationStatus.CONFIRMED,
+            reservation_type=ReservationType.DINING,
+            notes=reservation_data.get("notes"),
+            admin_notes=reservation_data.get("admin_notes"),
+            room_id=reservation_data.get("room_id")
+        )
         
         db.add(new_reservation)
         db.commit()
@@ -555,13 +572,15 @@ async def create_reservation_temp(reservation_data: dict, db: Session = Depends(
                 "id": new_reservation.id,
                 "customer_name": new_reservation.customer_name,
                 "date": new_reservation.date.isoformat() if new_reservation.date else None,
-                "time": new_reservation.time,
+                "time": str(new_reservation.time),
                 "party_size": new_reservation.party_size,
-                "status": new_reservation.status
+                "duration_hours": new_reservation.duration_hours,
+                "status": new_reservation.status.value
             }
         }
     except Exception as e:
         db.rollback()
+        print(f"Error creating reservation: {str(e)}")
         raise HTTPException(status_code=400, detail=f"Failed to create reservation: {str(e)}")
 
 # Additional missing endpoints
