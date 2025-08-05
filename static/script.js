@@ -3097,6 +3097,27 @@ function renderLayoutCanvas() {
     canvas.parentNode.replaceChild(newCanvas, canvas);
     newCanvas.id = 'layoutCanvas';
     
+    // Re-add room features to the new canvas
+    if (roomLayout.show_entrance) {
+        const entrance = document.createElement('div');
+        entrance.className = 'room-entrance';
+        entrance.textContent = 'ENTRANCE';
+        newCanvas.appendChild(entrance);
+    }
+    
+    if (roomLayout.show_bar) {
+        const bar = document.createElement('div');
+        bar.className = 'room-bar';
+        bar.textContent = 'BAR';
+        newCanvas.appendChild(bar);
+    }
+    
+    // Re-render tables on the new canvas
+    currentLayoutData.tables.forEach(table => {
+        const tableElement = createTableElement(table);
+        newCanvas.appendChild(tableElement);
+    });
+    
     // Add the click handler
     newCanvas.addEventListener('click', handleCanvasClick);
 }
