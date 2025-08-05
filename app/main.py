@@ -1021,6 +1021,78 @@ async def get_reservation_available_tables(reservation_id: str, db: Session = De
         "capacity_status": capacity_status
     }
 
+@app.get("/admin/reports/daily")
+async def generate_daily_report(report_date: str, db: Session = Depends(get_db)):
+    """Generate daily report PDF for printing table signs"""
+    from app.models.reservation import Reservation
+    from app.models.table import Table
+    from app.models.room import Room
+    from app.services.pdf_service import PDFService
+    from datetime import datetime
+    from fastapi.responses import Response
+    
+    try:
+        # Parse the date
+        try:
+            target_date = datetime.strptime(report_date, "%Y-%m-%d").date()
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+        
+        # Get reservations for the date
+        reservations = db.query(Reservation).filter(Reservation.date == target_date).all()
+        
+        # Convert to format expected by PDF service
+        reservations_with_tables = []
+        for reservation in reservations:
+            # Get table assignments
+            from app.models.reservation import ReservationTable
+            table_assignments = db.query(ReservationTable).filter(
+                ReservationTable.reservation_id == reservation.id
+            ).all()
+            
+            tables = []
+            for assignment in table_assignments:
+                table = db.query(Table).filter(Table.id == assignment.table_id).first()
+                if table:
+                    room = db.query(Room).filter(Room.id == table.room_id).first()
+                    tables.append({
+                        'id': table.id,
+                        'name': table.name,
+                        'capacity': table.capacity,
+                        'room_name': room.name if room else 'Unknown Room'
+                    })
+            
+            # Create reservation object for PDF service
+            reservation_data = {
+                'id': reservation.id,
+                'customer_name': reservation.customer_name,
+                'party_size': reservation.party_size,
+                'time': reservation.time,
+                'email': reservation.email,
+                'phone': reservation.phone,
+                'special_requests': reservation.special_requests,
+                'status': reservation.status,
+                'tables': tables
+            }
+            reservations_with_tables.append(reservation_data)
+        
+        # Generate PDF
+        pdf_service = PDFService()
+        pdf_content = pdf_service.generate_daily_pdf(reservations_with_tables, target_date)
+        
+        # Return PDF response
+        return Response(
+            content=pdf_content,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"attachment; filename=daily_report_{target_date}.pdf"
+            }
+        )
+        
+    except Exception as e:
+        print(f"Error generating daily PDF: {e}")
+        raise HTTPException(status_code=500, detail=f"Error generating PDF: {str(e)}")
+
 @app.put("/admin/reservations/{reservation_id}/tables")
 async def update_reservation_tables(reservation_id: str, table_data: dict, db: Session = Depends(get_db)):
     """Update table assignments for a reservation"""
