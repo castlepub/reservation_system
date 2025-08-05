@@ -458,6 +458,7 @@ async def create_reservation_temp(reservation_data: dict, db: Session = Depends(
             date=reservation_date,
             time=reservation_data.get("time", "19:00"),
             party_size=reservation_data.get("party_size", 2),
+            duration_hours=reservation_data.get("duration_hours", 2),
             status="confirmed",
             notes=reservation_data.get("notes"),
             room_id=reservation_data.get("room_id")
@@ -552,6 +553,152 @@ async def get_layout_daily_temp(date: str):
                 "reservations": []
             }
         ]
+    }
+
+@app.get("/api/layout/editor/{room_id}")
+async def get_layout_editor_temp(room_id: str, target_date: str, db: Session = Depends(get_db)):
+    """Temporary layout editor data"""
+    from app.models.room import Room
+    from app.models.table import Table
+    from app.models.reservation import Reservation
+    from datetime import datetime
+    
+    # Get room
+    room = db.query(Room).filter(Room.id == room_id).first()
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+    
+    # Get tables for this room
+    tables = db.query(Table).filter(Table.room_id == room_id, Table.active == True).all()
+    
+    # Parse target date
+    try:
+        target_date_obj = datetime.strptime(target_date, "%Y-%m-%d").date()
+    except:
+        target_date_obj = datetime.now().date()
+    
+    # Get reservations for this date and room
+    reservations = db.query(Reservation).filter(
+        Reservation.date == target_date_obj,
+        Reservation.room_id == room_id
+    ).all()
+    
+    # Convert tables to layout format with proper positioning
+    table_layouts = []
+    for i, table in enumerate(tables):
+        # Position tables in a grid pattern
+        row = i // 3
+        col = i % 3
+        x_pos = 100 + (col * 150)
+        y_pos = 100 + (row * 120)
+        
+        table_layouts.append({
+            "layout_id": table.id,
+            "table_id": table.id,
+            "table_name": table.name,
+            "capacity": table.capacity,
+            "x_position": x_pos,
+            "y_position": y_pos,
+            "width": 80,
+            "height": 80,
+            "shape": "rectangle",
+            "color": "#4CAF50",
+            "border_color": "#2E7D32",
+            "text_color": "#FFFFFF",
+            "font_size": 12,
+            "z_index": 1,
+            "show_name": True,
+            "show_capacity": True,
+            "status": "available"
+        })
+    
+    # Create room layout data
+    room_layout = {
+        "width": 800,
+        "height": 600,
+        "background_color": "#F5F5F5",
+        "show_entrance": True,
+        "show_bar": False
+    }
+    
+    return {
+        "room": {
+            "id": room.id,
+            "name": room.name,
+            "description": room.description
+        },
+        "room_layout": room_layout,
+        "tables": table_layouts,
+        "reservations": [
+            {
+                "id": r.id,
+                "customer_name": r.customer_name,
+                "time": r.time,
+                "party_size": r.party_size,
+                "status": r.status
+            } for r in reservations
+        ],
+        "target_date": target_date_obj.isoformat()
+    }
+
+@app.get("/admin/tables/{table_id}")
+async def get_admin_table_temp(table_id: str, db: Session = Depends(get_db)):
+    """Get specific table for admin - no auth required for now"""
+    from app.models.table import Table
+    from app.models.room import Room
+    
+    table = db.query(Table).filter(Table.id == table_id).first()
+    if not table:
+        raise HTTPException(status_code=404, detail="Table not found")
+    
+    # Get room name
+    room = db.query(Room).filter(Room.id == table.room_id).first()
+    room_name = room.name if room else "Unknown Room"
+    
+    return {
+        "id": table.id,
+        "name": table.name,
+        "room_id": table.room_id,
+        "room_name": room_name,
+        "capacity": table.capacity,
+        "combinable": table.combinable,
+        "active": table.active,
+        "created_at": table.created_at.isoformat() if table.created_at else None,
+        "updated_at": table.updated_at.isoformat() if table.updated_at else None
+    }
+
+@app.put("/admin/tables/{table_id}")
+async def update_admin_table_temp(table_id: str, table_data: dict, db: Session = Depends(get_db)):
+    """Update specific table for admin - no auth required for now"""
+    from app.models.table import Table
+    
+    table = db.query(Table).filter(Table.id == table_id).first()
+    if not table:
+        raise HTTPException(status_code=404, detail="Table not found")
+    
+    # Update table fields
+    if "name" in table_data:
+        table.name = table_data["name"]
+    if "capacity" in table_data:
+        table.capacity = table_data["capacity"]
+    if "combinable" in table_data:
+        table.combinable = table_data["combinable"]
+    if "active" in table_data:
+        table.active = table_data["active"]
+    
+    table.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(table)
+    
+    return {
+        "id": table.id,
+        "name": table.name,
+        "room_id": table.room_id,
+        "capacity": table.capacity,
+        "combinable": table.combinable,
+        "active": table.active,
+        "created_at": table.created_at.isoformat() if table.created_at else None,
+        "updated_at": table.updated_at.isoformat() if table.updated_at else None
     }
 
 # All complex endpoints with database dependencies are temporarily disabled
