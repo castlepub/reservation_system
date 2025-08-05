@@ -3052,10 +3052,17 @@ async function loadRoomLayout(roomId) {
 }
 
 function renderLayoutCanvas() {
+    console.log('=== renderLayoutCanvas START ===');
     const canvas = document.getElementById('layoutCanvas');
+    console.log('Original canvas:', canvas);
     canvas.innerHTML = '';
     
-    if (!currentLayoutData) return;
+    if (!currentLayoutData) {
+        console.log('No currentLayoutData, returning early');
+        return;
+    }
+    
+    console.log('Current layout data:', currentLayoutData);
     
     // Set canvas size based on room layout
     const roomLayout = currentLayoutData.room_layout;
@@ -3070,32 +3077,16 @@ function renderLayoutCanvas() {
         canvas.classList.remove('grid-enabled');
     }
     
-    // Add room features
-    if (roomLayout.show_entrance) {
-        const entrance = document.createElement('div');
-        entrance.className = 'room-entrance';
-        entrance.textContent = 'ENTRANCE';
-        canvas.appendChild(entrance);
-    }
-    
-    if (roomLayout.show_bar) {
-        const bar = document.createElement('div');
-        bar.className = 'room-bar';
-        bar.textContent = 'BAR';
-        canvas.appendChild(bar);
-    }
-    
-    // Render tables
-    currentLayoutData.tables.forEach(table => {
-        const tableElement = createTableElement(table);
-        canvas.appendChild(tableElement);
-    });
+    console.log('Canvas configured, about to clone');
     
     // Add click handler for canvas only once
     // Remove any existing listeners first
     const newCanvas = canvas.cloneNode(true);
+    console.log('New canvas created:', newCanvas);
     canvas.parentNode.replaceChild(newCanvas, canvas);
     newCanvas.id = 'layoutCanvas';
+    
+    console.log('Canvas replaced, re-adding room features');
     
     // Re-add room features to the new canvas
     if (roomLayout.show_entrance) {
@@ -3103,6 +3094,7 @@ function renderLayoutCanvas() {
         entrance.className = 'room-entrance';
         entrance.textContent = 'ENTRANCE';
         newCanvas.appendChild(entrance);
+        console.log('Added entrance to new canvas');
     }
     
     if (roomLayout.show_bar) {
@@ -3110,61 +3102,75 @@ function renderLayoutCanvas() {
         bar.className = 'room-bar';
         bar.textContent = 'BAR';
         newCanvas.appendChild(bar);
+        console.log('Added bar to new canvas');
     }
     
+    console.log('About to render tables, count:', currentLayoutData.tables.length);
+    
     // Re-render tables on the new canvas
-    currentLayoutData.tables.forEach(table => {
+    currentLayoutData.tables.forEach((table, index) => {
+        console.log(`Rendering table ${index}:`, table);
         const tableElement = createTableElement(table);
         newCanvas.appendChild(tableElement);
+        console.log(`Table ${index} added to canvas`);
     });
+    
+    console.log('All tables rendered, adding click handler');
     
     // Add the click handler
     newCanvas.addEventListener('click', handleCanvasClick);
+    
+    console.log('=== renderLayoutCanvas END ===');
 }
 
-function createTableElement(tableData) {
+function createTableElement(table) {
+    console.log('=== createTableElement START ===', table);
+    
     const tableElement = document.createElement('div');
-    tableElement.className = `layout-table ${tableData.shape} ${getTableStatus(tableData)}`;
-    tableElement.style.left = `${tableData.x_position}px`;
-    tableElement.style.top = `${tableData.y_position}px`;
-    tableElement.style.width = `${tableData.width}px`;
-    tableElement.style.height = `${tableData.height}px`;
-    tableElement.style.backgroundColor = tableData.color;
-    tableElement.style.borderColor = tableData.border_color;
-    tableElement.style.color = tableData.text_color;
-    tableElement.style.fontSize = `${tableData.font_size}px`;
-    tableElement.style.zIndex = tableData.z_index;
+    tableElement.className = 'layout-table';
+    tableElement.setAttribute('data-layout-id', table.layout_id || table.table_id);
+    tableElement.setAttribute('data-table-id', table.table_id);
+    tableElement.setAttribute('data-table-name', table.table_name);
+    
+    // Set position
+    tableElement.style.left = `${table.x_position}px`;
+    tableElement.style.top = `${table.y_position}px`;
+    tableElement.style.width = `${table.width}px`;
+    tableElement.style.height = `${table.height}px`;
+    
+    // Set shape
+    if (table.shape === 'circle') {
+        tableElement.style.borderRadius = '50%';
+    } else {
+        tableElement.style.borderRadius = '0';
+    }
+    
+    // Set colors
+    tableElement.style.backgroundColor = table.color || '#4CAF50';
+    tableElement.style.borderColor = table.border_color || '#2E7D32';
+    tableElement.style.color = table.text_color || '#FFFFFF';
+    
+    // Set text
+    tableElement.textContent = table.table_name;
+    tableElement.style.fontSize = `${table.font_size || 12}px`;
+    tableElement.style.zIndex = table.z_index || 1;
     tableElement.style.cursor = 'pointer';
     
-    // Add table content
-    let content = '';
-    if (tableData.show_name) {
-        content += `<div class="table-name">${tableData.table_name}</div>`;
-    }
-    if (tableData.show_capacity) {
-        content += `<div class="table-capacity">${tableData.capacity}p</div>`;
-    }
-    tableElement.innerHTML = content;
-    
-    // Add data attributes for easy identification
-    tableElement.setAttribute('data-layout-id', tableData.layout_id);
-    tableElement.setAttribute('data-table-id', tableData.table_id);
-    tableElement.setAttribute('data-table-name', tableData.table_name);
-    
-    // Add event listeners
-    tableElement.addEventListener('click', (e) => {
-        e.stopPropagation();
-        selectTable(tableData.layout_id, tableElement);
-    });
-    
-    tableElement.addEventListener('dblclick', (e) => {
-        e.stopPropagation();
-        openTableReservation(tableData);
+    console.log('Table element created:', tableElement);
+    console.log('Table element attributes:', {
+        layoutId: tableElement.getAttribute('data-layout-id'),
+        tableId: tableElement.getAttribute('data-table-id'),
+        tableName: tableElement.getAttribute('data-table-name'),
+        position: { left: tableElement.style.left, top: tableElement.style.top },
+        size: { width: tableElement.style.width, height: tableElement.style.height },
+        shape: table.shape,
+        color: tableElement.style.backgroundColor
     });
     
     // Make draggable
-    makeTableDraggable(tableElement, tableData);
+    makeTableDraggable(tableElement);
     
+    console.log('=== createTableElement END ===');
     return tableElement;
 }
 
@@ -3175,27 +3181,47 @@ function getTableStatus(tableData) {
     return 'available';
 }
 
-function selectTable(layoutId, element) {
-    // Remove previous selection
+function selectTable(tableElement) {
+    console.log('=== selectTable START ===', tableElement);
+    
+    // Clear previous selection
     document.querySelectorAll('.layout-table.selected').forEach(table => {
         table.classList.remove('selected');
+        console.log('Removed selection from table:', table);
     });
     
-    // Add selection
-    element.classList.add('selected');
-    selectedTable = layoutId;
+    // Select new table
+    tableElement.classList.add('selected');
+    selectedTable = tableElement;
     
-    // Show properties panel
-    showTableProperties(layoutId);
+    console.log('Selected table:', tableElement);
+    console.log('Selected table attributes:', {
+        layoutId: tableElement.getAttribute('data-layout-id'),
+        tableId: tableElement.getAttribute('data-table-id'),
+        tableName: tableElement.getAttribute('data-table-name')
+    });
     
-    // Show feedback message
-    const tableName = element.getAttribute('data-table-name') || 'Table';
-    showMessage(`Selected ${tableName}`, 'info');
+    // Show table properties
+    showTableProperties(tableElement);
+    
+    // Show message
+    const tableName = tableElement.getAttribute('data-table-name');
+    showMessage(`Selected Table ${tableName}`, 'info');
+    
+    console.log('=== selectTable END ===');
 }
 
 function showTableProperties(layoutId) {
+    console.log('=== showTableProperties START ===', layoutId);
+    
     const tableData = currentLayoutData.tables.find(t => t.layout_id === layoutId);
-    if (!tableData) return;
+    if (!tableData) {
+        console.error('Table data not found for layoutId:', layoutId);
+        console.log('Available tables:', currentLayoutData.tables);
+        return;
+    }
+    
+    console.log('Found table data:', tableData);
     
     // Populate properties form
     document.getElementById('layoutTableName').value = tableData.table_name;
@@ -3208,77 +3234,85 @@ function showTableProperties(layoutId) {
     const closestColor = colors.find(color => color === tableData.color) || '#4CAF50';
     colorSelect.value = closestColor;
     
+    console.log('Color handling:', { originalColor: tableData.color, closestColor, colors });
+    
     document.getElementById('tableShowName').checked = tableData.show_name;
     document.getElementById('tableShowCapacity').checked = tableData.show_capacity;
     
     // Show properties panel
     document.getElementById('tableProperties').style.display = 'block';
+    
+    console.log('=== showTableProperties END ===');
 }
 
-function makeTableDraggable(element, tableData) {
-    element.addEventListener('mousedown', (e) => {
-        if (e.target === element) {
+function makeTableDraggable(tableElement) {
+    console.log('=== makeTableDraggable START ===', tableElement);
+    
+    let isDragging = false;
+    let startX, startY, startLeft, startTop;
+    
+    tableElement.addEventListener('mousedown', function(e) {
+        console.log('Mouse down on table:', tableElement);
+        console.log('Event:', e);
+        
+        if (e.target === tableElement) {
             isDragging = true;
-            selectedTable = tableData.layout_id;
+            startX = e.clientX;
+            startY = e.clientY;
+            startLeft = parseInt(tableElement.style.left) || 0;
+            startTop = parseInt(tableElement.style.top) || 0;
             
-            const rect = element.getBoundingClientRect();
-            const canvasRect = document.getElementById('layoutCanvas').getBoundingClientRect();
-            
-            dragOffset.x = e.clientX - rect.left;
-            dragOffset.y = e.clientY - rect.top;
-            
-            element.classList.add('dragging');
-            
-            e.preventDefault();
+            tableElement.style.zIndex = '1000';
+            console.log('Started dragging, initial position:', { startLeft, startTop });
         }
     });
     
-    document.addEventListener('mousemove', (e) => {
-        if (isDragging && selectedTable) {
-            const canvas = document.getElementById('layoutCanvas');
-            const canvasRect = canvas.getBoundingClientRect();
-            
-            let newX = e.clientX - canvasRect.left - dragOffset.x;
-            let newY = e.clientY - canvasRect.top - dragOffset.y;
-            
-            // Snap to grid if enabled
-            if (gridEnabled) {
-                newX = Math.round(newX / 20) * 20;
-                newY = Math.round(newY / 20) * 20;
-            }
-            
-            // Keep within canvas bounds
-            newX = Math.max(0, Math.min(newX, canvas.offsetWidth - element.offsetWidth));
-            newY = Math.max(0, Math.min(newY, canvas.offsetHeight - element.offsetHeight));
-            
-            element.style.left = `${newX}px`;
-            element.style.top = `${newY}px`;
-        }
-    });
-    
-    document.addEventListener('mouseup', () => {
+    tableElement.addEventListener('mousemove', function(e) {
         if (isDragging) {
-            isDragging = false;
-            document.querySelectorAll('.layout-table.dragging').forEach(table => {
-                table.classList.remove('dragging');
-            });
+            const deltaX = e.clientX - startX;
+            const deltaY = e.clientY - startY;
             
-            // Auto-save position
-            if (selectedTable) {
-                updateTablePosition(selectedTable);
-            }
+            const newLeft = startLeft + deltaX;
+            const newTop = startTop + deltaY;
+            
+            tableElement.style.left = `${newLeft}px`;
+            tableElement.style.top = `${newTop}px`;
+            
+            console.log('Dragging, new position:', { newLeft, newTop });
         }
     });
+    
+    tableElement.addEventListener('mouseup', function(e) {
+        if (isDragging) {
+            console.log('Mouse up, stopping drag');
+            isDragging = false;
+            tableElement.style.zIndex = '1';
+            
+            // Update position in database
+            const tableId = tableElement.getAttribute('data-table-id');
+            const newLeft = parseInt(tableElement.style.left);
+            const newTop = parseInt(tableElement.style.top);
+            
+            console.log('Updating table position in DB:', { tableId, newLeft, newTop });
+            updateTablePosition(tableId, newLeft, newTop);
+        }
+    });
+    
+    tableElement.addEventListener('click', function(e) {
+        console.log('Table clicked:', tableElement);
+        console.log('Click event:', e);
+        
+        if (!isDragging) {
+            e.stopPropagation();
+            selectTable(tableElement);
+        }
+    });
+    
+    console.log('=== makeTableDraggable END ===');
 }
 
-async function updateTablePosition(layoutId) {
+async function updateTablePosition(layoutId, x, y) {
     try {
-        const tableElement = document.querySelector(`.layout-table.selected`);
-        if (!tableElement) return;
-        
-        const x = parseFloat(tableElement.style.left);
-        const y = parseFloat(tableElement.style.top);
-        
         const response = await fetch(`${API_BASE_URL}/api/layout/tables/${layoutId}`, {
             method: 'PUT',
             headers: {
@@ -3308,17 +3342,25 @@ async function updateTablePosition(layoutId) {
 }
 
 function addTableToLayout(shape) {
+    console.log('=== addTableToLayout START ===', shape);
+    
     if (!currentLayoutRoom) {
         showMessage('Please select a room first', 'warning');
         return;
     }
     
+    console.log('Current layout room:', currentLayoutRoom);
+    
     const canvas = document.getElementById('layoutCanvas');
     const rect = canvas.getBoundingClientRect();
+    
+    console.log('Canvas rect:', rect);
     
     // Default position (center of canvas)
     const x = Math.round((rect.width / 2 - 50) / 20) * 20;
     const y = Math.round((rect.height / 2 - 40) / 20) * 20;
+    
+    console.log('Calculated position:', { x, y });
     
     // Create new table data
     const newTable = {
@@ -3345,18 +3387,27 @@ function addTableToLayout(shape) {
         reservations: []
     };
     
+    console.log('New table data created:', newTable);
+    
     // Add to local data
     currentLayoutData.tables.push(newTable);
+    console.log('Added to currentLayoutData.tables, new count:', currentLayoutData.tables.length);
     
     // Create and add table element
     const tableElement = createTableElement(newTable);
+    console.log('Table element created:', tableElement);
+    
     canvas.appendChild(tableElement);
+    console.log('Table element appended to canvas');
     
     // Select the new table
-    selectTable(newTable.layout_id, tableElement);
+    selectTable(tableElement);
+    console.log('New table selected');
     
     // Save to backend
     saveNewTable(newTable);
+    
+    console.log('=== addTableToLayout END ===');
 }
 
 async function saveNewTable(tableData) {
@@ -3694,16 +3745,25 @@ function clearLayoutCanvas() {
     document.getElementById('tableProperties').style.display = 'none';
 }
 
-function handleCanvasClick(event) {
-    // Deselect table if clicking on empty canvas
-    if (event.target.id === 'layoutCanvas') {
+function handleCanvasClick(e) {
+    console.log('=== handleCanvasClick START ===', e);
+    console.log('Click target:', e.target);
+    console.log('Click target classList:', e.target.classList);
+    
+    if (e.target.classList.contains('layout-table')) {
+        console.log('Clicked on table, selecting it');
+        selectTable(e.target);
+    } else if (e.target.id === 'layoutCanvas') {
+        console.log('Clicked on empty canvas, clearing selection');
+        selectedTable = null;
         document.querySelectorAll('.layout-table.selected').forEach(table => {
             table.classList.remove('selected');
+            console.log('Removed selection from table:', table);
         });
-        selectedTable = null;
-        document.getElementById('tableProperties').style.display = 'none';
         showMessage('Selection cleared', 'info');
     }
+    
+    console.log('=== handleCanvasClick END ===');
 }
 
 // Initialize layout editor when settings tab is loaded
