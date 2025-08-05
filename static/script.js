@@ -3451,6 +3451,7 @@ function makeTableDraggable(tableElement) {
     
     function handleMouseUp(e) {
         if (isDragging) {
+            console.log('=== handleMouseUp START ===');
             console.log('Mouse up, stopping drag');
             isDragging = false;
             tableElement.style.zIndex = '1';
@@ -3465,8 +3466,21 @@ function makeTableDraggable(tableElement) {
             const newLeft = parseInt(tableElement.style.left);
             const newTop = parseInt(tableElement.style.top);
             
+            console.log('Table element attributes:', {
+                'data-layout-id': tableElement.getAttribute('data-layout-id'),
+                'data-table-id': tableElement.getAttribute('data-table-id'),
+                style_left: tableElement.style.left,
+                style_top: tableElement.style.top
+            });
+            
             console.log('Updating table position in DB:', { layoutId, newLeft, newTop });
-            updateTablePosition(layoutId, newLeft, newTop);
+            
+            if (layoutId) {
+                updateTablePosition(layoutId, newLeft, newTop);
+            } else {
+                console.error('No layout ID found for table element');
+                showMessage('Error: No layout ID found for table', 'error');
+            }
             
             // Prevent the canvas click handler from clearing selection
             e.stopPropagation();
@@ -3475,6 +3489,8 @@ function makeTableDraggable(tableElement) {
             setTimeout(() => {
                 selectTable(tableElement);
             }, 10);
+            
+            console.log('=== handleMouseUp END ===');
         }
     }
     
@@ -3495,6 +3511,7 @@ function makeTableDraggable(tableElement) {
 }
 
 async function updateTablePosition(layoutId, x, y) {
+    console.log('=== updateTablePosition START ===', { layoutId, x, y });
     try {
         const response = await fetch(`${API_BASE_URL}/api/layout/tables/${layoutId}`, {
             method: 'PUT',
@@ -3508,19 +3525,42 @@ async function updateTablePosition(layoutId, x, y) {
             })
         });
         
+        console.log('PUT response status:', response.status);
+        
         if (!response.ok) {
-            throw new Error('Failed to update table position');
+            const errorText = await response.text();
+            console.error('PUT response error:', errorText);
+            throw new Error(`Failed to update table position: ${response.status} ${errorText}`);
         }
+        
+        const responseData = await response.json();
+        console.log('PUT response data:', responseData);
         
         // Update local data
         const tableData = currentLayoutData.tables.find(t => t.layout_id === layoutId);
         if (tableData) {
             tableData.x_position = x;
             tableData.y_position = y;
+            console.log('Updated local data for table:', tableData);
+        } else {
+            console.warn('Table data not found in currentLayoutData for layoutId:', layoutId);
         }
+        
+        console.log('=== updateTablePosition SUCCESS ===');
+        
+        // Show success message
+        showMessage('Table position updated successfully', 'success');
+        
+        // Optionally reload the layout to ensure consistency
+        // setTimeout(() => {
+        //     if (currentLayoutRoom) {
+        //         loadRoomLayout(currentLayoutRoom);
+        //     }
+        // }, 500);
+        
     } catch (error) {
         console.error('Error updating table position:', error);
-        showMessage('Error updating table position', 'error');
+        showMessage('Error updating table position: ' + error.message, 'error');
     }
 }
 
