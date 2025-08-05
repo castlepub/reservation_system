@@ -661,84 +661,89 @@ async def get_layout_daily_temp(date: str, db: Session = Depends(get_db)):
     }
     
     for room in rooms:
-        # Get tables for this room
-        tables = db.query(Table).filter(Table.room_id == room.id, Table.active == True).all()
-        
-        # Get reservations for this date and room
-        reservations = db.query(Reservation).filter(
-            Reservation.date == target_date_obj,
-            Reservation.room_id == room.id
-        ).all()
-        
-        # Convert tables to layout format with positioning
-        table_layouts = []
-        for i, table in enumerate(tables):
-            # Position tables in a grid pattern
-            row = i // 4
-            col = i % 4
-            x_pos = 50 + (col * 120)
-            y_pos = 50 + (row * 100)
+        try:
+            # Get tables for this room
+            tables = db.query(Table).filter(Table.room_id == room.id, Table.active == True).all()
             
-            # Check if table has reservations
-            table_reservations = [r for r in reservations if r.table_id == table.id]
-            status = "reserved" if table_reservations else "available"
+            # Get reservations for this date and room
+            reservations = db.query(Reservation).filter(
+                Reservation.date == target_date_obj,
+                Reservation.room_id == room.id
+            ).all()
             
-            table_layouts.append({
-                "layout_id": table.id,
-                "table_id": table.id,
-                "table_name": table.name,
-                "capacity": table.capacity,
-                "x_position": x_pos,
-                "y_position": y_pos,
-                "width": 80,
-                "height": 80,
-                "shape": "rectangle",
-                "color": "#4CAF50" if status == "available" else "#FF9800",
-                "border_color": "#2E7D32" if status == "available" else "#E65100",
-                "text_color": "#FFFFFF",
-                "font_size": 12,
-                "z_index": 1,
-                "show_name": True,
-                "show_capacity": True,
-                "status": status,
-                "combinable": table.combinable,
+            # Convert tables to layout format with positioning
+            table_layouts = []
+            for i, table in enumerate(tables):
+                # Position tables in a grid pattern
+                row = i // 4
+                col = i % 4
+                x_pos = 50 + (col * 120)
+                y_pos = 50 + (row * 100)
+                
+                # Check if table has reservations
+                table_reservations = [r for r in reservations if r.table_id == table.id]
+                status = "reserved" if table_reservations else "available"
+                
+                table_layouts.append({
+                    "layout_id": table.id,
+                    "table_id": table.id,
+                    "table_name": table.name,
+                    "capacity": table.capacity,
+                    "x_position": x_pos,
+                    "y_position": y_pos,
+                    "width": 80,
+                    "height": 80,
+                    "shape": "rectangle",
+                    "color": "#4CAF50" if status == "available" else "#FF9800",
+                    "border_color": "#2E7D32" if status == "available" else "#E65100",
+                    "text_color": "#FFFFFF",
+                    "font_size": 12,
+                    "z_index": 1,
+                    "show_name": True,
+                    "show_capacity": True,
+                    "status": status,
+                    "combinable": table.combinable,
+                    "reservations": [
+                        {
+                            "id": r.id,
+                            "customer_name": r.customer_name,
+                            "time": r.time,
+                            "party_size": r.party_size,
+                            "status": r.status
+                        } for r in table_reservations
+                    ]
+                })
+            
+            # Create room layout data
+            room_layout = {
+                "width": 800,
+                "height": 600,
+                "background_color": "#F5F5F5",
+                "show_entrance": True,
+                "show_bar": False
+            }
+            
+            daily_data["rooms"].append({
+                "id": room.id,
+                "name": room.name,
+                "description": room.description,
+                "layout": room_layout,
+                "tables": table_layouts,
                 "reservations": [
                     {
                         "id": r.id,
                         "customer_name": r.customer_name,
                         "time": r.time,
                         "party_size": r.party_size,
-                        "status": r.status
-                    } for r in table_reservations
+                        "status": r.status,
+                        "table_id": r.table_id
+                    } for r in reservations
                 ]
             })
-        
-        # Create room layout data
-        room_layout = {
-            "width": 800,
-            "height": 600,
-            "background_color": "#F5F5F5",
-            "show_entrance": True,
-            "show_bar": False
-        }
-        
-        daily_data["rooms"].append({
-            "id": room.id,
-            "name": room.name,
-            "description": room.description,
-            "layout": room_layout,
-            "tables": table_layouts,
-            "reservations": [
-                {
-                    "id": r.id,
-                    "customer_name": r.customer_name,
-                    "time": r.time,
-                    "party_size": r.party_size,
-                    "status": r.status,
-                    "table_id": r.table_id
-                } for r in reservations
-            ]
-        })
+        except Exception as e:
+            # Log the error but continue with other rooms
+            print(f"Error processing room {room.id}: {str(e)}")
+            continue
     
     return daily_data
 
