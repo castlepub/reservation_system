@@ -41,13 +41,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers - DISABLED temporarily to avoid conflicts with temporary endpoints
-# app.include_router(auth_router, prefix="/auth")
-# app.include_router(admin_router, prefix="/admin")
-# app.include_router(settings_router, prefix="/api")
-# app.include_router(public_router, prefix="/api")
-# app.include_router(dashboard_router, prefix="/api")
-# app.include_router(layout_router, prefix="/api")
+# Include routers - RE-ENABLED to fix table deletion and other issues
+app.include_router(auth_router, prefix="/auth")
+app.include_router(admin_router, prefix="/admin")
+app.include_router(settings_router, prefix="/api")
+app.include_router(public_router, prefix="/api")
+app.include_router(dashboard_router, prefix="/api")
+app.include_router(layout_router, prefix="/api")
 
 # Mount static files
 static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
@@ -180,179 +180,9 @@ async def get_room_tables_public(room_id: str, db: Session = Depends(get_db)):
         for table in tables
     ]
 
-# Dashboard endpoints (temporary)
-@app.get("/api/dashboard/stats")
-async def get_dashboard_stats_temp(db: Session = Depends(get_db)):
-    """Get real dashboard stats with weekly forecast"""
-    from app.models.reservation import Reservation, ReservationStatus
-    from datetime import date, timedelta
-    
-    today = date.today()
-    
-    # Get today's confirmed reservations
-    today_reservations = db.query(Reservation).filter(
-        Reservation.date == today,
-        Reservation.status == ReservationStatus.CONFIRMED
-    ).all()
-    
-    total_reservations_today = len(today_reservations)
-    total_guests_today = sum(r.party_size for r in today_reservations)
-    
-    # Get this week's reservations (Monday to Sunday)
-    start_of_week = today - timedelta(days=today.weekday())
-    end_of_week = start_of_week + timedelta(days=6)
-    
-    week_reservations = db.query(Reservation).filter(
-        Reservation.date >= start_of_week,
-        Reservation.date <= end_of_week,
-        Reservation.status == ReservationStatus.CONFIRMED
-    ).all()
-    
-    total_reservations_week = len(week_reservations)
-    total_guests_week = sum(r.party_size for r in week_reservations)
-    
-    # Create weekly forecast for the next 7 days
-    weekly_forecast = []
-    for i in range(7):
-        forecast_date = today + timedelta(days=i)
-        day_reservations = [r for r in week_reservations if r.date == forecast_date]
-        
-        weekly_forecast.append({
-            "date": forecast_date.isoformat(),
-            "day_name": forecast_date.strftime("%A"),
-            "reservations_count": len(day_reservations),
-            "guests_count": sum(r.party_size for r in day_reservations),
-            "reservations": [
-                {
-                    "time": r.time,
-                    "party_size": r.party_size,
-                    "customer_name": r.customer_name
-                } for r in day_reservations
-            ]
-        })
-    
-    return {
-        "total_reservations_today": total_reservations_today,
-        "total_guests_today": total_guests_today,
-        "total_reservations_week": total_reservations_week,
-        "total_guests_week": total_guests_week,
-        "weekly_forecast": weekly_forecast,
-        "guest_notes": []
-    }
+# NOTE: Dashboard endpoints are now handled by the dashboard router
 
-@app.get("/api/dashboard/notes")
-async def get_dashboard_notes_temp(db: Session = Depends(get_db)):
-    """Get dashboard notes - FIXED"""
-    from app.models.reservation import DashboardNote
-    
-    try:
-        notes = db.query(DashboardNote).order_by(DashboardNote.created_at.desc()).limit(10).all()
-        return [
-            {
-                "id": str(note.id),
-                "content": note.content,
-                "created_at": note.created_at.isoformat() if note.created_at else None,
-                "created_by": note.created_by or "system"
-            }
-            for note in notes
-        ]
-    except Exception as e:
-        print(f"Error loading notes: {e}")
-        # Return some sample notes if database error
-        return [
-            {
-                "id": "sample_1",
-                "content": "Welcome to the Castle Pub reservation system!",
-                "created_at": datetime.utcnow().isoformat(),
-                "created_by": "system"
-            }
-        ]
-
-@app.post("/api/dashboard/notes")
-async def create_dashboard_note_temp(note_data: dict, db: Session = Depends(get_db)):
-    """Create dashboard note - FIXED"""
-    from app.models.reservation import DashboardNote
-    
-    try:
-        new_note = DashboardNote(
-            content=note_data.get("content", ""),
-            created_by=note_data.get("created_by", "admin")
-        )
-        db.add(new_note)
-        db.commit()
-        db.refresh(new_note)
-        
-        return {
-            "id": str(new_note.id),
-            "content": new_note.content,
-            "created_at": new_note.created_at.isoformat() if new_note.created_at else datetime.utcnow().isoformat(),
-            "created_by": new_note.created_by
-        }
-    except Exception as e:
-        print(f"Error creating note: {e}")
-        db.rollback()
-        # Return temp response as fallback
-        return {
-            "id": f"temp_note_{datetime.now().timestamp()}",
-            "content": note_data.get("content", "Note created"),
-            "created_at": datetime.utcnow().isoformat(),
-            "created_by": "admin"
-        }
-
-@app.delete("/api/dashboard/notes/{note_id}")
-async def delete_dashboard_note_temp(note_id: str):
-    """Temporary delete dashboard note"""
-    return {"message": "Note deleted successfully"}
-
-@app.get("/api/dashboard/customers")
-async def get_dashboard_customers_temp(db: Session = Depends(get_db)):
-    """Get customers from reservations - FIXED"""
-    from app.models.reservation import Reservation
-    
-    try:
-        # Get unique customers from reservations
-        customers = db.query(Reservation.customer_name, Reservation.customer_email, Reservation.customer_phone)\
-                     .filter(Reservation.customer_name != None)\
-                     .distinct().limit(100).all()
-        
-        return [
-            {
-                "id": f"customer_{i}",
-                "name": customer[0] or "",
-                "email": customer[1] or "",
-                "phone": customer[2] or ""
-            }
-            for i, customer in enumerate(customers) if customer[0]
-        ]
-    except Exception as e:
-        print(f"Error loading customers: {e}")
-        return []
-
-@app.get("/api/dashboard/today")
-async def get_dashboard_today_temp(db: Session = Depends(get_db)):
-    """Get today's confirmed reservations"""
-    from app.models.reservation import Reservation, ReservationStatus
-    from datetime import date
-    
-    today = date.today()
-    reservations = db.query(Reservation).filter(
-        Reservation.date == today,
-        Reservation.status == ReservationStatus.CONFIRMED
-    ).order_by(Reservation.time).all()
-    
-    return [
-        {
-            "id": r.id,
-            "customer_name": r.customer_name,
-            "time": r.time,
-            "party_size": r.party_size,
-            "table_names": [],  # Will be populated when table assignment is implemented
-            "reservation_type": r.reservation_type.value if r.reservation_type else "dining",
-            "status": r.status,
-            "notes": r.notes,
-            "admin_notes": r.admin_notes
-        } for r in reservations
-    ]
+# NOTE: All dashboard endpoints are now handled by the dashboard router
 
 # Auth endpoints are now handled by the auth router
 
@@ -1124,6 +954,42 @@ async def update_admin_table_temp(table_id: str, table_data: dict, db: Session =
         "created_at": table.created_at.isoformat() if table.created_at else None,
         "updated_at": table.updated_at.isoformat() if table.updated_at else None
     }
+
+@app.delete("/admin/tables/{table_id}")
+async def delete_admin_table_temp(table_id: str, db: Session = Depends(get_db)):
+    """Delete specific table for admin - temporary endpoint"""
+    from app.models.table import Table
+    from app.models.reservation import Reservation, ReservationTable, ReservationStatus
+    from datetime import date
+    
+    table = db.query(Table).filter(Table.id == table_id).first()
+    if not table:
+        raise HTTPException(status_code=404, detail="Table not found")
+    
+    try:
+        # Check if table has any active reservations
+        active_reservations = db.query(ReservationTable).join(
+            Reservation
+        ).filter(
+            ReservationTable.table_id == table_id,
+            Reservation.status == ReservationStatus.CONFIRMED,
+            Reservation.date >= date.today()
+        ).first()
+        
+        if active_reservations:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot delete table with active reservations"
+            )
+        
+        db.delete(table)
+        db.commit()
+        return {"message": "Table deleted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to delete table: {str(e)}")
 
 # Layout API endpoints for table positioning and management
 @app.put("/api/layout/tables/{layout_id}")
