@@ -98,18 +98,7 @@ function initializeApp() {
     if (authToken) {
         console.log('Token found, showing admin dashboard');
         showAdminDashboard();
-        
-        // Check URL parameters for tab
-        const urlParams = new URLSearchParams(window.location.search);
-        const tabParam = urlParams.get('tab');
-        
-        if (tabParam) {
-            // Show the tab from URL parameter
-            showTab(tabParam);
-        } else {
-            // Default to dashboard
-            loadDashboardData();
-        }
+        loadDashboardData();
     } else {
         console.log('No token, user needs to login');
     }
@@ -152,16 +141,6 @@ function setupEventListeners() {
     document.getElementById('adminLoginForm').addEventListener('submit', handleAdminLogin);
     // Removed adminReservationForm - it's now handled by the modal
     document.getElementById('addNoteForm').addEventListener('submit', handleAddNote);
-    
-    // Room management forms
-    const addRoomForm = document.getElementById('addRoomForm');
-    const editRoomForm = document.getElementById('editRoomForm');
-    if (addRoomForm) {
-        addRoomForm.addEventListener('submit', handleAddRoom);
-    }
-    if (editRoomForm) {
-        editRoomForm.addEventListener('submit', handleEditRoom);
-    }
 
     // Date and party size changes
     document.getElementById('date').addEventListener('change', function() {
@@ -717,11 +696,6 @@ async function checkAvailabilityAdmin() {
 
 // Tab Management
 function showTab(tabName) {
-    // Update URL without page reload
-    const url = new URL(window.location);
-    url.searchParams.set('tab', tabName);
-    window.history.pushState({}, '', url);
-    
     // Hide all tab contents
     const tabContents = document.querySelectorAll('.tab-content');
     tabContents.forEach(content => content.classList.remove('active'));
@@ -965,10 +939,11 @@ async function updateTimeSlotsForDate(dateInput, timeSelectId) {
     const selectedDate = new Date(dateInput.value);
     if (!selectedDate || isNaN(selectedDate)) return;
     
-    const dayOfWeek = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][selectedDate.getDay()];
+    // Format date as YYYY-MM-DD
+    const dateString = selectedDate.toISOString().split('T')[0];
     
     try {
-        const response = await fetch(`${API_BASE_URL}/api/settings/working-hours/${dayOfWeek}/time-slots`);
+        const response = await fetch(`${API_BASE_URL}/api/working-hours/${dateString}`);
         if (response.ok) {
             const data = await response.json();
             const timeSelect = document.getElementById(timeSelectId);
@@ -978,8 +953,8 @@ async function updateTimeSlotsForDate(dateInput, timeSelectId) {
                 timeSelect.removeChild(timeSelect.lastChild);
             }
             
-            if (data.time_slots && data.time_slots.length > 0) {
-                data.time_slots.forEach(timeSlot => {
+            if (data.summary.is_open && data.available_time_slots && data.available_time_slots.length > 0) {
+                data.available_time_slots.forEach(timeSlot => {
                     const option = document.createElement('option');
                     option.value = timeSlot;
                     option.textContent = timeSlot;
@@ -989,7 +964,7 @@ async function updateTimeSlotsForDate(dateInput, timeSelectId) {
                 // Restaurant is closed
                 const option = document.createElement('option');
                 option.value = '';
-                option.textContent = data.message || 'Restaurant is closed';
+                option.textContent = data.summary.message || 'Restaurant is closed';
                 option.disabled = true;
                 timeSelect.appendChild(option);
             }
@@ -1116,6 +1091,7 @@ function formatTime(timeString) {
 async function loadSettingsData() {
     try {
         await Promise.all([
+            loadWorkingHours(),
             loadRestaurantSettings(),
             loadSpecialDays()
         ]);
@@ -2421,11 +2397,6 @@ let dailyViewData = null;
 
 // Daily View Functions
 function showTab(tabName) {
-    // Update URL without page reload
-    const url = new URL(window.location);
-    url.searchParams.set('tab', tabName);
-    window.history.pushState({}, '', url);
-    
     // Hide all tab contents
     const tabContents = document.querySelectorAll('.tab-content');
     tabContents.forEach(content => content.classList.remove('active'));
@@ -2453,6 +2424,12 @@ function showTab(tabName) {
         loadTodayReservations();
     } else if (tabName === 'dashboard') {
         loadDashboardData();
+    } else if (tabName === 'tables') {
+        loadTablesData();
+    } else if (tabName === 'reservations') {
+        loadAllReservations();
+    } else if (tabName === 'settings') {
+        loadSettingsData();
     }
 }
 
@@ -3506,255 +3483,7 @@ function handleCanvasClick(event) {
 
 // Initialize layout editor when settings tab is loaded
 function initializeLayoutEditorOnLoad() {
-    // This function is called when the settings tab is loaded
-    console.log('Layout editor initialized');
-}
-
-// Room Management Functions
-async function loadRoomsForSettings() {
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/settings/rooms`, {
-            headers: {
-                'Authorization': `Bearer ${authToken}`,
-                'Content-Type': 'application/json'
-            }
-        });
-
-        if (response.ok) {
-            const rooms = await response.json();
-            updateRoomsDisplay(rooms);
-        } else {
-            throw new Error('Failed to load rooms');
-        }
-    } catch (error) {
-        console.error('Error loading rooms for settings:', error);
-        showMessage('Error loading rooms', 'error');
-    }
-}
-
-function updateRoomsDisplay(rooms) {
-    const container = document.getElementById('roomsContainer');
-    
-    if (rooms.length === 0) {
-        container.innerHTML = `
-            <div class="empty-rooms">
-                <i class="fas fa-door-open"></i>
-                <h4>No Rooms Yet</h4>
-                <p>Create your first room to get started with table management.</p>
-                <button class="btn btn-primary" onclick="showAddRoomModal()">
-                    <i class="fas fa-plus"></i> Add Your First Room
-                </button>
-            </div>
-        `;
-        return;
-    }
-
-    container.innerHTML = rooms.map(room => `
-        <div class="room-item ${!room.active ? 'inactive' : ''}">
-            <div class="room-header">
-                <h5 class="room-name">${room.name}</h5>
-                <div class="room-status">
-                    <span class="room-status-badge ${room.active ? 'room-status-active' : 'room-status-inactive'}">
-                        ${room.active ? 'Active' : 'Inactive'}
-                    </span>
-                </div>
-            </div>
-            <div class="room-description">
-                ${room.description || 'No description provided'}
-            </div>
-            <div class="room-stats">
-                <div class="room-stat">
-                    <div class="room-stat-value">${room.tables ? room.tables.length : 0}</div>
-                    <div class="room-stat-label">Tables</div>
-                </div>
-                <div class="room-stat">
-                    <div class="room-stat-value">${room.reservations ? room.reservations.length : 0}</div>
-                    <div class="room-stat-label">Reservations</div>
-                </div>
-                <div class="room-stat">
-                    <div class="room-stat-value">${room.created_at ? new Date(room.created_at).toLocaleDateString() : 'N/A'}</div>
-                    <div class="room-stat-label">Created</div>
-                </div>
-            </div>
-            <div class="room-actions">
-                <button class="btn btn-sm btn-secondary" onclick="editRoom('${room.id}')">
-                    <i class="fas fa-edit"></i> Edit
-                </button>
-                <button class="btn btn-sm btn-danger" onclick="deleteRoom('${room.id}', '${room.name}')">
-                    <i class="fas fa-trash"></i> Delete
-                </button>
-            </div>
-        </div>
-    `).join('');
-}
-
-function showAddRoomModal() {
-    document.getElementById('addRoomModal').classList.remove('hidden');
-    document.getElementById('addRoomForm').reset();
-}
-
-function hideAddRoomModal() {
-    document.getElementById('addRoomModal').classList.add('hidden');
-}
-
-function showEditRoomModal() {
-    document.getElementById('editRoomModal').classList.remove('hidden');
-}
-
-function hideEditRoomModal() {
-    document.getElementById('editRoomModal').classList.add('hidden');
-}
-
-async function handleAddRoom(event) {
-    event.preventDefault();
-    
-    const formData = new FormData(event.target);
-    const roomData = {
-        name: formData.get('name'),
-        description: formData.get('description') || null
-    };
-
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/settings/rooms`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${authToken}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(roomData)
-        });
-
-        if (response.ok) {
-            const room = await response.json();
-            showMessage('Room created successfully', 'success');
-            hideAddRoomModal();
-            loadRoomsForSettings(); // Reload rooms list
-        } else {
-            const error = await response.json();
-            throw new Error(error.detail || 'Failed to create room');
-        }
-    } catch (error) {
-        console.error('Error creating room:', error);
-        showMessage('Error creating room: ' + error.message, 'error');
-    }
-}
-
-async function editRoom(roomId) {
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/settings/rooms/${roomId}`, {
-            headers: {
-                'Authorization': `Bearer ${authToken}`
-            }
-        });
-
-        if (response.ok) {
-            const room = await response.json();
-            
-            // Populate edit form
-            document.getElementById('editRoomId').value = room.id;
-            document.getElementById('editRoomName').value = room.name;
-            document.getElementById('editRoomDescription').value = room.description || '';
-            document.getElementById('editRoomActive').checked = room.active;
-            
-            showEditRoomModal();
-        } else {
-            throw new Error('Failed to load room data');
-        }
-    } catch (error) {
-        console.error('Error loading room data:', error);
-        showMessage('Error loading room data', 'error');
-    }
-}
-
-async function handleEditRoom(event) {
-    event.preventDefault();
-    
-    const formData = new FormData(event.target);
-    const roomId = formData.get('roomId');
-    const roomData = {
-        name: formData.get('name'),
-        description: formData.get('description') || null,
-        active: formData.get('active') === 'on'
-    };
-
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/settings/rooms/${roomId}`, {
-            method: 'PUT',
-            headers: {
-                'Authorization': `Bearer ${authToken}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(roomData)
-        });
-
-        if (response.ok) {
-            showMessage('Room updated successfully', 'success');
-            hideEditRoomModal();
-            loadRoomsForSettings(); // Reload rooms list
-        } else {
-            const error = await response.json();
-            throw new Error(error.detail || 'Failed to update room');
-        }
-    } catch (error) {
-        console.error('Error updating room:', error);
-        showMessage('Error updating room: ' + error.message, 'error');
-    }
-}
-
-async function deleteRoom(roomId, roomName) {
-    if (!confirm(`Are you sure you want to delete the room "${roomName}"? This action cannot be undone.`)) {
-        return;
-    }
-
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/settings/rooms/${roomId}`, {
-            method: 'DELETE',
-            headers: {
-                'Authorization': `Bearer ${authToken}`
-            }
-        });
-
-        if (response.ok) {
-            showMessage('Room deleted successfully', 'success');
-            loadRoomsForSettings(); // Reload rooms list
-        } else {
-            const error = await response.json();
-            throw new Error(error.detail || 'Failed to delete room');
-        }
-    } catch (error) {
-        console.error('Error deleting room:', error);
-        showMessage('Error deleting room: ' + error.message, 'error');
-    }
-}
-
-// Settings Tab Management
-function showSettingsTab(tabName) {
-    // Hide all settings tab contents
-    const tabContents = document.querySelectorAll('.settings-tab-content');
-    tabContents.forEach(content => content.classList.remove('active'));
-    
-    // Remove active class from all settings tab buttons
-    const tabButtons = document.querySelectorAll('.settings-tab-btn');
-    tabButtons.forEach(btn => btn.classList.remove('active'));
-    
-    // Show selected tab content
-    const selectedTab = document.getElementById(tabName + 'SettingsTab');
-    if (selectedTab) {
-        selectedTab.classList.add('active');
-    }
-    
-    // Add active class to selected tab button
-    const selectedButton = document.querySelector(`[onclick="showSettingsTab('${tabName}')"]`);
-    if (selectedButton) {
-        selectedButton.classList.add('active');
-    }
-    
-    // Load specific data for each tab
-    if (tabName === 'rooms') {
-        loadRoomsForSettings();
-    } else if (tabName === 'hours') {
-        loadWorkingHours();
-    } else if (tabName === 'layout') {
+    if (document.getElementById('layoutRoomSelect')) {
         initializeLayoutEditor();
     }
 }

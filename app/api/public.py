@@ -1,6 +1,7 @@
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from datetime import datetime
 from app.core.database import get_db
 from app.schemas.reservation import (
     ReservationCreate, ReservationUpdate, ReservationWithTables,
@@ -9,6 +10,7 @@ from app.schemas.reservation import (
 from app.schemas.room import RoomResponse
 from app.services.reservation_service import ReservationService
 from app.services.table_service import TableService
+from app.services.working_hours_service import WorkingHoursService
 from app.services.email_service import EmailService
 from app.models.room import Room
 
@@ -124,6 +126,33 @@ def get_rooms(db: Session = Depends(get_db)):
     """Get all active rooms (public endpoint)"""
     rooms = db.query(Room).filter(Room.active == True).all()
     return rooms
+
+
+@router.get("/working-hours/{date}")
+def get_working_hours_for_date(date: str, db: Session = Depends(get_db)):
+    """Get working hours for a specific date (public endpoint)"""
+    try:
+        target_date = datetime.strptime(date, "%Y-%m-%d").date()
+        working_hours_service = WorkingHoursService(db)
+        
+        # Get working hours summary
+        summary = working_hours_service.get_working_hours_summary(target_date)
+        
+        # Get available time slots if open
+        time_slots = []
+        if summary["is_open"]:
+            time_slots = working_hours_service.get_available_time_slots(target_date)
+        
+        return {
+            "date": date,
+            "summary": summary,
+            "available_time_slots": time_slots
+        }
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid date format. Use YYYY-MM-DD"
+        )
 
 
 @router.put("/reservations/{token}", response_model=ReservationWithTables)

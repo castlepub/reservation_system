@@ -8,6 +8,7 @@ from app.models.room import Room
 from app.models.table import Table
 from app.schemas.reservation import ReservationCreate, ReservationUpdate, ReservationWithTables
 from app.services.table_service import TableService
+from app.services.working_hours_service import WorkingHoursService
 from app.core.security import create_reservation_token
 from app.core.config import settings
 
@@ -16,6 +17,7 @@ class ReservationService:
     def __init__(self, db: Session):
         self.db = db
         self.table_service = TableService(db)
+        self.working_hours_service = WorkingHoursService(db)
 
     def create_reservation(self, reservation_data: ReservationCreate) -> ReservationWithTables:
         """Create a new reservation with automatic table assignment"""
@@ -252,8 +254,13 @@ class ReservationService:
         if reservation_data.party_size < 1:
             raise ValueError("Party size must be at least 1")
         
-        # COMPLETELY SKIP ALL TIME AND DATE VALIDATION
-        print("DEBUG: Skipping ALL time and date validation to fix the issue")
+        # Validate working hours
+        is_valid_time, error_message = self.working_hours_service.validate_reservation_time(
+            reservation_data.date, reservation_data.time
+        )
+        
+        if not is_valid_time:
+            raise ValueError(error_message)
         
         # Check if room exists and is active (only if room_id is specified)
         if reservation_data.room_id:
