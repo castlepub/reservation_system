@@ -170,71 +170,123 @@ async def get_restaurant_settings_temp():
     ]
 
 @app.get("/api/settings/rooms")
-async def get_rooms_settings_temp():
-    """Temporary rooms settings - no auth required"""
-    return [
-        {
-            "id": "room_1",
-            "name": "Front Room",
-            "description": "Front dining area with window views",
-            "active": True,
-            "created_at": "2025-01-30T10:00:00",
-            "updated_at": "2025-01-30T10:00:00"
-        },
-        {
-            "id": "room_2", 
-            "name": "Back Room",
-            "description": "Back dining area for larger groups",
-            "active": True,
-            "created_at": "2025-01-30T10:00:00",
-            "updated_at": "2025-01-30T10:00:00"
-        },
-        {
-            "id": "room_3",
-            "name": "Middle Room",
-            "description": "Middle dining area with flexible seating",
-            "active": True,
-            "created_at": "2025-01-30T10:00:00",
-            "updated_at": "2025-01-30T10:00:00"
-        },
-        {
-            "id": "room_4",
-            "name": "Biergarten",
-            "description": "Outdoor beer garden seating",
-            "active": True,
-            "created_at": "2025-01-30T10:00:00",
-            "updated_at": "2025-01-30T10:00:00"
-        }
-    ]
+async def get_rooms_settings_temp(db: Session = Depends(get_db)):
+    """Get rooms settings with table counts - no auth required"""
+    from app.models.room import Room
+    from app.models.table import Table
+    
+    rooms = db.query(Room).all()
+    result = []
+    
+    for room in rooms:
+        # Count tables for this room
+        table_count = db.query(Table).filter(Table.room_id == room.id, Table.active == True).count()
+        
+        result.append({
+            "id": room.id,
+            "name": room.name,
+            "description": room.description,
+            "active": room.active,
+            "table_count": table_count,
+            "created_at": room.created_at.isoformat() if room.created_at else None,
+            "updated_at": room.updated_at.isoformat() if room.updated_at else None
+        })
+    
+    return result
 
-@app.post("/api/settings/rooms")
-async def create_room_settings_temp():
-    """Temporary create room - no auth required"""
+@app.get("/api/settings/rooms/{room_id}")
+async def get_room_settings_temp(room_id: str, db: Session = Depends(get_db)):
+    """Get specific room settings - no auth required"""
+    from app.models.room import Room
+    from app.models.table import Table
+    
+    room = db.query(Room).filter(Room.id == room_id).first()
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+    
+    # Count tables for this room
+    table_count = db.query(Table).filter(Table.room_id == room.id, Table.active == True).count()
+    
     return {
-        "id": "new_room_1",
-        "name": "New Room",
-        "description": "New room created",
-        "active": True,
-        "created_at": datetime.utcnow().isoformat(),
-        "updated_at": datetime.utcnow().isoformat()
+        "id": room.id,
+        "name": room.name,
+        "description": room.description,
+        "active": room.active,
+        "table_count": table_count,
+        "created_at": room.created_at.isoformat() if room.created_at else None,
+        "updated_at": room.updated_at.isoformat() if room.updated_at else None
     }
 
 @app.put("/api/settings/rooms/{room_id}")
-async def update_room_settings_temp(room_id: str):
-    """Temporary update room - no auth required"""
+async def update_room_settings_temp(room_id: str, room_data: dict, db: Session = Depends(get_db)):
+    """Update room settings - no auth required"""
+    from app.models.room import Room
+    
+    room = db.query(Room).filter(Room.id == room_id).first()
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+    
+    # Update room fields
+    if "name" in room_data:
+        room.name = room_data["name"]
+    if "description" in room_data:
+        room.description = room_data["description"]
+    if "active" in room_data:
+        room.active = room_data["active"]
+    
+    room.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(room)
+    
     return {
-        "id": room_id,
-        "name": "Updated Room",
-        "description": "Room updated",
-        "active": True,
-        "created_at": "2025-01-30T10:00:00",
-        "updated_at": datetime.utcnow().isoformat()
+        "id": room.id,
+        "name": room.name,
+        "description": room.description,
+        "active": room.active,
+        "created_at": room.created_at.isoformat() if room.created_at else None,
+        "updated_at": room.updated_at.isoformat() if room.updated_at else None
     }
 
 @app.delete("/api/settings/rooms/{room_id}")
-async def delete_room_settings_temp(room_id: str):
-    """Temporary delete room - no auth required"""
+async def delete_room_settings_temp(room_id: str, db: Session = Depends(get_db)):
+    """Delete room settings - no auth required"""
+    from app.models.room import Room
+    
+    room = db.query(Room).filter(Room.id == room_id).first()
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+    
+    db.delete(room)
+    db.commit()
+    
     return {"message": "Room deleted successfully"}
+
+@app.post("/api/settings/rooms")
+async def create_room_settings_temp(room_data: dict, db: Session = Depends(get_db)):
+    """Create room settings - no auth required"""
+    from app.models.room import Room
+    import uuid
+    
+    new_room = Room(
+        id=str(uuid.uuid4()),
+        name=room_data.get("name", "New Room"),
+        description=room_data.get("description"),
+        active=room_data.get("active", True)
+    )
+    
+    db.add(new_room)
+    db.commit()
+    db.refresh(new_room)
+    
+    return {
+        "id": new_room.id,
+        "name": new_room.name,
+        "description": new_room.description,
+        "active": new_room.active,
+        "table_count": 0,
+        "created_at": new_room.created_at.isoformat() if new_room.created_at else None,
+        "updated_at": new_room.updated_at.isoformat() if new_room.updated_at else None
+    }
 
 @app.get("/api/settings/special-days")
 async def get_special_days_temp():
@@ -244,6 +296,38 @@ async def get_special_days_temp():
 # Admin endpoints are handled by the admin router
 
 # Admin endpoints are now handled by the admin router
+
+@app.get("/admin/reservations")
+async def get_admin_reservations_temp(db: Session = Depends(get_db)):
+    """Get all reservations for admin - no auth required for now"""
+    from app.models.reservation import Reservation
+    from app.models.room import Room
+    
+    reservations = db.query(Reservation).all()
+    result = []
+    
+    for reservation in reservations:
+        # Get room name if room_id exists
+        room_name = None
+        if reservation.room_id:
+            room = db.query(Room).filter(Room.id == reservation.room_id).first()
+            room_name = room.name if room else None
+        
+        result.append({
+            "id": reservation.id,
+            "customer_name": reservation.customer_name,
+            "email": reservation.email,
+            "phone": reservation.phone,
+            "date": reservation.date.isoformat() if reservation.date else None,
+            "time": reservation.time,
+            "party_size": reservation.party_size,
+            "status": reservation.status,
+            "notes": reservation.notes,
+            "room_name": room_name,
+            "created_at": reservation.created_at.isoformat() if reservation.created_at else None
+        })
+    
+    return result
 
 @app.post("/api/reservations")
 async def create_reservation_temp():
