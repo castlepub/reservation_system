@@ -169,14 +169,61 @@ async def get_room_tables_public(room_id: str, db: Session = Depends(get_db)):
 
 # Dashboard endpoints (temporary)
 @app.get("/api/dashboard/stats")
-async def get_dashboard_stats_temp():
-    """Temporary dashboard stats"""
+async def get_dashboard_stats_temp(db: Session = Depends(get_db)):
+    """Get real dashboard stats with weekly forecast"""
+    from app.models.reservation import Reservation, ReservationStatus
+    from datetime import date, timedelta
+    
+    today = date.today()
+    
+    # Get today's confirmed reservations
+    today_reservations = db.query(Reservation).filter(
+        Reservation.date == today,
+        Reservation.status == ReservationStatus.CONFIRMED
+    ).all()
+    
+    total_reservations_today = len(today_reservations)
+    total_guests_today = sum(r.party_size for r in today_reservations)
+    
+    # Get this week's reservations (Monday to Sunday)
+    start_of_week = today - timedelta(days=today.weekday())
+    end_of_week = start_of_week + timedelta(days=6)
+    
+    week_reservations = db.query(Reservation).filter(
+        Reservation.date >= start_of_week,
+        Reservation.date <= end_of_week,
+        Reservation.status == ReservationStatus.CONFIRMED
+    ).all()
+    
+    total_reservations_week = len(week_reservations)
+    total_guests_week = sum(r.party_size for r in week_reservations)
+    
+    # Create weekly forecast for the next 7 days
+    weekly_forecast = []
+    for i in range(7):
+        forecast_date = today + timedelta(days=i)
+        day_reservations = [r for r in week_reservations if r.date == forecast_date]
+        
+        weekly_forecast.append({
+            "date": forecast_date.isoformat(),
+            "day_name": forecast_date.strftime("%A"),
+            "reservations_count": len(day_reservations),
+            "guests_count": sum(r.party_size for r in day_reservations),
+            "reservations": [
+                {
+                    "time": r.time,
+                    "party_size": r.party_size,
+                    "customer_name": r.customer_name
+                } for r in day_reservations
+            ]
+        })
+    
     return {
-        "total_reservations_today": 0,
-        "total_guests_today": 0,
-        "total_reservations_week": 0,
-        "total_guests_week": 0,
-        "weekly_forecast": [],
+        "total_reservations_today": total_reservations_today,
+        "total_guests_today": total_guests_today,
+        "total_reservations_week": total_reservations_week,
+        "total_guests_week": total_guests_week,
+        "weekly_forecast": weekly_forecast,
         "guest_notes": []
     }
 
@@ -424,12 +471,23 @@ async def get_admin_tables_temp(db: Session = Depends(get_db)):
     return result
 
 @app.get("/admin/reservations")
-async def get_admin_reservations_temp(db: Session = Depends(get_db)):
-    """Get all reservations for admin - no auth required for now"""
+async def get_admin_reservations_temp(db: Session = Depends(get_db), date: str = None):
+    """Get reservations for admin - defaults to today's date"""
     from app.models.reservation import Reservation
     from app.models.room import Room
+    from datetime import date as date_type
     
-    reservations = db.query(Reservation).all()
+    # If no date specified, use today
+    if not date:
+        target_date = date_type.today()
+    else:
+        try:
+            target_date = datetime.strptime(date, "%Y-%m-%d").date()
+        except:
+            target_date = date_type.today()
+    
+    # Get reservations for the specified date
+    reservations = db.query(Reservation).filter(Reservation.date == target_date).order_by(Reservation.time).all()
     result = []
     
     for reservation in reservations:
@@ -472,18 +530,18 @@ async def create_reservation_temp(reservation_data: dict, db: Session = Depends(
         
         # Create new reservation
         new_reservation = Reservation(
-            id=str(uuid.uuid4()),
-            customer_name=reservation_data.get("customer_name", "Unknown Customer"),
-            email=reservation_data.get("email"),
-            phone=reservation_data.get("phone"),
-            date=reservation_date,
-            time=reservation_data.get("time", "19:00"),
-            party_size=reservation_data.get("party_size", 2),
-            duration_hours=reservation_data.get("duration_hours", 2),
-            status="confirmed",
-            notes=reservation_data.get("notes"),
-            room_id=reservation_data.get("room_id")
-        )
+             id=str(uuid.uuid4()),
+             customer_name=reservation_data.get("customer_name", "Unknown Customer"),
+             email=reservation_data.get("email"),
+             phone=reservation_data.get("phone"),
+             date=reservation_date,
+             time=reservation_data.get("time", "19:00"),
+             party_size=reservation_data.get("party_size", 2),
+             duration_hours=reservation_data.get("duration_hours", 2),
+             status=ReservationStatus.CONFIRMED,
+             notes=reservation_data.get("notes"),
+             room_id=reservation_data.get("room_id")
+         )
         
         db.add(new_reservation)
         db.commit()
