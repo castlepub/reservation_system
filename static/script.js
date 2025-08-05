@@ -3413,48 +3413,70 @@ function makeTableDraggable(tableElement) {
             startTop = parseInt(tableElement.style.top) || 0;
             
             tableElement.style.zIndex = '1000';
+            tableElement.classList.add('dragging');
             console.log('Started dragging, initial position:', { startLeft, startTop });
+            
+            // Add document-level event listeners for dragging
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', handleMouseUp);
+            
+            e.preventDefault();
         }
     });
     
-    tableElement.addEventListener('mousemove', function(e) {
+    function handleMouseMove(e) {
         if (isDragging) {
             const deltaX = e.clientX - startX;
             const deltaY = e.clientY - startY;
             
-            const newLeft = startLeft + deltaX;
-            const newTop = startTop + deltaY;
+            let newLeft = startLeft + deltaX;
+            let newTop = startTop + deltaY;
+            
+            // Boundary checking - prevent tables from going outside canvas
+            const canvas = document.getElementById('layoutCanvas');
+            const canvasRect = canvas.getBoundingClientRect();
+            const tableWidth = parseInt(tableElement.style.width) || 100;
+            const tableHeight = parseInt(tableElement.style.height) || 80;
+            
+            // Keep table within canvas bounds
+            newLeft = Math.max(0, Math.min(newLeft, canvasRect.width - tableWidth));
+            newTop = Math.max(0, Math.min(newTop, canvasRect.height - tableHeight));
             
             tableElement.style.left = `${newLeft}px`;
             tableElement.style.top = `${newTop}px`;
             
             console.log('Dragging, new position:', { newLeft, newTop });
         }
-    });
+    }
     
-                 tableElement.addEventListener('mouseup', function(e) {
-                 if (isDragging) {
-                     console.log('Mouse up, stopping drag');
-                     isDragging = false;
-                     tableElement.style.zIndex = '1';
-                     
-                     // Update position in database
-                     const tableId = tableElement.getAttribute('data-table-id');
-                     const newLeft = parseInt(tableElement.style.left);
-                     const newTop = parseInt(tableElement.style.top);
-                     
-                     console.log('Updating table position in DB:', { tableId, newLeft, newTop });
-                     updateTablePosition(tableId, newLeft, newTop);
-                     
-                     // Prevent the canvas click handler from clearing selection
-                     e.stopPropagation();
-                     
-                     // Ensure the table stays selected and properties panel is visible
-                     setTimeout(() => {
-                         selectTable(tableElement);
-                     }, 10);
-                 }
-             });
+    function handleMouseUp(e) {
+        if (isDragging) {
+            console.log('Mouse up, stopping drag');
+            isDragging = false;
+            tableElement.style.zIndex = '1';
+            tableElement.classList.remove('dragging');
+            
+            // Remove document-level event listeners
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+            
+            // Update position in database
+            const tableId = tableElement.getAttribute('data-table-id');
+            const newLeft = parseInt(tableElement.style.left);
+            const newTop = parseInt(tableElement.style.top);
+            
+            console.log('Updating table position in DB:', { tableId, newLeft, newTop });
+            updateTablePosition(tableId, newLeft, newTop);
+            
+            // Prevent the canvas click handler from clearing selection
+            e.stopPropagation();
+            
+            // Ensure the table stays selected and properties panel is visible
+            setTimeout(() => {
+                selectTable(tableElement);
+            }, 10);
+        }
+    }
     
     tableElement.addEventListener('click', function(e) {
         console.log('Table clicked:', tableElement);
@@ -3517,11 +3539,20 @@ function addTableToLayout(shape) {
     
     console.log('Canvas rect:', rect);
     
-    // Default position (center of canvas)
-    const x = Math.round((rect.width / 2 - 50) / 20) * 20;
-    const y = Math.round((rect.height / 2 - 40) / 20) * 20;
+    // Calculate position to avoid stacking - place tables in a grid pattern
+    const tableWidth = shape === 'bar_stool' ? 40 : 100;
+    const tableHeight = shape === 'bar_stool' ? 40 : 80;
+    const spacing = 20;
+    const tablesPerRow = Math.floor((rect.width - 50) / (tableWidth + spacing));
     
-    console.log('Calculated position:', { x, y });
+    const existingTables = currentLayoutData.tables.length;
+    const row = Math.floor(existingTables / tablesPerRow);
+    const col = existingTables % tablesPerRow;
+    
+    const x = 25 + col * (tableWidth + spacing);
+    const y = 25 + row * (tableHeight + spacing);
+    
+    console.log('Calculated position:', { x, y, row, col, existingTables });
     
     // Create new table data
     const newTable = {

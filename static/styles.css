@@ -2043,7 +2043,7 @@ main {
 }
 
 .layout-table:hover {
-    transform: scale(1.05);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
     z-index: 10;
 }
 
@@ -2109,8 +2109,10 @@ main {
 
 /* Draggable Tables */
 .layout-table.dragging {
-    opacity: 0.7;
+    opacity: 0.8;
     z-index: 1000;
+    cursor: grabbing;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.3);
 }
 
 /* Room Features */
@@ -2519,7 +2521,6 @@ main {
 }
 
 .table-element:hover {
-    transform: scale(1.05);
     box-shadow: 0 4px 8px rgba(0,0,0,0.2);
 }
 
