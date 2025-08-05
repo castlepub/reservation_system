@@ -10,6 +10,7 @@ from app.core.database import get_db
 
 # Import routers
 from app.api.admin import router as admin_router
+from app.api.auth import router as auth_router
 
 # Create FastAPI app
 app = FastAPI(title="The Castle Pub Reservation System")
@@ -24,6 +25,7 @@ app.add_middleware(
 )
 
 # Include routers
+app.include_router(auth_router, prefix="/auth")
 app.include_router(admin_router, prefix="/admin")
 
 # Mount static files
@@ -76,6 +78,38 @@ async def get_rooms_public(db: Session = Depends(get_db)):
         for room in rooms
     ]
 
+@app.get("/api/tables")
+async def get_tables_public(db: Session = Depends(get_db)):
+    """Get all active tables for public use"""
+    from app.models.table import Table
+    from app.models.room import Room
+    tables = db.query(Table).filter(Table.active == True).all()
+    return [
+        {
+            "id": table.id,
+            "name": table.name,
+            "room_id": table.room_id,
+            "capacity": table.capacity,
+            "combinable": table.combinable
+        }
+        for table in tables
+    ]
+
+@app.get("/api/rooms/{room_id}/tables")
+async def get_room_tables_public(room_id: str, db: Session = Depends(get_db)):
+    """Get all tables for a specific room"""
+    from app.models.table import Table
+    tables = db.query(Table).filter(Table.room_id == room_id, Table.active == True).all()
+    return [
+        {
+            "id": table.id,
+            "name": table.name,
+            "capacity": table.capacity,
+            "combinable": table.combinable
+        }
+        for table in tables
+    ]
+
 # Dashboard endpoints (temporary)
 @app.get("/api/dashboard/stats")
 async def get_dashboard_stats_temp():
@@ -121,28 +155,7 @@ async def get_dashboard_today_temp():
     """Temporary today's reservations"""
     return []
 
-@app.post("/api/auth/login")
-async def login_temp():
-    """Temporary login endpoint - accepts any credentials"""
-    return {
-        "access_token": "temporary_token_12345",
-        "token_type": "bearer",
-        "user": {
-            "id": "temp_user",
-            "username": "admin",
-            "role": "admin"
-        }
-    }
-
-@app.get("/api/auth/me")
-async def get_auth_me_temp():
-    """Temporary auth check - return user if token exists"""
-    return {
-        "id": "temp_user",
-        "username": "admin", 
-        "role": "admin",
-        "email": "admin@castlepub.com"
-    }
+# Auth endpoints are now handled by the auth router
 
 # Settings endpoints (temporary - no auth required)
 @app.get("/api/settings/restaurant")
@@ -228,120 +241,9 @@ async def get_special_days_temp():
     """Temporary special days - no auth required"""
     return []
 
-# Admin endpoints with proper authentication bypass for now
-@app.get("/admin/reservations")
-async def get_admin_reservations_temp():
-    """Temporary admin reservations with sample data"""
-    return [
-        {
-            "id": "res_1",
-            "customer_name": "John Smith",
-            "email": "john@example.com",
-            "phone": "+1 234 567 8900",
-            "date": "2025-01-30",
-            "time": "19:00",
-            "party_size": 4,
-            "room_id": "room_1",
-            "room_name": "Front Room",
-            "status": "confirmed",
-            "reservation_type": "dinner",
-            "notes": "Window seat preferred",
-            "created_at": "2025-01-29T15:30:00",
-            "updated_at": "2025-01-29T15:30:00"
-        },
-        {
-            "id": "res_2",
-            "customer_name": "Jane Doe",
-            "email": "jane@example.com",
-            "phone": "+1 234 567 8901",
-            "date": "2025-01-30",
-            "time": "20:00",
-            "party_size": 6,
-            "room_id": "room_2",
-            "room_name": "Back Room",
-            "status": "confirmed",
-            "reservation_type": "dinner",
-            "notes": "Birthday celebration",
-            "created_at": "2025-01-29T16:00:00",
-            "updated_at": "2025-01-29T16:00:00"
-        }
-    ]
+# Admin endpoints are handled by the admin router
 
-@app.get("/admin/rooms")
-async def get_admin_rooms_temp():
-    """Temporary admin rooms with sample data"""
-    return [
-        {
-            "id": "room_1",
-            "name": "Front Room",
-            "active": True,
-            "description": "Front dining area with window views"
-        },
-        {
-            "id": "room_2", 
-            "name": "Back Room",
-            "active": True,
-            "description": "Back dining area for larger groups"
-        },
-        {
-            "id": "room_3",
-            "name": "Middle Room",
-            "active": True,
-            "description": "Middle dining area with flexible seating"
-        },
-        {
-            "id": "room_4",
-            "name": "Biergarten",
-            "active": True,
-            "description": "Outdoor beer garden seating"
-        }
-    ]
-
-@app.get("/admin/tables")
-async def get_admin_tables_temp():
-    """Temporary admin tables with sample data"""
-    return [
-        {
-            "id": "table_1",
-            "name": "Table 1",
-            "room_id": "room_1",
-            "room_name": "Front Room",
-            "capacity": 4,
-            "combinable": True,
-            "active": True,
-            "description": "Window table for 4"
-        },
-        {
-            "id": "table_2",
-            "name": "Table 2", 
-            "room_id": "room_1",
-            "room_name": "Front Room",
-            "capacity": 6,
-            "combinable": True,
-            "active": True,
-            "description": "Large table for 6"
-        },
-        {
-            "id": "table_3",
-            "name": "Table 3",
-            "room_id": "room_2",
-            "room_name": "Back Room",
-            "capacity": 8,
-            "combinable": False,
-            "active": True,
-            "description": "Private dining table"
-        },
-        {
-            "id": "table_4",
-            "name": "Table 4",
-            "room_id": "room_3", 
-            "room_name": "Middle Room",
-            "capacity": 2,
-            "combinable": True,
-            "active": True,
-            "description": "Small table for 2"
-        }
-    ]
+# Admin endpoints are now handled by the admin router
 
 @app.post("/api/reservations")
 async def create_reservation_temp():
