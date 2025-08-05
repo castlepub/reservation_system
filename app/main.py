@@ -684,11 +684,11 @@ async def get_layout_editor_temp(room_id: str, target_date: str, db: Session = D
     # Convert tables to layout format with proper positioning
     table_layouts = []
     for i, table in enumerate(tables):
-        # Position tables in a grid pattern
-        row = i // 3
-        col = i % 3
-        x_pos = 100 + (col * 150)
-        y_pos = 100 + (row * 120)
+        # Position tables in a grid pattern with better spacing
+        row = i // 4  # 4 tables per row instead of 3
+        col = i % 4
+        x_pos = 50 + (col * 120)  # Reduced spacing
+        y_pos = 50 + (row * 100)  # Reduced spacing
         
         table_layouts.append({
              "layout_id": table.id,

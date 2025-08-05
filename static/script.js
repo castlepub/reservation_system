@@ -3091,8 +3091,14 @@ function renderLayoutCanvas() {
         canvas.appendChild(tableElement);
     });
     
-    // Add click handler for canvas
-    canvas.addEventListener('click', handleCanvasClick);
+    // Add click handler for canvas only once
+    // Remove any existing listeners first
+    const newCanvas = canvas.cloneNode(true);
+    canvas.parentNode.replaceChild(newCanvas, canvas);
+    newCanvas.id = 'layoutCanvas';
+    
+    // Add the click handler
+    newCanvas.addEventListener('click', handleCanvasClick);
 }
 
 function createTableElement(tableData) {
@@ -3174,7 +3180,13 @@ function showTableProperties(layoutId) {
     document.getElementById('layoutTableName').value = tableData.table_name;
     document.getElementById('tableCapacity').value = tableData.capacity;
     document.getElementById('tableShape').value = tableData.shape;
-    document.getElementById('tableColor').value = tableData.color;
+    
+    // Handle color select - find the closest match or default to green
+    const colorSelect = document.getElementById('tableColor');
+    const colors = ['#4CAF50', '#2196F3', '#FF9800', '#9C27B0', '#F44336'];
+    const closestColor = colors.find(color => color === tableData.color) || '#4CAF50';
+    colorSelect.value = closestColor;
+    
     document.getElementById('tableShowName').checked = tableData.show_name;
     document.getElementById('tableShowCapacity').checked = tableData.show_capacity;
     
@@ -3289,6 +3301,7 @@ function addTableToLayout(shape) {
     
     // Create new table data
     const newTable = {
+        layout_id: `temp_${Date.now()}`,
         table_id: `temp_${Date.now()}`,
         room_id: currentLayoutRoom,
         x_position: x,
@@ -3296,8 +3309,8 @@ function addTableToLayout(shape) {
         width: shape === 'bar_stool' ? 40 : 100,
         height: shape === 'bar_stool' ? 40 : 80,
         shape: shape,
-        color: '#4A90E2',
-        border_color: '#2E5BBA',
+        color: '#4CAF50',
+        border_color: '#2E7D32',
         text_color: '#FFFFFF',
         show_capacity: true,
         show_name: true,
