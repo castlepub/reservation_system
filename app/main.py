@@ -11,6 +11,10 @@ from app.core.database import get_db
 # Import routers
 from app.api.admin import router as admin_router
 from app.api.auth import router as auth_router
+from app.api.settings import router as settings_router
+from app.api.public import router as public_router
+from app.api.dashboard import router as dashboard_router
+from app.api.layout import router as layout_router
 
 # Create FastAPI app
 app = FastAPI(title="The Castle Pub Reservation System")
@@ -27,6 +31,10 @@ app.add_middleware(
 # Include routers
 app.include_router(auth_router, prefix="/auth")
 app.include_router(admin_router, prefix="/admin")
+app.include_router(settings_router, prefix="/api")
+app.include_router(public_router, prefix="/api")
+app.include_router(dashboard_router, prefix="/api")
+app.include_router(layout_router, prefix="/api")
 
 # Mount static files
 static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
