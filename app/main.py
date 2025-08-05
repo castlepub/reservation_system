@@ -1057,9 +1057,11 @@ async def update_table_position_temp(layout_id: str, position_data: dict, db: Se
 
 @app.post("/api/layout/tables")
 async def create_layout_table_temp(table_data: dict, db: Session = Depends(get_db)):
-    """Create new table in layout editor"""
+    """Create new table in layout editor with layout record"""
     from app.models.table import Table
+    from app.models.table_layout import TableLayout
     from app.models.room import Room
+    import uuid
     
     try:
         # Validate room exists
@@ -1073,20 +1075,49 @@ async def create_layout_table_temp(table_data: dict, db: Session = Depends(get_d
             capacity=table_data.get("capacity", 4),
             room_id=table_data.get("room_id"),
             active=True,
-            combinable=table_data.get("combinable", False)
+            combinable=table_data.get("combinable", True)
         )
         
         db.add(new_table)
+        db.flush()  # Get the ID without committing
+        
+        # Create corresponding table layout
+        new_layout = TableLayout(
+            id=str(uuid.uuid4()),
+            table_id=new_table.id,
+            room_id=table_data.get("room_id"),
+            x_position=float(table_data.get("x_position", 100)),
+            y_position=float(table_data.get("y_position", 100)),
+            width=float(table_data.get("width", 100)),
+            height=float(table_data.get("height", 80)),
+            shape=table_data.get("shape", "rectangular"),
+            color=table_data.get("color", "#4CAF50"),
+            border_color=table_data.get("border_color", "#2E7D32"),
+            text_color=table_data.get("text_color", "#FFFFFF"),
+            show_capacity=table_data.get("show_capacity", True),
+            show_name=table_data.get("show_name", True),
+            font_size=table_data.get("font_size", 12),
+            custom_capacity=table_data.get("custom_capacity"),
+            is_connected=table_data.get("is_connected", False),
+            connected_to=table_data.get("connected_to"),
+            z_index=table_data.get("z_index", 1)
+        )
+        
+        db.add(new_layout)
         db.commit()
         db.refresh(new_table)
+        db.refresh(new_layout)
         
         return {
             "id": new_table.id,
+            "layout_id": new_layout.id,
             "name": new_table.name,
             "capacity": new_table.capacity,
             "room_id": new_table.room_id,
             "active": new_table.active,
-            "combinable": new_table.combinable
+            "combinable": new_table.combinable,
+            "x_position": new_layout.x_position,
+            "y_position": new_layout.y_position
         }
     except Exception as e:
         db.rollback()
