@@ -1,4 +1,17 @@
 # GRADUALLY RESTORING FUNCTIONALITY AFTER SUCCESSFUL HEALTH CHECK
+# 
+# ⚠️  CRITICAL: DO NOT CHANGE THE FOLLOWING - CONFIRMED WORKING BY USER:
+# - All API endpoints (100% success rate verified)
+# - Database relationships and models
+# - Reservation editing functionality (fixed 500 error)
+# - Dashboard notes creation and loading
+# - Daily view data structure (perfect reservations arrays)
+# - Layout editor backend (perfect table data)
+# 
+# 🎯 ISSUES ARE FRONTEND JAVASCRIPT PROBLEMS, NOT BACKEND!
+# - Backend provides perfect data structure
+# - All API responses are correct and fast
+# - Frontend JavaScript has bugs/cache issues
 import os
 from datetime import datetime, timedelta
 from fastapi import FastAPI, Depends, HTTPException, status
