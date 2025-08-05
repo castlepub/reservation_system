@@ -157,6 +157,12 @@ function setupEventListeners() {
     if (addSpecialDayBtn) {
         addSpecialDayBtn.addEventListener('click', addSpecialDay);
     }
+    
+    // Edit room form
+    const editRoomForm = document.getElementById('editRoomForm');
+    if (editRoomForm) {
+        editRoomForm.addEventListener('submit', handleEditRoom);
+    }
 
     // Date and party size changes
     document.getElementById('date').addEventListener('change', function() {
@@ -1258,7 +1264,7 @@ function toggleDayOpen(day, isOpen) {
 async function saveWorkingHours() {
     try {
         const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-        const workingHoursData = {};
+        let successCount = 0;
         
         for (const day of days) {
             const dayElement = document.querySelector(`.working-hours-day:has(#${day}-open)`);
@@ -1266,26 +1272,33 @@ async function saveWorkingHours() {
             const openTimeInput = document.getElementById(`${day}-open`);
             const closeTimeInput = document.getElementById(`${day}-close`);
             
-            workingHoursData[day] = {
+            const workingHoursData = {
                 is_open: isOpenCheckbox?.checked || false,
                 open_time: openTimeInput?.value || '11:00',
                 close_time: closeTimeInput?.value || '23:00'
             };
+
+            // Update each day individually using the correct API endpoint
+            const response = await fetch(`${API_BASE_URL}/api/settings/working-hours/${day}`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${authToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(workingHoursData)
+            });
+
+            if (response.ok) {
+                successCount++;
+            } else {
+                console.error(`Failed to save ${day} working hours`);
+            }
         }
 
-        const response = await fetch(`${API_BASE_URL}/api/settings/working-hours`, {
-            method: 'PUT',
-            headers: {
-                'Authorization': `Bearer ${authToken}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(workingHoursData)
-        });
-
-        if (response.ok) {
+        if (successCount === days.length) {
             showMessage('Working hours saved successfully', 'success');
         } else {
-            throw new Error('Failed to save working hours');
+            showMessage(`Saved ${successCount} out of ${days.length} days`, 'warning');
         }
     } catch (error) {
         console.error('Error saving working hours:', error);
@@ -1568,6 +1581,98 @@ function updateRoomsSettingsDisplay(rooms) {
         `;
         container.appendChild(roomElement);
     });
+}
+
+async function editRoom(roomId) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/settings/rooms/${roomId}`, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+
+        if (response.ok) {
+            const room = await response.json();
+            
+            // Populate the edit form
+            document.getElementById('editRoomId').value = room.id;
+            document.getElementById('editRoomName').value = room.name;
+            document.getElementById('editRoomDescription').value = room.description || '';
+            document.getElementById('editRoomActive').checked = room.active;
+            
+            // Show the modal
+            document.getElementById('editRoomModal').classList.remove('hidden');
+        } else {
+            throw new Error('Failed to load room details');
+        }
+    } catch (error) {
+        console.error('Error loading room details:', error);
+        showMessage('Error loading room details', 'error');
+    }
+}
+
+function hideEditRoomModal() {
+    document.getElementById('editRoomModal').classList.add('hidden');
+}
+
+async function handleEditRoom(event) {
+    event.preventDefault();
+    
+    const formData = new FormData(event.target);
+    const roomId = formData.get('roomId');
+    
+    const roomData = {
+        name: formData.get('name'),
+        description: formData.get('description'),
+        active: formData.get('active') === 'on'
+    };
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/settings/rooms/${roomId}`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(roomData)
+        });
+
+        if (response.ok) {
+            showMessage('Room updated successfully', 'success');
+            hideEditRoomModal();
+            loadRoomsForSettings(); // Refresh the rooms list
+        } else {
+            throw new Error('Failed to update room');
+        }
+    } catch (error) {
+        console.error('Error updating room:', error);
+        showMessage('Error updating room', 'error');
+    }
+}
+
+async function deleteRoom(roomId, roomName) {
+    if (!confirm(`Are you sure you want to delete the room "${roomName}"?`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/settings/rooms/${roomId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+
+        if (response.ok) {
+            showMessage('Room deleted successfully', 'success');
+            loadRoomsForSettings(); // Refresh the rooms list
+        } else {
+            throw new Error('Failed to delete room');
+        }
+    } catch (error) {
+        console.error('Error deleting room:', error);
+        showMessage('Error deleting room', 'error');
+    }
 }
 
 // Table Management Functions
@@ -1997,6 +2102,8 @@ async function handleAddReservation(event) {
             showMessage('Reservation created successfully', 'success');
             hideAddReservationForm();
             loadAllReservations(); // Reload reservations list
+            loadDashboardStats(); // Refresh dashboard stats
+            loadTodayReservations(); // Refresh today's reservations
         } else {
             const error = await response.json();
             console.error('Reservation creation failed:', error);

@@ -317,6 +317,22 @@ def get_rooms_settings(
     return rooms
 
 
+@router.get("/rooms/{room_id}", response_model=RoomResponse)
+def get_room_settings(
+    room_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get a specific room for settings management"""
+    room = db.query(Room).filter(Room.id == room_id).first()
+    if not room:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Room not found"
+        )
+    return room
+
+
 @router.post("/rooms", response_model=RoomResponse)
 def create_room_settings(
     room_data: RoomCreate,
