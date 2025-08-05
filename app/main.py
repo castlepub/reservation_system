@@ -208,9 +208,30 @@ async def get_dashboard_customers_temp():
     return []
 
 @app.get("/api/dashboard/today")
-async def get_dashboard_today_temp():
-    """Temporary today's reservations"""
-    return []
+async def get_dashboard_today_temp(db: Session = Depends(get_db)):
+    """Get today's confirmed reservations"""
+    from app.models.reservation import Reservation, ReservationStatus
+    from datetime import date
+    
+    today = date.today()
+    reservations = db.query(Reservation).filter(
+        Reservation.date == today,
+        Reservation.status == ReservationStatus.CONFIRMED
+    ).order_by(Reservation.time).all()
+    
+    return [
+        {
+            "id": r.id,
+            "customer_name": r.customer_name,
+            "time": r.time,
+            "party_size": r.party_size,
+            "table_names": [],  # Will be populated when table assignment is implemented
+            "reservation_type": r.reservation_type.value if r.reservation_type else "dining",
+            "status": r.status,
+            "notes": r.notes,
+            "admin_notes": r.admin_notes
+        } for r in reservations
+    ]
 
 # Auth endpoints are now handled by the auth router
 
@@ -593,24 +614,25 @@ async def get_layout_editor_temp(room_id: str, target_date: str, db: Session = D
         y_pos = 100 + (row * 120)
         
         table_layouts.append({
-            "layout_id": table.id,
-            "table_id": table.id,
-            "table_name": table.name,
-            "capacity": table.capacity,
-            "x_position": x_pos,
-            "y_position": y_pos,
-            "width": 80,
-            "height": 80,
-            "shape": "rectangle",
-            "color": "#4CAF50",
-            "border_color": "#2E7D32",
-            "text_color": "#FFFFFF",
-            "font_size": 12,
-            "z_index": 1,
-            "show_name": True,
-            "show_capacity": True,
-            "status": "available"
-        })
+             "layout_id": table.id,
+             "table_id": table.id,
+             "table_name": table.name,
+             "capacity": table.capacity,
+             "x_position": x_pos,
+             "y_position": y_pos,
+             "width": 80,
+             "height": 80,
+             "shape": "rectangle",
+             "color": "#4CAF50",
+             "border_color": "#2E7D32",
+             "text_color": "#FFFFFF",
+             "font_size": 12,
+             "z_index": 1,
+             "show_name": True,
+             "show_capacity": True,
+             "status": "available",
+             "combinable": table.combinable
+         })
     
     # Create room layout data
     room_layout = {
@@ -699,6 +721,60 @@ async def update_admin_table_temp(table_id: str, table_data: dict, db: Session =
         "active": table.active,
         "created_at": table.created_at.isoformat() if table.created_at else None,
         "updated_at": table.updated_at.isoformat() if table.updated_at else None
+    }
+
+# Layout API endpoints for table positioning and management
+@app.put("/api/layout/tables/{layout_id}")
+async def update_table_position_temp(layout_id: str, position_data: dict, db: Session = Depends(get_db)):
+    """Update table position in layout - no auth required for now"""
+    # For now, just return success since we're not storing layout positions in the database yet
+    return {
+        "message": "Table position updated successfully",
+        "layout_id": layout_id,
+        "x_position": position_data.get("x_position"),
+        "y_position": position_data.get("y_position")
+    }
+
+@app.post("/api/layout/tables")
+async def create_layout_table_temp(table_data: dict, db: Session = Depends(get_db)):
+    """Create a new table in layout - no auth required for now"""
+    from app.models.table import Table
+    import uuid
+    
+    # Create new table in database
+    new_table = Table(
+        id=str(uuid.uuid4()),
+        name=table_data.get("table_name", "New Table"),
+        room_id=table_data.get("room_id"),
+        capacity=table_data.get("capacity", 4),
+        combinable=table_data.get("combinable", False),
+        active=True
+    )
+    
+    db.add(new_table)
+    db.commit()
+    db.refresh(new_table)
+    
+    # Return layout table data
+    return {
+        "layout_id": new_table.id,
+        "table_id": new_table.id,
+        "table_name": new_table.name,
+        "capacity": new_table.capacity,
+        "x_position": table_data.get("x_position", 100),
+        "y_position": table_data.get("y_position", 100),
+        "width": 80,
+        "height": 80,
+        "shape": table_data.get("shape", "rectangle"),
+        "color": table_data.get("color", "#4CAF50"),
+        "border_color": table_data.get("border_color", "#2E7D32"),
+        "text_color": "#FFFFFF",
+        "font_size": 12,
+        "z_index": 1,
+        "show_name": True,
+        "show_capacity": True,
+        "status": "available",
+        "combinable": new_table.combinable
     }
 
 # All complex endpoints with database dependencies are temporarily disabled
