@@ -912,6 +912,161 @@ async def get_layout_editor_temp(room_id: str, target_date: str = None, db: Sess
         "target_date": target_date_obj.isoformat()
     }
 
+@app.get("/admin/reservations/{reservation_id}/available-tables")
+async def get_reservation_available_tables(reservation_id: str, db: Session = Depends(get_db)):
+    """Get available tables for a reservation with capacity analysis"""
+    from app.models.reservation import Reservation, ReservationTable
+    from app.models.table import Table
+    from app.models.room import Room
+    from app.services.table_service import TableService
+    
+    # Get the reservation
+    reservation = db.query(Reservation).filter(Reservation.id == reservation_id).first()
+    if not reservation:
+        raise HTTPException(status_code=404, detail="Reservation not found")
+    
+    # Get current table assignments
+    current_assignments = db.query(ReservationTable).filter(
+        ReservationTable.reservation_id == reservation_id
+    ).all()
+    
+    current_tables = []
+    current_total_capacity = 0
+    for assignment in current_assignments:
+        table = db.query(Table).filter(Table.id == assignment.table_id).first()
+        if table:
+            room = db.query(Room).filter(Room.id == table.room_id).first()
+            current_tables.append({
+                "id": table.id,
+                "name": table.name,
+                "table_name": table.name,
+                "capacity": table.capacity,
+                "room_name": room.name if room else "Unknown Room"
+            })
+            current_total_capacity += table.capacity
+    
+    # Get available tables for this reservation's date/time
+    table_service = TableService(db)
+    duration_hours = getattr(reservation, 'duration_hours', 2)
+    
+    # Get available tables from all rooms
+    available_tables_data = []
+    rooms = db.query(Room).filter(Room.active == True).all()
+    
+    for room in rooms:
+        try:
+            available_tables = table_service.get_available_tables(
+                room_id=room.id,
+                date=reservation.date,
+                time=reservation.time,
+                duration_hours=duration_hours,
+                exclude_reservation_id=reservation_id  # Exclude current reservation
+            )
+            
+            for table in available_tables:
+                available_tables_data.append({
+                    "id": table.id,
+                    "name": table.name,
+                    "table_name": table.name,
+                    "capacity": table.capacity,
+                    "room_name": room.name,
+                    "room_id": room.id
+                })
+        except Exception as e:
+            print(f"Error getting available tables for room {room.id}: {e}")
+            continue
+    
+    # Add currently assigned tables to available list (they should be selectable)
+    for current_table in current_tables:
+        if not any(t["id"] == current_table["id"] for t in available_tables_data):
+            available_tables_data.append(current_table)
+    
+    # Calculate capacity analysis
+    party_size = reservation.party_size
+    seats_shortage = max(0, party_size - current_total_capacity)
+    seats_excess = max(0, current_total_capacity - party_size)
+    
+    if current_total_capacity == party_size:
+        capacity_status = "perfect"
+    elif current_total_capacity < party_size:
+        capacity_status = "shortage"
+    else:
+        capacity_status = "excess"
+    
+    return {
+        "reservation_id": reservation_id,
+        "party_size": party_size,
+        "available_tables": available_tables_data,
+        "current_tables": current_tables,
+        "current_total_capacity": current_total_capacity,
+        "seats_shortage": seats_shortage,
+        "seats_excess": seats_excess,
+        "capacity_status": capacity_status
+    }
+
+@app.put("/admin/reservations/{reservation_id}/tables")
+async def update_reservation_tables(reservation_id: str, table_data: dict, db: Session = Depends(get_db)):
+    """Update table assignments for a reservation"""
+    from app.models.reservation import Reservation, ReservationTable
+    from app.models.table import Table
+    
+    # Get the reservation
+    reservation = db.query(Reservation).filter(Reservation.id == reservation_id).first()
+    if not reservation:
+        raise HTTPException(status_code=404, detail="Reservation not found")
+    
+    table_ids = table_data.get("table_ids", [])
+    
+    try:
+        # Clear existing table assignments
+        db.query(ReservationTable).filter(
+            ReservationTable.reservation_id == reservation_id
+        ).delete()
+        
+        # Add new table assignments
+        for table_id in table_ids:
+            # Verify table exists
+            table = db.query(Table).filter(Table.id == table_id).first()
+            if not table:
+                db.rollback()
+                raise HTTPException(status_code=400, detail=f"Table {table_id} not found")
+            
+            # Create new assignment
+            assignment = ReservationTable(
+                reservation_id=reservation_id,
+                table_id=table_id
+            )
+            db.add(assignment)
+        
+        db.commit()
+        
+        # Return updated table info
+        current_tables = []
+        total_capacity = 0
+        for table_id in table_ids:
+            table = db.query(Table).filter(Table.id == table_id).first()
+            if table:
+                current_tables.append({
+                    "id": table.id,
+                    "name": table.name,
+                    "capacity": table.capacity
+                })
+                total_capacity += table.capacity
+        
+        return {
+            "message": "Table assignments updated successfully",
+            "reservation_id": reservation_id,
+            "assigned_tables": current_tables,
+            "total_capacity": total_capacity,
+            "party_size": reservation.party_size
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to update table assignments: {str(e)}")
+
 @app.get("/admin/tables/{table_id}")
 async def get_admin_table_temp(table_id: str, db: Session = Depends(get_db)):
     """Get specific table for admin - no auth required for now"""
