@@ -18,7 +18,8 @@ class TableService:
         date: date, 
         time: time,
         party_size: int,
-        duration_hours: int = 2
+        duration_hours: int = 2,
+        exclude_reservation_id: str = None
     ) -> List[Table]:
         """Get all available tables for a given room, date, and time slot"""
         print(f"DEBUG: Getting available tables for room {room_id} with proper conflict checking")
@@ -33,7 +34,7 @@ class TableService:
         ).all()
         
         # Get reserved table IDs for this time slot (with duration overlap checking)
-        reserved_table_ids = self.get_reserved_table_ids_with_duration(date, time, duration_hours)
+        reserved_table_ids = self.get_reserved_table_ids_with_duration(date, time, duration_hours, exclude_reservation_id)
         
         # Filter out reserved tables
         available_tables = [table for table in all_tables if str(table.id) not in reserved_table_ids]
@@ -46,7 +47,8 @@ class TableService:
         date: date, 
         time: time,
         party_size: int,
-        duration_hours: int = 2
+        duration_hours: int = 2,
+        exclude_reservation_id: str = None
     ) -> List[Table]:
         """Get all available tables across all active rooms for a given date and time slot"""
         print(f"DEBUG: Getting available tables from all rooms with proper conflict checking")
@@ -62,7 +64,7 @@ class TableService:
         ).all()
         
         # Get reserved table IDs for this time slot (with duration overlap checking)
-        reserved_table_ids = self.get_reserved_table_ids_with_duration(date, time, duration_hours)
+        reserved_table_ids = self.get_reserved_table_ids_with_duration(date, time, duration_hours, exclude_reservation_id)
         
         # Filter out reserved tables
         available_tables = [table for table in all_tables if str(table.id) not in reserved_table_ids]

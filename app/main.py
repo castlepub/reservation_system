@@ -975,6 +975,7 @@ async def get_reservation_available_tables(reservation_id: str, db: Session = De
                 room_id=room.id,
                 date=reservation.date,
                 time=reservation.time,
+                party_size=reservation.party_size,
                 duration_hours=duration_hours,
                 exclude_reservation_id=reservation_id  # Exclude current reservation
             )
