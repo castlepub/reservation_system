@@ -78,9 +78,33 @@ async def login_temp():
         }
     }
 
+@app.post("/api/auth/login")
+async def login_api_temp():
+    """Temporary login endpoint for /api/auth/login - no auth required"""
+    return {
+        "access_token": "temporary_token_12345",
+        "token_type": "bearer",
+        "user": {
+            "id": "temp_user",
+            "username": "admin",
+            "role": "admin",
+            "created_at": datetime.utcnow().isoformat()
+        }
+    }
+
 @app.get("/auth/me")
 async def get_auth_me_temp():
     """Temporary auth me endpoint - no auth required"""
+    return {
+        "id": "temp_user",
+        "username": "admin",
+        "role": "admin",
+        "created_at": datetime.utcnow().isoformat()
+    }
+
+@app.get("/api/auth/me")
+async def get_auth_me_api_temp():
+    """Temporary auth me endpoint for /api/auth/me - no auth required"""
     return {
         "id": "temp_user",
         "username": "admin",
