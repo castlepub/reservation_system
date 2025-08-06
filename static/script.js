@@ -3292,6 +3292,7 @@ function createTableElement(table) {
     tableElement.setAttribute('data-layout-id', table.layout_id || table.table_id);
     tableElement.setAttribute('data-table-id', table.table_id);
     tableElement.setAttribute('data-table-name', table.table_name);
+    tableElement.setAttribute('title', `${table.table_name} (${table.shape}) - ${table.capacity} seats`);
     
     // Set position
     tableElement.style.left = `${table.x_position}px`;
@@ -3300,10 +3301,21 @@ function createTableElement(table) {
     tableElement.style.height = `${table.height}px`;
     
     // Set shape
-    if (table.shape === 'circle') {
+    if (table.shape === 'round') {
         tableElement.style.borderRadius = '50%';
+        tableElement.classList.add('round');
+    } else if (table.shape === 'square') {
+        tableElement.style.borderRadius = '0';
+        tableElement.classList.add('square');
+    } else if (table.shape === 'rectangular') {
+        tableElement.style.borderRadius = '0';
+        tableElement.classList.add('rectangular');
+    } else if (table.shape === 'bar_stool') {
+        tableElement.style.borderRadius = '50%';
+        tableElement.classList.add('bar_stool');
     } else {
         tableElement.style.borderRadius = '0';
+        tableElement.classList.add('rectangular'); // Default to rectangular
     }
     
     // Set colors
@@ -3311,8 +3323,19 @@ function createTableElement(table) {
     tableElement.style.borderColor = table.border_color || '#2E7D32';
     tableElement.style.color = table.text_color || '#FFFFFF';
     
-    // Set text
-    tableElement.textContent = table.table_name;
+    // Set text content based on shape and settings
+    let textContent = '';
+    if (table.show_name) {
+        textContent += table.table_name;
+    }
+    if (table.show_capacity && table.show_name) {
+        textContent += '\n';
+    }
+    if (table.show_capacity) {
+        textContent += `${table.capacity}`;
+    }
+    
+    tableElement.textContent = textContent;
     tableElement.style.fontSize = `${table.font_size || 12}px`;
     tableElement.style.zIndex = table.z_index || 1;
     tableElement.style.cursor = 'pointer';

@@ -2056,20 +2056,24 @@ main {
 
 .layout-table.square {
     border-radius: 0;
+    /* Square tables have equal width and height */
 }
 
 .layout-table.round {
     border-radius: 50%;
+    /* Round tables are circular */
 }
 
 .layout-table.rectangular {
     border-radius: 4px;
+    /* Rectangular tables have rounded corners */
 }
 
 .layout-table.bar_stool {
     border-radius: 50%;
     width: 40px !important;
     height: 40px !important;
+    /* Bar stools are small and circular */
 }
 
 .layout-table.available {
