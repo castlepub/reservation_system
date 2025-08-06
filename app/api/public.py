@@ -138,13 +138,15 @@ def get_smart_availability(
         # Parse area type if provided
         area_type = None
         if preferred_area_type:
-            try:
-                area_type = AreaType(preferred_area_type.lower())
-            except ValueError:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Invalid area type: {preferred_area_type}. Must be one of: indoor, outdoor, shared"
-                )
+            # Temporarily disabled area type validation
+            pass
+            # try:
+            #     area_type = AreaType(preferred_area_type.lower())
+            # except ValueError:
+            #     raise HTTPException(
+            #         status_code=status.HTTP_400_BAD_REQUEST,
+            #         detail=f"Invalid area type: {preferred_area_type}. Must be one of: indoor, outdoor, shared"
+            #     )
         
         reservation_service = ReservationService(db)
         availability = reservation_service.get_smart_availability(

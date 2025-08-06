@@ -301,41 +301,32 @@ class ReservationService:
     def _find_optimal_room_for_reservation(self, reservation_data: ReservationCreate) -> Optional[str]:
         """Find the optimal room for a reservation based on reservation type and party size"""
         
-        # Determine preferred area type based on reservation type
-        preferred_area_type = self._determine_preferred_area_type(reservation_data.reservation_type)
+        # Simple fallback: if room_id specified, use it; otherwise find any active room
+        if reservation_data.room_id:
+            return reservation_data.room_id
         
-        # Get optimal area using area service
-        optimal_area = self.area_service.get_optimal_area_for_reservation(
-            party_size=reservation_data.party_size,
-            preferred_area_type=preferred_area_type
-        )
+        # Find any active room with sufficient capacity
+        rooms = self.db.query(Room).filter(Room.active == True).all()
         
-        if optimal_area:
-            return optimal_area.id
+        for room in rooms:
+            # Check if this room has tables with sufficient capacity
+            total_capacity = self.table_service._get_room_capacity(room.id)
+            if total_capacity >= reservation_data.party_size:
+                return room.id
         
-        # If no optimal area found, try fallback logic
-        return self._find_fallback_room(reservation_data.party_size, preferred_area_type)
+        # Return first active room as fallback
+        if rooms:
+            return rooms[0].id
+            
+        return None
 
-    def _determine_preferred_area_type(self, reservation_type: str) -> Optional[AreaType]:
+    def _determine_preferred_area_type(self, reservation_type: str) -> Optional[str]:
         """Determine preferred area type based on reservation type"""
         
-        # Default preferences based on reservation type
-        type_preferences = {
-            "dinner": AreaType.INDOOR,  # Dinner typically prefers indoor
-            "lunch": AreaType.INDOOR,   # Lunch typically prefers indoor
-            "breakfast": AreaType.INDOOR, # Breakfast typically prefers indoor
-            "drinks": AreaType.OUTDOOR, # Drinks often prefer outdoor
-            "party": AreaType.SHARED,   # Parties prefer shared areas
-            "private": AreaType.INDOOR, # Private events prefer indoor
-            "celebration": AreaType.SHARED, # Celebrations prefer shared areas
-            "team_event": AreaType.SHARED, # Team events prefer shared areas
-            "fun": AreaType.OUTDOOR,    # Fun nights often prefer outdoor
-            "special_event": AreaType.SHARED, # Special events prefer shared areas
-        }
-        
-        return type_preferences.get(reservation_type, AreaType.INDOOR)
+        # Simplified without AreaType enum - just return None for now
+        return None
 
-    def _find_fallback_room(self, party_size: int, preferred_area_type: AreaType) -> Optional[str]:
+    def _find_fallback_room(self, party_size: int, preferred_area_type: Optional[str]) -> Optional[str]:
         """Find a fallback room when optimal room is not available"""
         
         # Get all active rooms ordered by priority
@@ -399,7 +390,7 @@ class ReservationService:
         self, 
         date: date, 
         party_size: int, 
-        preferred_area_type: Optional[AreaType] = None,
+        preferred_area_type: Optional[str] = None,
         reservation_type: str = "dinner"
     ) -> Dict[str, Any]:
         """Get smart availability with area recommendations"""
