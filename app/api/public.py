@@ -165,23 +165,24 @@ def get_smart_availability(
         )
 
 
-@router.get("/areas/recommendations")
-def get_area_recommendations(
-    party_size: int,
-    reservation_type: str = "dinner",
-    db: Session = Depends(get_db)
-):
-    """Get area recommendations based on party size and reservation type"""
-    try:
-        from app.services.area_service import AreaService
-        area_service = AreaService(db)
-        recommendations = area_service.get_area_recommendations(party_size, reservation_type)
-        return recommendations
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error getting area recommendations: {str(e)}"
-        )
+# Temporarily disabled area recommendations endpoint
+# @router.get("/areas/recommendations")
+# def get_area_recommendations(
+#     party_size: int,
+#     reservation_type: str = "dinner",
+#     db: Session = Depends(get_db)
+# ):
+#     """Get area recommendations based on party size and reservation type"""
+#     try:
+#         from app.services.area_service import AreaService
+#         area_service = AreaService(db)
+#         recommendations = area_service.get_area_recommendations(party_size, reservation_type)
+#         return recommendations
+#     except Exception as e:
+#         raise HTTPException(
+#             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+#             detail=f"Error getting area recommendations: {str(e)}"
+#         )
 
 
 @router.get("/rooms", response_model=List[RoomResponse])

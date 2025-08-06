@@ -5,13 +5,48 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
-# Import routers
-from app.api.admin import router as admin_router
-from app.api.auth import router as auth_router
-from app.api.settings import router as settings_router
-from app.api.public import router as public_router
-from app.api.dashboard import router as dashboard_router
-from app.api.layout import router as layout_router
+# Import routers - testing one by one
+try:
+    from app.api.auth import router as auth_router
+    print("✅ Auth router imported successfully")
+except Exception as e:
+    print(f"❌ Auth router failed: {e}")
+    auth_router = None
+
+try:
+    from app.api.admin import router as admin_router
+    print("✅ Admin router imported successfully")
+except Exception as e:
+    print(f"❌ Admin router failed: {e}")
+    admin_router = None
+
+try:
+    from app.api.settings import router as settings_router
+    print("✅ Settings router imported successfully")
+except Exception as e:
+    print(f"❌ Settings router failed: {e}")
+    settings_router = None
+
+try:
+    from app.api.public import router as public_router
+    print("✅ Public router imported successfully")
+except Exception as e:
+    print(f"❌ Public router failed: {e}")
+    public_router = None
+
+try:
+    from app.api.dashboard import router as dashboard_router
+    print("✅ Dashboard router imported successfully")
+except Exception as e:
+    print(f"❌ Dashboard router failed: {e}")
+    dashboard_router = None
+
+try:
+    from app.api.layout import router as layout_router
+    print("✅ Layout router imported successfully")
+except Exception as e:
+    print(f"❌ Layout router failed: {e}")
+    layout_router = None
 
 # Create FastAPI app
 app = FastAPI(title="The Castle Pub Reservation System")
@@ -25,13 +60,30 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers
-app.include_router(auth_router, prefix="/api/auth")
-app.include_router(admin_router, prefix="/admin")
-app.include_router(settings_router, prefix="/api")
-app.include_router(public_router, prefix="/api")
-app.include_router(dashboard_router, prefix="/api")
-app.include_router(layout_router, prefix="/api/layout")
+# Include routers - only if they imported successfully
+if auth_router:
+    app.include_router(auth_router, prefix="/api/auth")
+    print("✅ Auth router included")
+
+if admin_router:
+    app.include_router(admin_router, prefix="/admin")
+    print("✅ Admin router included")
+
+if settings_router:
+    app.include_router(settings_router, prefix="/api")
+    print("✅ Settings router included")
+
+if public_router:
+    app.include_router(public_router, prefix="/api")
+    print("✅ Public router included")
+
+if dashboard_router:
+    app.include_router(dashboard_router, prefix="/api")
+    print("✅ Dashboard router included")
+
+if layout_router:
+    app.include_router(layout_router, prefix="/api/layout")
+    print("✅ Layout router included")
 
 # Mount static files
 static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
