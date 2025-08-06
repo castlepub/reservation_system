@@ -28,6 +28,7 @@ from app.api.settings import router as settings_router
 from app.api.public import router as public_router
 from app.api.dashboard import router as dashboard_router
 from app.api.layout import router as layout_router
+from app.api.areas import router as areas_router
 
 # Create FastAPI app
 app = FastAPI(title="The Castle Pub Reservation System")
@@ -47,7 +48,8 @@ app.include_router(admin_router, prefix="/admin")
 app.include_router(settings_router, prefix="/api")
 app.include_router(public_router, prefix="/api")
 app.include_router(dashboard_router, prefix="/api")
-app.include_router(layout_router, prefix="/api")
+app.include_router(layout_router, prefix="/api/layout")
+app.include_router(areas_router, prefix="/api")
 
 # Mount static files
 static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
@@ -1322,131 +1324,6 @@ async def delete_admin_table_temp(table_id: str, db: Session = Depends(get_db)):
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Failed to delete table: {str(e)}")
 
-# Layout API endpoints for table positioning and management
-@app.put("/api/layout/tables/{layout_id}")
-async def update_table_position_temp(layout_id: str, position_data: dict, db: Session = Depends(get_db)):
-    """Update table position and properties in layout"""
-    from app.models.table_layout import TableLayout
-    from app.models.table import Table
-    
-    try:
-        # Find the table layout
-        layout = db.query(TableLayout).filter(TableLayout.id == layout_id).first()
-        if not layout:
-            raise HTTPException(status_code=404, detail="Table layout not found")
-        
-        # Update layout properties
-        if "x_position" in position_data:
-            layout.x_position = float(position_data["x_position"])
-        if "y_position" in position_data:
-            layout.y_position = float(position_data["y_position"])
-        if "width" in position_data:
-            layout.width = float(position_data["width"])
-        if "height" in position_data:
-            layout.height = float(position_data["height"])
-        if "color" in position_data:
-            layout.color = position_data["color"]
-        if "shape" in position_data:
-            layout.shape = position_data["shape"]
-        if "show_name" in position_data:
-            layout.show_name = position_data["show_name"]
-        if "show_capacity" in position_data:
-            layout.show_capacity = position_data["show_capacity"]
-        
-        # Update table properties (name and capacity)
-        table = db.query(Table).filter(Table.id == layout.table_id).first()
-        if table:
-            if "table_name" in position_data:
-                table.name = position_data["table_name"]
-            if "capacity" in position_data:
-                table.capacity = int(position_data["capacity"])
-        
-        db.commit()
-        db.refresh(layout)
-        if table:
-            db.refresh(table)
-        
-        return {
-            "message": "Table updated successfully",
-            "layout_id": layout_id,
-            "x_position": layout.x_position,
-            "y_position": layout.y_position,
-            "table_name": table.name if table else None,
-            "capacity": table.capacity if table else None
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to update table: {str(e)}")
-
-@app.post("/api/layout/tables")
-async def create_layout_table_temp(table_data: dict, db: Session = Depends(get_db)):
-    """Create new table in layout editor with layout record"""
-    from app.models.table import Table
-    from app.models.table_layout import TableLayout
-    from app.models.room import Room
-    import uuid
-    
-    try:
-        # Validate room exists
-        room = db.query(Room).filter(Room.id == table_data.get("room_id")).first()
-        if not room:
-            raise HTTPException(status_code=404, detail="Room not found")
-        
-        # Create new table
-        new_table = Table(
-            name=table_data.get("table_name", "New Table"),
-            capacity=table_data.get("capacity", 4),
-            room_id=table_data.get("room_id"),
-            active=True,
-            combinable=table_data.get("combinable", True)
-        )
-        
-        db.add(new_table)
-        db.flush()  # Get the ID without committing
-        
-        # Create corresponding table layout
-        new_layout = TableLayout(
-            id=str(uuid.uuid4()),
-            table_id=new_table.id,
-            room_id=table_data.get("room_id"),
-            x_position=float(table_data.get("x_position", 100)),
-            y_position=float(table_data.get("y_position", 100)),
-            width=float(table_data.get("width", 100)),
-            height=float(table_data.get("height", 80)),
-            shape=table_data.get("shape", "rectangular"),
-            color=table_data.get("color", "#4CAF50"),
-            border_color=table_data.get("border_color", "#2E7D32"),
-            text_color=table_data.get("text_color", "#FFFFFF"),
-            show_capacity=table_data.get("show_capacity", True),
-            show_name=table_data.get("show_name", True),
-            font_size=table_data.get("font_size", 12),
-            custom_capacity=table_data.get("custom_capacity"),
-            is_connected=table_data.get("is_connected", False),
-            connected_to=table_data.get("connected_to"),
-            z_index=table_data.get("z_index", 1)
-        )
-        
-        db.add(new_layout)
-        db.commit()
-        db.refresh(new_table)
-        db.refresh(new_layout)
-        
-        return {
-            "id": new_table.id,
-            "layout_id": new_layout.id,
-            "name": new_table.name,
-            "capacity": new_table.capacity,
-            "room_id": new_table.room_id,
-            "active": new_table.active,
-            "combinable": new_table.combinable,
-            "x_position": new_layout.x_position,
-            "y_position": new_layout.y_position
-        }
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to create table: {str(e)}")
 
 @app.post("/api/reservations/{reservation_id}/assign-table/{table_id}")
 async def assign_reservation_to_table_temp(reservation_id: str, table_id: str, db: Session = Depends(get_db)):

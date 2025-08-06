@@ -146,6 +146,63 @@
                         </div>
                     </form>
                 </div>
+
+                <!-- Smart Area Management Section -->
+                <div class="smart-features-container">
+                    <div class="features-grid">
+                        <!-- Smart Availability -->
+                        <div class="feature-card">
+                            <div class="card-header">
+                                <h3>🎯 Smart Availability</h3>
+                            </div>
+                            <div id="smartAvailability" class="card-content">
+                                <div class="loading-placeholder">
+                                    <i class="fas fa-spinner fa-spin"></i>
+                                    <p>Select a date to see smart availability</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Area Recommendations -->
+                        <div class="feature-card">
+                            <div class="card-header">
+                                <h3>📍 Area Recommendations</h3>
+                            </div>
+                            <div id="areaRecommendations" class="card-content">
+                                <div class="loading-placeholder">
+                                    <i class="fas fa-spinner fa-spin"></i>
+                                    <p>Select party size to see area recommendations</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Smart Recommendations -->
+                        <div class="feature-card">
+                            <div class="card-header">
+                                <h3>💡 Smart Recommendations</h3>
+                            </div>
+                            <div id="smartRecommendations" class="card-content">
+                                <div class="loading-placeholder">
+                                    <i class="fas fa-spinner fa-spin"></i>
+                                    <p>Check availability to see recommendations</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Alternative Suggestions -->
+                        <div class="feature-card">
+                            <div class="card-header">
+                                <h3>🔄 Alternative Suggestions</h3>
+                            </div>
+                            <div id="alternativeSuggestions" class="card-content">
+                                <div class="loading-placeholder">
+                                    <i class="fas fa-spinner fa-spin"></i>
+                                    <p>Check availability to see alternatives</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </section>
 
@@ -940,6 +997,50 @@
                     <label for="roomDescription">Description</label>
                     <textarea id="roomDescription" name="description" rows="3" placeholder="e.g., Main dining area with 20 tables"></textarea>
                 </div>
+                
+                <!-- Area Management Fields -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="roomAreaType">Area Type *</label>
+                        <select id="roomAreaType" name="area_type" required>
+                            <option value="indoor">Indoor</option>
+                            <option value="outdoor">Outdoor</option>
+                            <option value="shared">Shared</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="roomPriority">Priority</label>
+                        <input type="number" id="roomPriority" name="priority" min="1" max="10" value="1" placeholder="1-10">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="roomDisplayOrder">Display Order</label>
+                        <input type="number" id="roomDisplayOrder" name="display_order" min="0" value="0" placeholder="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="roomActive">Active</label>
+                        <input type="checkbox" id="roomActive" name="active" checked>
+                        <span class="checkbox-label">Room is active and available for reservations</span>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="roomIsFallback">Fallback Area</label>
+                    <input type="checkbox" id="roomIsFallback" name="is_fallback_area">
+                    <span class="checkbox-label">This room can serve as a fallback for other area types</span>
+                </div>
+                
+                <div class="form-group" id="fallbackForGroup" style="display: none;">
+                    <label for="roomFallbackFor">Fallback For</label>
+                    <select id="roomFallbackFor" name="fallback_for">
+                        <option value="">Select area type...</option>
+                        <option value="outdoor">Outdoor areas</option>
+                        <option value="shared">Shared areas</option>
+                    </select>
+                </div>
+                
                 <div class="modal-actions">
                     <button type="button" class="btn btn-secondary" onclick="hideAddRoomModal()">Cancel</button>
                     <button type="submit" class="btn btn-primary">
@@ -969,6 +1070,50 @@
                     <label for="editRoomDescription">Description</label>
                     <textarea id="editRoomDescription" name="description" rows="3"></textarea>
                 </div>
+                
+                <!-- Area Management Fields -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="editRoomAreaType">Area Type *</label>
+                        <select id="editRoomAreaType" name="area_type" required>
+                            <option value="indoor">Indoor</option>
+                            <option value="outdoor">Outdoor</option>
+                            <option value="shared">Shared</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="editRoomPriority">Priority</label>
+                        <input type="number" id="editRoomPriority" name="priority" min="1" max="10" value="1" placeholder="1-10">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="editRoomDisplayOrder">Display Order</label>
+                        <input type="number" id="editRoomDisplayOrder" name="display_order" min="0" value="0" placeholder="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="editRoomActive">Active</label>
+                        <input type="checkbox" id="editRoomActive" name="active">
+                        <span class="checkbox-label">Room is active and available for reservations</span>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="editRoomIsFallback">Fallback Area</label>
+                    <input type="checkbox" id="editRoomIsFallback" name="is_fallback_area">
+                    <span class="checkbox-label">This room can serve as a fallback for other area types</span>
+                </div>
+                
+                <div class="form-group" id="editFallbackForGroup" style="display: none;">
+                    <label for="editRoomFallbackFor">Fallback For</label>
+                    <select id="editRoomFallbackFor" name="fallback_for">
+                        <option value="">Select area type...</option>
+                        <option value="outdoor">Outdoor areas</option>
+                        <option value="shared">Shared areas</option>
+                    </select>
+                </div>
+                
                 <div class="modal-actions">
                     <button type="button" class="btn btn-secondary" onclick="hideEditRoomModal()">Cancel</button>
                     <button type="submit" class="btn btn-primary">

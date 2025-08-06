@@ -1,14 +1,15 @@
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_, desc
 from datetime import date, datetime, timedelta
 import uuid
 from app.models.reservation import Reservation, ReservationStatus, ReservationTable
-from app.models.room import Room
+from app.models.room import Room, AreaType
 from app.models.table import Table
 from app.schemas.reservation import ReservationCreate, ReservationUpdate, ReservationWithTables
 from app.services.table_service import TableService
 from app.services.working_hours_service import WorkingHoursService
+from app.services.area_service import AreaService
 from app.core.security import create_reservation_token
 from app.core.config import settings
 
@@ -18,27 +19,33 @@ class ReservationService:
         self.db = db
         self.table_service = TableService(db)
         self.working_hours_service = WorkingHoursService(db)
+        self.area_service = AreaService(db)
 
     def create_reservation(self, reservation_data: ReservationCreate) -> ReservationWithTables:
-        """Create a new reservation with automatic table assignment"""
+        """Create a new reservation with intelligent area and table assignment"""
         # Validate business rules
         self._validate_reservation_request(reservation_data)
         
-        # Find best table combination
+        # Determine optimal room/area for this reservation
+        optimal_room_id = self._find_optimal_room_for_reservation(reservation_data)
+        
+        # Find best table combination in the optimal room
         table_combo = self.table_service.find_best_table_combination(
-            reservation_data.room_id,
+            optimal_room_id,
             reservation_data.date,
             reservation_data.time,
             reservation_data.party_size
         )
         
         if not table_combo:
+            # If no tables in optimal room, try other rooms
+            table_combo = self._find_tables_in_alternative_rooms(reservation_data)
+            
+        if not table_combo:
             raise ValueError("No suitable tables available for this reservation")
         
-        # If no room_id was specified, use the room of the assigned tables
-        actual_room_id = reservation_data.room_id
-        if not actual_room_id and table_combo:
-            actual_room_id = table_combo[0].room_id
+        # Use the room of the assigned tables
+        actual_room_id = table_combo[0].room_id
         
         # Create reservation
         reservation = Reservation(
@@ -157,9 +164,23 @@ class ReservationService:
                 ReservationTable.reservation_id == reservation_id
             ).delete()
             
+            # Determine optimal room/area for this reservation
+            optimal_room_id = self._find_optimal_room_for_reservation(
+                ReservationCreate(
+                    customer_name=reservation.customer_name,
+                    email=reservation.email,
+                    phone=reservation.phone,
+                    party_size=reservation.party_size,
+                    date=reservation.date,
+                    time=reservation.time,
+                    reservation_type=reservation.reservation_type,
+                    notes=reservation.notes
+                )
+            )
+            
             # Find new table combination
             table_combo = self.table_service.find_best_table_combination(
-                reservation.room_id,
+                optimal_room_id,
                 reservation.date,
                 reservation.time,
                 reservation.party_size
@@ -276,3 +297,156 @@ class ReservationService:
                 raise ValueError("Invalid or inactive room")
         
         print("DEBUG: Validation completed successfully") 
+
+    def _find_optimal_room_for_reservation(self, reservation_data: ReservationCreate) -> Optional[str]:
+        """Find the optimal room for a reservation based on reservation type and party size"""
+        
+        # Determine preferred area type based on reservation type
+        preferred_area_type = self._determine_preferred_area_type(reservation_data.reservation_type)
+        
+        # Get optimal area using area service
+        optimal_area = self.area_service.get_optimal_area_for_reservation(
+            party_size=reservation_data.party_size,
+            preferred_area_type=preferred_area_type
+        )
+        
+        if optimal_area:
+            return optimal_area.id
+        
+        # If no optimal area found, try fallback logic
+        return self._find_fallback_room(reservation_data.party_size, preferred_area_type)
+
+    def _determine_preferred_area_type(self, reservation_type: str) -> Optional[AreaType]:
+        """Determine preferred area type based on reservation type"""
+        
+        # Default preferences based on reservation type
+        type_preferences = {
+            "dinner": AreaType.INDOOR,  # Dinner typically prefers indoor
+            "lunch": AreaType.INDOOR,   # Lunch typically prefers indoor
+            "breakfast": AreaType.INDOOR, # Breakfast typically prefers indoor
+            "drinks": AreaType.OUTDOOR, # Drinks often prefer outdoor
+            "party": AreaType.SHARED,   # Parties prefer shared areas
+            "private": AreaType.INDOOR, # Private events prefer indoor
+            "celebration": AreaType.SHARED, # Celebrations prefer shared areas
+            "team_event": AreaType.SHARED, # Team events prefer shared areas
+            "fun": AreaType.OUTDOOR,    # Fun nights often prefer outdoor
+            "special_event": AreaType.SHARED, # Special events prefer shared areas
+        }
+        
+        return type_preferences.get(reservation_type, AreaType.INDOOR)
+
+    def _find_fallback_room(self, party_size: int, preferred_area_type: AreaType) -> Optional[str]:
+        """Find a fallback room when optimal room is not available"""
+        
+        # Get all active rooms ordered by priority
+        rooms = self.db.query(Room).filter(
+            and_(
+                Room.active == True,
+                Room.area_type == preferred_area_type
+            )
+        ).order_by(Room.priority.asc()).all()
+        
+        # Check each room for capacity
+        for room in rooms:
+            total_capacity = self._get_room_capacity(room.id)
+            if total_capacity >= party_size:
+                return room.id
+        
+        # If no room of preferred type has capacity, try any room
+        all_rooms = self.db.query(Room).filter(
+            Room.active == True
+        ).order_by(Room.priority.asc()).all()
+        
+        for room in all_rooms:
+            total_capacity = self._get_room_capacity(room.id)
+            if total_capacity >= party_size:
+                return room.id
+        
+        return None
+
+    def _get_room_capacity(self, room_id: str) -> int:
+        """Get total capacity of all active tables in a room"""
+        tables = self.db.query(Table).filter(
+            and_(
+                Table.room_id == room_id,
+                Table.active == True
+            )
+        ).all()
+        return sum(table.capacity for table in tables)
+
+    def _find_tables_in_alternative_rooms(self, reservation_data: ReservationCreate) -> Optional[List[Table]]:
+        """Find tables in alternative rooms when preferred room is full"""
+        
+        # Get all active rooms ordered by priority
+        rooms = self.db.query(Room).filter(
+            Room.active == True
+        ).order_by(Room.priority.asc()).all()
+        
+        # Try each room for table availability
+        for room in rooms:
+            table_combo = self.table_service.find_best_table_combination(
+                room.id,
+                reservation_data.date,
+                reservation_data.time,
+                reservation_data.party_size
+            )
+            if table_combo:
+                return table_combo
+        
+        return None
+
+    def get_smart_availability(
+        self, 
+        date: date, 
+        party_size: int, 
+        preferred_area_type: Optional[AreaType] = None,
+        reservation_type: str = "dinner"
+    ) -> Dict[str, Any]:
+        """Get smart availability with area recommendations"""
+        
+        optimal_area_type = self._determine_preferred_area_type(reservation_type)
+        
+        # Get all active rooms
+        rooms = self.db.query(Room).filter(Room.active == True).order_by(Room.priority.asc()).all()
+        
+        availability_data = {
+            "date": date.isoformat(),
+            "recommended_area_type": optimal_area_type.value,
+            "reservation_type": reservation_type,
+            "rooms": []
+        }
+        
+        for room in rooms:
+            room_availability = self._get_room_availability(room, date, party_size)
+            if room_availability:
+                availability_data["rooms"].append(room_availability)
+        
+        return availability_data
+
+    def _get_room_availability(self, room: Room, date: date, party_size: int) -> Optional[Dict[str, Any]]:
+        """Get availability for a specific room"""
+        
+        # Get available time slots for this room
+        time_slots = self.table_service.get_availability_for_date(
+            room.id, date, party_size
+        )
+        
+        if not time_slots:
+            return None
+        
+        return {
+            "room_id": str(room.id),
+            "room_name": room.name,
+            "area_type": room.area_type.value,
+            "priority": room.priority,
+            "is_fallback_area": room.is_fallback_area,
+            "fallback_for": room.fallback_for,
+            "total_capacity": self._get_room_capacity(room.id),
+            "available_time_slots": [
+                {
+                    "time": slot.time.strftime("%H:%M"),
+                    "total_capacity": slot.total_capacity,
+                    "table_count": len(slot.available_tables)
+                } for slot in time_slots
+            ]
+        } 

@@ -1,7 +1,7 @@
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from datetime import datetime
+from datetime import datetime, date
 from app.core.database import get_db
 from app.schemas.reservation import (
     ReservationCreate, ReservationUpdate, ReservationWithTables,
@@ -12,7 +12,7 @@ from app.services.reservation_service import ReservationService
 from app.services.table_service import TableService
 from app.services.working_hours_service import WorkingHoursService
 from app.services.email_service import EmailService
-from app.models.room import Room
+from app.models.room import Room, AreaType
 
 router = APIRouter(tags=["public"])
 
@@ -118,6 +118,66 @@ def check_availability(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error checking availability: {str(e)}"
+        )
+
+
+@router.get("/availability/smart")
+def get_smart_availability(
+    date: str,
+    party_size: int,
+    preferred_area_type: str = None,
+    reservation_type: str = "dinner",
+    db: Session = Depends(get_db)
+):
+    """Get smart availability with intelligent area recommendations"""
+    try:
+        # Parse date
+        target_date = datetime.strptime(date, "%Y-%m-%d").date()
+        
+        # Parse area type if provided
+        area_type = None
+        if preferred_area_type:
+            try:
+                area_type = AreaType(preferred_area_type.lower())
+            except ValueError:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid area type: {preferred_area_type}. Must be one of: indoor, outdoor, shared"
+                )
+        
+        reservation_service = ReservationService(db)
+        availability = reservation_service.get_smart_availability(
+            date=target_date,
+            party_size=party_size,
+            preferred_area_type=area_type,
+            reservation_type=reservation_type
+        )
+        
+        return availability
+        
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+
+
+@router.get("/areas/recommendations")
+def get_area_recommendations(
+    party_size: int,
+    reservation_type: str = "dinner",
+    db: Session = Depends(get_db)
+):
+    """Get area recommendations based on party size and reservation type"""
+    try:
+        from app.services.area_service import AreaService
+        area_service = AreaService(db)
+        recommendations = area_service.get_area_recommendations(party_size, reservation_type)
+        return recommendations
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error getting area recommendations: {str(e)}"
         )
 
 

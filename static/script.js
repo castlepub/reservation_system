@@ -3,6 +3,7 @@ const API_BASE_URL = window.location.origin;
 let authToken = localStorage.getItem('authToken');
 let dashboardStats = null;
 let chartInstance = null;
+let smartAvailabilityData = null;
 
 // DOM Elements - will be initialized after DOM loads
 let sections = {};
@@ -162,6 +163,27 @@ function setupEventListeners() {
     const editRoomForm = document.getElementById('editRoomForm');
     if (editRoomForm) {
         editRoomForm.addEventListener('submit', handleEditRoom);
+    }
+    
+    // Add room form
+    const addRoomForm = document.getElementById('addRoomForm');
+    if (addRoomForm) {
+        addRoomForm.addEventListener('submit', handleAddRoom);
+    }
+    
+    // Fallback checkbox interactions
+    const roomIsFallback = document.getElementById('roomIsFallback');
+    if (roomIsFallback) {
+        roomIsFallback.addEventListener('change', function() {
+            toggleFallbackGroup('roomIsFallback', 'fallbackForGroup');
+        });
+    }
+    
+    const editRoomIsFallback = document.getElementById('editRoomIsFallback');
+    if (editRoomIsFallback) {
+        editRoomIsFallback.addEventListener('change', function() {
+            toggleFallbackGroup('editRoomIsFallback', 'editFallbackForGroup');
+        });
     }
 
     // Date and party size changes
@@ -1065,35 +1087,113 @@ function setMinDate() {
 }
 
 async function checkAvailability() {
-    const date = document.getElementById('date').value;
-    const partySize = document.getElementById('partySize').value;
-    const duration = document.getElementById('duration').value;
-    const room = document.getElementById('room').value;
+    const dateInput = document.getElementById('date');
+    const timeInput = document.getElementById('time');
+    const partySizeInput = document.getElementById('partySize');
+    const roomInput = document.getElementById('room');
     
-    if (date && partySize && duration) {
-        try {
-            const response = await fetch(`${API_BASE_URL}/api/availability`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    date: date,
-                    party_size: parseInt(partySize),
-                    duration_hours: parseInt(duration),
-                    room_id: room || null
-                })
-            });
+    if (!dateInput.value || !timeInput.value || !partySizeInput.value) {
+        showMessage('Please fill in all required fields', 'error');
+        return;
+    }
+    
+    showLoading();
+    
+    try {
+        // First, get smart availability
+        await updateSmartAvailability();
+        
+        // Then check traditional availability
+        const response = await fetch(`${API_BASE_URL}/api/availability`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                date: dateInput.value,
+                time: timeInput.value,
+                party_size: parseInt(partySizeInput.value),
+                room_id: roomInput.value || null
+            })
+        });
+        
+        if (response.ok) {
+            const availability = await response.json();
             
-            if (response.ok) {
-                const data = await response.json();
-                updateTimeSlotsDisplay(data.available_slots);
+            if (availability.available) {
+                showMessage(`✅ Available! ${availability.message}`, 'success');
+                
+                // Show additional smart recommendations if available
+                if (smartAvailabilityData) {
+                    showSmartRecommendations(smartAvailabilityData, availability);
+                }
             } else {
-                console.error('Availability check failed');
+                showMessage(`❌ Not available: ${availability.message}`, 'error');
+                
+                // Show alternative suggestions
+                showAlternativeSuggestions(availability);
             }
-        } catch (error) {
-            console.error('Error checking availability:', error);
+        } else {
+            showMessage('Error checking availability', 'error');
         }
+    } catch (error) {
+        console.error('Error checking availability:', error);
+        showMessage('Error checking availability', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+function showSmartRecommendations(availabilityData, traditionalAvailability) {
+    const recommendationsHtml = `
+        <div class="smart-recommendations">
+            <h4>🎯 Smart Recommendations</h4>
+            <div class="recommendation-item">
+                <span class="icon">📍</span>
+                <span>Recommended area: ${availabilityData.recommended_area_type}</span>
+            </div>
+            <div class="recommendation-item">
+                <span class="icon">🎉</span>
+                <span>Reservation type: ${availabilityData.reservation_type}</span>
+            </div>
+            ${availabilityData.rooms.length > 0 ? `
+                <div class="recommendation-item">
+                    <span class="icon">🏠</span>
+                    <span>${availabilityData.rooms.length} rooms available</span>
+                </div>
+            ` : ''}
+        </div>
+    `;
+    
+    // Add recommendations to the message or create a separate display area
+    const recommendationsContainer = document.getElementById('smartRecommendations');
+    if (recommendationsContainer) {
+        recommendationsContainer.innerHTML = recommendationsHtml;
+    }
+}
+
+function showAlternativeSuggestions(availability) {
+    const suggestionsHtml = `
+        <div class="alternative-suggestions">
+            <h4>💡 Alternative Suggestions</h4>
+            <div class="suggestion-item">
+                <span class="icon">🕐</span>
+                <span>Try different times</span>
+            </div>
+            <div class="suggestion-item">
+                <span class="icon">🏠</span>
+                <span>Check other rooms</span>
+            </div>
+            <div class="suggestion-item">
+                <span class="icon">📅</span>
+                <span>Try different dates</span>
+            </div>
+        </div>
+    `;
+    
+    const suggestionsContainer = document.getElementById('alternativeSuggestions');
+    if (suggestionsContainer) {
+        suggestionsContainer.innerHTML = suggestionsHtml;
     }
 }
 
@@ -1572,13 +1672,49 @@ function updateRoomsSettingsDisplay(rooms) {
         return;
     }
     
+    // Sort rooms by display_order, then by priority
+    rooms.sort((a, b) => {
+        if (a.display_order !== b.display_order) {
+            return a.display_order - b.display_order;
+        }
+        return a.priority - b.priority;
+    });
+    
     rooms.forEach(room => {
         const roomElement = document.createElement('div');
         roomElement.className = 'room-item';
+        
+        // Get area type badge
+        const areaTypeBadge = getAreaTypeBadge(room.area_type);
+        
+        // Get priority badge
+        const priorityBadge = getPriorityBadge(room.priority);
+        
+        // Get fallback info
+        const fallbackInfo = room.is_fallback_area && room.fallback_for ? 
+            `<div class="room-fallback"><i class="fas fa-shield-alt"></i> Fallback for ${room.fallback_for}</div>` : '';
+        
+        // Get status badge
+        const statusBadge = room.active ? 
+            '<span class="badge badge-success">Active</span>' : 
+            '<span class="badge badge-warning">Inactive</span>';
+        
         roomElement.innerHTML = `
             <div class="room-info">
-                <div class="room-name">${room.name}</div>
+                <div class="room-header">
+                    <div class="room-name">${room.name}</div>
+                    <div class="room-badges">
+                        ${areaTypeBadge}
+                        ${priorityBadge}
+                        ${statusBadge}
+                    </div>
+                </div>
                 <div class="room-description">${room.description || 'No description'}</div>
+                <div class="room-details">
+                    <span class="room-detail"><i class="fas fa-sort-numeric-up"></i> Priority: ${room.priority}</span>
+                    <span class="room-detail"><i class="fas fa-list-ol"></i> Order: ${room.display_order}</span>
+                    ${fallbackInfo}
+                </div>
             </div>
             <div class="room-actions">
                 <button class="btn btn-sm btn-secondary" onclick="editRoom('${room.id}')">
@@ -1591,6 +1727,25 @@ function updateRoomsSettingsDisplay(rooms) {
         `;
         container.appendChild(roomElement);
     });
+}
+
+function getAreaTypeBadge(areaType) {
+    const badges = {
+        'indoor': '<span class="badge badge-primary"><i class="fas fa-home"></i> Indoor</span>',
+        'outdoor': '<span class="badge badge-success"><i class="fas fa-umbrella-beach"></i> Outdoor</span>',
+        'shared': '<span class="badge badge-info"><i class="fas fa-users"></i> Shared</span>'
+    };
+    return badges[areaType] || '<span class="badge badge-secondary">Unknown</span>';
+}
+
+function getPriorityBadge(priority) {
+    if (priority <= 2) {
+        return '<span class="badge badge-danger"><i class="fas fa-star"></i> High</span>';
+    } else if (priority <= 5) {
+        return '<span class="badge badge-warning"><i class="fas fa-star"></i> Medium</span>';
+    } else {
+        return '<span class="badge badge-secondary"><i class="fas fa-star"></i> Low</span>';
+    }
 }
 
 async function editRoom(roomId) {
@@ -1610,6 +1765,19 @@ async function editRoom(roomId) {
             document.getElementById('editRoomDescription').value = room.description || '';
             document.getElementById('editRoomActive').checked = room.active;
             
+            // Populate area management fields
+            document.getElementById('editRoomAreaType').value = room.area_type || 'indoor';
+            document.getElementById('editRoomPriority').value = room.priority || 1;
+            document.getElementById('editRoomDisplayOrder').value = room.display_order || 0;
+            document.getElementById('editRoomIsFallback').checked = room.is_fallback_area || false;
+            document.getElementById('editRoomFallbackFor').value = room.fallback_for || '';
+            
+            // Show/hide fallback group based on checkbox
+            const fallbackGroup = document.getElementById('editFallbackForGroup');
+            if (fallbackGroup) {
+                fallbackGroup.style.display = room.is_fallback_area ? 'block' : 'none';
+            }
+            
             // Show the modal
             document.getElementById('editRoomModal').classList.remove('hidden');
         } else {
@@ -1625,6 +1793,64 @@ function hideEditRoomModal() {
     document.getElementById('editRoomModal').classList.add('hidden');
 }
 
+// Add Room Modal Functions
+function showAddRoomModal() {
+    document.getElementById('addRoomModal').classList.remove('hidden');
+}
+
+function hideAddRoomModal() {
+    document.getElementById('addRoomModal').classList.add('hidden');
+}
+
+async function handleAddRoom(event) {
+    event.preventDefault();
+    
+    const formData = new FormData(event.target);
+    
+    const roomData = {
+        name: formData.get('name'),
+        description: formData.get('description'),
+        active: formData.get('active') === 'on',
+        area_type: formData.get('area_type'),
+        priority: parseInt(formData.get('priority')) || 1,
+        display_order: parseInt(formData.get('display_order')) || 0,
+        is_fallback_area: formData.get('is_fallback_area') === 'on',
+        fallback_for: formData.get('is_fallback_area') === 'on' ? formData.get('fallback_for') : null
+    };
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/settings/rooms`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(roomData)
+        });
+
+        if (response.ok) {
+            showMessage('Room created successfully', 'success');
+            hideAddRoomModal();
+            loadRoomsForSettings(); // Refresh the rooms list
+        } else {
+            throw new Error('Failed to create room');
+        }
+    } catch (error) {
+        console.error('Error creating room:', error);
+        showMessage('Error creating room', 'error');
+    }
+}
+
+// Fallback checkbox interaction functions
+function toggleFallbackGroup(checkboxId, groupId) {
+    const checkbox = document.getElementById(checkboxId);
+    const group = document.getElementById(groupId);
+    
+    if (checkbox && group) {
+        group.style.display = checkbox.checked ? 'block' : 'none';
+    }
+}
+
 async function handleEditRoom(event) {
     event.preventDefault();
     
@@ -1634,7 +1860,12 @@ async function handleEditRoom(event) {
     const roomData = {
         name: formData.get('name'),
         description: formData.get('description'),
-        active: formData.get('active') === 'on'
+        active: formData.get('active') === 'on',
+        area_type: formData.get('area_type'),
+        priority: parseInt(formData.get('priority')) || 1,
+        display_order: parseInt(formData.get('display_order')) || 0,
+        is_fallback_area: formData.get('is_fallback_area') === 'on',
+        fallback_for: formData.get('is_fallback_area') === 'on' ? formData.get('fallback_for') : null
     };
     
     try {
@@ -4127,5 +4358,197 @@ function handleCanvasClick(e) {
 function initializeLayoutEditorOnLoad() {
     if (document.getElementById('layoutRoomSelect')) {
         initializeLayoutEditor();
+    }
+}
+
+// Smart Availability Functions
+
+async function loadSmartAvailability(date, partySize, preferredAreaType = null, reservationType = 'dinner') {
+    try {
+        let url = `${API_BASE_URL}/api/availability/smart?date=${date}&party_size=${partySize}&reservation_type=${reservationType}`;
+        if (preferredAreaType) {
+            url += `&preferred_area_type=${preferredAreaType}`;
+        }
+        
+        const response = await fetch(url);
+        if (response.ok) {
+            smartAvailabilityData = await response.json();
+            displaySmartAvailability(smartAvailabilityData);
+            return smartAvailabilityData;
+        } else {
+            console.error('Failed to load smart availability');
+            return null;
+        }
+    } catch (error) {
+        console.error('Error loading smart availability:', error);
+        return null;
+    }
+}
+
+async function loadAreaRecommendations(partySize, reservationType = 'dinner') {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/areas/recommendations?party_size=${partySize}&reservation_type=${reservationType}`);
+        if (response.ok) {
+            const recommendations = await response.json();
+            displayAreaRecommendations(recommendations);
+            return recommendations;
+        } else {
+            console.error('Failed to load area recommendations');
+            return null;
+        }
+    } catch (error) {
+        console.error('Error loading area recommendations:', error);
+        return null;
+    }
+}
+
+function displayAreaRecommendations(recommendations) {
+    const recommendationsContainer = document.getElementById('areaRecommendations');
+    if (!recommendationsContainer || !recommendations) return;
+    
+    const recommendationsHtml = `
+        <div class="area-recommendations-card">
+            <div class="recommendations-header">
+                <h3>📍 Area Recommendations</h3>
+                <div class="party-info">
+                    <span>Party of ${recommendations.party_size} people</span>
+                    <span>•</span>
+                    <span>${recommendations.reservation_type} reservation</span>
+                </div>
+            </div>
+            <div class="recommendations-content">
+                <div class="preferred-area">
+                    <h4>🎯 Preferred Area Type</h4>
+                    <div class="area-type ${recommendations.preferred_area_type}">
+                        ${recommendations.preferred_area_type.toUpperCase()}
+                    </div>
+                </div>
+                
+                <div class="suitable-areas">
+                    <h4>✅ Suitable Areas (${recommendations.suitable_areas.length})</h4>
+                    ${recommendations.suitable_areas.length > 0 ? 
+                        recommendations.suitable_areas.map(area => `
+                            <div class="area-item">
+                                <div class="area-name">${area.name}</div>
+                                <div class="area-details">
+                                    <span class="badge badge-${area.area_type}">${area.area_type}</span>
+                                    <span class="capacity">${area.capacity} seats</span>
+                                    <span class="priority">Priority: ${area.priority}</span>
+                                </div>
+                            </div>
+                        `).join('') : 
+                        '<p class="no-areas">No suitable areas found</p>'
+                    }
+                </div>
+                
+                <div class="alternative-areas">
+                    <h4>🔄 Alternative Areas (${recommendations.alternative_areas.length})</h4>
+                    ${recommendations.alternative_areas.length > 0 ? 
+                        recommendations.alternative_areas.map(area => `
+                            <div class="area-item alternative">
+                                <div class="area-name">${area.name}</div>
+                                <div class="area-details">
+                                    <span class="badge badge-${area.area_type}">${area.area_type}</span>
+                                    <span class="capacity">${area.capacity} seats</span>
+                                    <span class="priority">Priority: ${area.priority}</span>
+                                </div>
+                            </div>
+                        `).join('') : 
+                        '<p class="no-areas">No alternative areas found</p>'
+                    }
+                </div>
+                
+                ${recommendations.fallback_areas.length > 0 ? `
+                    <div class="fallback-areas">
+                        <h4>🛡️ Fallback Areas (${recommendations.fallback_areas.length})</h4>
+                        ${recommendations.fallback_areas.map(area => `
+                            <div class="area-item fallback">
+                                <div class="area-name">${area.name}</div>
+                                <div class="area-details">
+                                    <span class="badge badge-${area.area_type}">${area.area_type}</span>
+                                    <span class="capacity">${area.capacity} seats</span>
+                                    <span class="fallback-for">Fallback for: ${area.fallback_for || 'General'}</span>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : ''}
+            </div>
+        </div>
+    `;
+    
+    recommendationsContainer.innerHTML = recommendationsHtml;
+}
+
+function displaySmartAvailability(availabilityData) {
+    const availabilityContainer = document.getElementById('smartAvailability');
+    if (!availabilityContainer || !availabilityData) return;
+    
+    const roomsHtml = availabilityData.rooms.map(room => `
+        <div class="room-availability ${room.area_type}">
+            <div class="room-header">
+                <h4>${room.room_name}</h4>
+                <div class="room-badges">
+                    ${getAreaTypeBadge(room.area_type)}
+                    ${getPriorityBadge(room.priority)}
+                    ${room.is_fallback_area ? '<span class="badge badge-info">Fallback</span>' : ''}
+                </div>
+            </div>
+            <div class="room-details">
+                <div class="capacity">Capacity: ${room.total_capacity} people</div>
+                <div class="time-slots">
+                    <h5>Available Times:</h5>
+                    <div class="time-grid">
+                        ${room.available_time_slots.map(slot => `
+                            <div class="time-slot">
+                                <span class="time">${slot.time}</span>
+                                <span class="capacity">${slot.total_capacity} seats</span>
+                                <span class="tables">${slot.table_count} tables</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+        </div>
+    `).join('');
+    
+    const availabilityHtml = `
+        <div class="smart-availability-card">
+            <div class="availability-header">
+                <h3>🎯 Smart Availability for ${formatDate(availabilityData.date)}</h3>
+                <div class="reservation-info">
+                    <span class="reservation-type">${availabilityData.reservation_type}</span>
+                    <span>•</span>
+                    <span>Recommended: ${availabilityData.recommended_area_type}</span>
+                </div>
+            </div>
+            <div class="rooms-container">
+                ${roomsHtml}
+            </div>
+        </div>
+    `;
+    
+    availabilityContainer.innerHTML = availabilityHtml;
+}
+
+
+
+async function updateSmartAvailability() {
+    const dateInput = document.getElementById('date');
+    const partySizeInput = document.getElementById('partySize');
+    const areaTypeInput = document.getElementById('preferredAreaType');
+    const reservationTypeInput = document.getElementById('reservationType');
+    
+    if (dateInput && dateInput.value) {
+        const selectedDate = dateInput.value;
+        const partySize = partySizeInput ? parseInt(partySizeInput.value) || 4 : 4;
+        const preferredAreaType = areaTypeInput ? areaTypeInput.value : null;
+        const reservationType = reservationTypeInput ? reservationTypeInput.value : 'dinner';
+        
+        // Load smart availability
+        await loadSmartAvailability(selectedDate, partySize, preferredAreaType, reservationType);
+        
+        // Load area recommendations
+        await loadAreaRecommendations(partySize, reservationType);
     }
 }

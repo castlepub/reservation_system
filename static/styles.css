@@ -245,6 +245,19 @@ main {
     box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
+.checkbox-label {
+    margin-left: 0.5rem;
+    font-size: 0.875rem;
+    color: #4a5568;
+    cursor: pointer;
+}
+
+.form-group input[type="checkbox"] {
+    width: auto;
+    margin-right: 0.5rem;
+    cursor: pointer;
+}
+
 .form-actions {
     display: flex;
     gap: 1rem;
@@ -2225,10 +2238,58 @@ main {
 .room-header {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
     margin-bottom: 1rem;
     padding-bottom: 0.5rem;
     border-bottom: 1px solid #e2e8f0;
+    gap: 1rem;
+}
+
+.room-badges {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.badge-primary {
+    background: #bee3f8;
+    color: #3182ce;
+}
+
+.badge-success {
+    background: #c6f6d5;
+    color: #276749;
+}
+
+.badge-info {
+    background: #e9d8fd;
+    color: #805ad5;
+}
+
+.badge-warning {
+    background: #fef5e7;
+    color: #d69e2e;
+}
+
+.badge-danger {
+    background: #fed7d7;
+    color: #c53030;
+}
+
+.badge-secondary {
+    background: #e2e8f0;
+    color: #4a5568;
 }
 
 .room-name {
@@ -2266,6 +2327,42 @@ main {
     color: #4a5568;
     margin-bottom: 1rem;
     line-height: 1.5;
+}
+
+.room-details {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    padding: 0.75rem;
+    background: #f7fafc;
+    border-radius: 8px;
+}
+
+.room-detail {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    color: #4a5568;
+}
+
+.room-detail i {
+    color: #667eea;
+    width: 16px;
+}
+
+.room-fallback {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    color: #d69e2e;
+    font-weight: 500;
+}
+
+.room-fallback i {
+    color: #d69e2e;
 }
 
 .room-stats {
@@ -2734,4 +2831,430 @@ main {
     background: #007bff;
     color: white;
     border-color: #007bff;
+} 
+
+/* Smart Features Container */
+.smart-features-container {
+    margin-top: 2rem;
+    padding: 1rem 0;
+}
+
+.features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin-top: 1rem;
+}
+
+.feature-card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.feature-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
+}
+
+.card-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #e1e5e9;
+}
+
+.card-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.card-content {
+    padding: 1.5rem;
+    min-height: 200px;
+}
+
+.loading-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 150px;
+    color: #6c757d;
+    text-align: center;
+}
+
+.loading-placeholder i {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+    color: #007bff;
+}
+
+/* Area Recommendations Styles */
+.area-recommendations-card {
+    background: linear-gradient(135deg, #fd79a8 0%, #e84393 100%);
+    color: white;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.area-recommendations-card .recommendations-header {
+    padding: 1.5rem;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.area-recommendations-card .recommendations-header h3 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.3rem;
+    font-weight: 600;
+}
+
+.party-info {
+    font-size: 1rem;
+    opacity: 0.9;
+}
+
+.party-info span {
+    margin: 0 0.5rem;
+}
+
+.recommendations-content {
+    padding: 1.5rem;
+}
+
+.preferred-area,
+.suitable-areas,
+.alternative-areas,
+.fallback-areas {
+    margin-bottom: 1.5rem;
+}
+
+.preferred-area h4,
+.suitable-areas h4,
+.alternative-areas h4,
+.fallback-areas h4 {
+    margin: 0 0 1rem 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.area-type {
+    display: inline-block;
+    padding: 0.75rem 1.5rem;
+    border-radius: 25px;
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 1.1rem;
+    background: rgba(255, 255, 255, 0.2);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+.area-item {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    border-left: 4px solid #28a745;
+}
+
+.area-item.alternative {
+    border-left-color: #ffc107;
+}
+
+.area-item.fallback {
+    border-left-color: #17a2b8;
+}
+
+.area-name {
+    font-weight: 600;
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+}
+
+.area-details {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    flex-wrap: wrap;
+    font-size: 0.9rem;
+    opacity: 0.9;
+}
+
+.capacity,
+.priority,
+.fallback-for {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.no-areas {
+    text-align: center;
+    opacity: 0.7;
+    font-style: italic;
+}
+
+/* Smart Availability Styles */
+.smart-availability-card {
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.availability-header {
+    background: linear-gradient(135deg, #a29bfe 0%, #6c5ce7 100%);
+    color: white;
+    padding: 1.5rem;
+    text-align: center;
+}
+
+.availability-header h3 {
+    margin: 0 0 1rem 0;
+    font-size: 1.3rem;
+    font-weight: 600;
+}
+
+.reservation-info {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 0.5rem;
+    font-size: 1.1rem;
+}
+
+.reservation-type {
+    text-transform: capitalize;
+    font-weight: 600;
+}
+
+.recommendation {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    opacity: 0.9;
+}
+
+.recommendation .icon {
+    margin-right: 0.5rem;
+}
+
+.rooms-container {
+    padding: 1.5rem;
+}
+
+.room-availability {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border-left: 4px solid #007bff;
+}
+
+.room-availability.indoor {
+    border-left-color: #28a745;
+}
+
+.room-availability.outdoor {
+    border-left-color: #ffc107;
+}
+
+.room-availability.shared {
+    border-left-color: #6f42c1;
+}
+
+.room-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+    gap: 1rem;
+}
+
+.room-header h4 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #333;
+}
+
+.room-badges {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.badge-primary {
+    background: #007bff;
+    color: white;
+}
+
+.badge-success {
+    background: #28a745;
+    color: white;
+}
+
+.badge-info {
+    background: #17a2b8;
+    color: white;
+}
+
+.badge-warning {
+    background: #ffc107;
+    color: #212529;
+}
+
+.badge-danger {
+    background: #dc3545;
+    color: white;
+}
+
+.badge-secondary {
+    background: #6c757d;
+    color: white;
+}
+
+.room-details {
+    font-size: 0.9rem;
+    color: #666;
+}
+
+.capacity {
+    margin-bottom: 0.75rem;
+    font-weight: 600;
+}
+
+.time-slots h5 {
+    margin: 0 0 0.5rem 0;
+    font-size: 0.9rem;
+    color: #333;
+}
+
+.time-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 0.5rem;
+}
+
+.time-slot {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    padding: 0.5rem;
+    text-align: center;
+    font-size: 0.8rem;
+}
+
+.time-slot .time {
+    display: block;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 0.25rem;
+}
+
+.time-slot .capacity,
+.time-slot .tables {
+    display: block;
+    color: #666;
+    font-size: 0.7rem;
+}
+
+
+
+/* Smart Recommendations Styles */
+.smart-recommendations {
+    background: linear-gradient(135deg, #00b894 0%, #00a085 100%);
+    color: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+}
+
+.smart-recommendations h4 {
+    margin: 0 0 1rem 0;
+    font-size: 1.2rem;
+    font-weight: 600;
+    text-align: center;
+}
+
+.recommendation-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    padding: 0.75rem;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+}
+
+.recommendation-item .icon {
+    margin-right: 0.75rem;
+    font-size: 1.2rem;
+}
+
+/* Alternative Suggestions Styles */
+.alternative-suggestions {
+    background: linear-gradient(135deg, #fdcb6e 0%, #e17055 100%);
+    color: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+}
+
+.alternative-suggestions h4 {
+    margin: 0 0 1rem 0;
+    font-size: 1.2rem;
+    font-weight: 600;
+    text-align: center;
+}
+
+.suggestion-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    padding: 0.75rem;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+}
+
+.suggestion-item .icon {
+    margin-right: 0.75rem;
+    font-size: 1.2rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .features-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    
+    .area-priority {
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+    
+    .time-grid {
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    }
+    
+    .room-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+    
+    .room-badges {
+        justify-content: flex-start;
+    }
 } 
