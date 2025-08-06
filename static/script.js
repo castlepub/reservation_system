@@ -3522,6 +3522,23 @@ function makeTableDraggable(tableElement) {
 
 async function updateTablePosition(layoutId, x, y) {
     console.log('=== updateTablePosition START ===', { layoutId, x, y });
+    
+    // Check if this is a temporary ID (not saved yet)
+    if (layoutId.startsWith('temp_')) {
+        console.log('Table not saved yet, updating local data only');
+        // Update local data only for temporary tables
+        const tableData = currentLayoutData.tables.find(t => t.layout_id === layoutId);
+        if (tableData) {
+            tableData.x_position = x;
+            tableData.y_position = y;
+            console.log('Updated local data for temporary table:', tableData);
+            showMessage('Table position updated (will be saved when layout is saved)', 'info');
+        } else {
+            console.warn('Table data not found in currentLayoutData for layoutId:', layoutId);
+        }
+        return;
+    }
+    
     try {
         const response = await fetch(`${API_BASE_URL}/api/layout/tables/${layoutId}`, {
             method: 'PUT',
@@ -3560,13 +3577,6 @@ async function updateTablePosition(layoutId, x, y) {
         
         // Show success message
         showMessage('Table position updated successfully', 'success');
-        
-        // Optionally reload the layout to ensure consistency
-        // setTimeout(() => {
-        //     if (currentLayoutRoom) {
-        //         loadRoomLayout(currentLayoutRoom);
-        //     }
-        // }, 500);
         
     } catch (error) {
         console.error('Error updating table position:', error);
@@ -3654,6 +3664,8 @@ function addTableToLayout(shape) {
 
 async function saveNewTable(tableData) {
     try {
+        console.log('Saving new table:', tableData);
+        
         const response = await fetch(`${API_BASE_URL}/api/layout/tables`, {
             method: 'POST',
             headers: {
@@ -3685,18 +3697,26 @@ async function saveNewTable(tableData) {
         
         if (response.ok) {
             const savedTable = await response.json();
+            console.log('Table saved successfully:', savedTable);
+            
             // Update the temporary ID with the real one
-            const tableData = currentLayoutData.tables.find(t => t.table_id === `temp_${Date.now()}`);
-            if (tableData) {
-                tableData.layout_id = savedTable.id;
-                tableData.table_id = savedTable.table_id;
+            const existingTableData = currentLayoutData.tables.find(t => t.layout_id === tableData.layout_id);
+            if (existingTableData) {
+                existingTableData.layout_id = savedTable.id;
+                existingTableData.table_id = savedTable.table_id;
+                console.log('Updated table with real IDs:', existingTableData);
+                showMessage('Table saved successfully', 'success');
+            } else {
+                console.warn('Could not find table data to update with real IDs');
             }
         } else {
-            throw new Error('Failed to save new table');
+            const errorText = await response.text();
+            console.error('Failed to save table:', errorText);
+            throw new Error(`Failed to save new table: ${errorText}`);
         }
     } catch (error) {
         console.error('Error saving new table:', error);
-        showMessage('Error saving new table', 'error');
+        showMessage('Error saving new table: ' + error.message, 'error');
     }
 }
 
@@ -3708,18 +3728,35 @@ async function updateTableProperties() {
     
     console.log('=== updateTableProperties START ===', { selectedTable });
     
+    const formData = {
+        table_name: document.getElementById('layoutTableName').value,
+        capacity: parseInt(document.getElementById('tableCapacity').value),
+        shape: document.getElementById('tableShape').value,
+        color: document.getElementById('tableColor').value,
+        show_name: document.getElementById('tableShowName').checked,
+        show_capacity: document.getElementById('tableShowCapacity').checked
+    };
+    
+    console.log('Form data to send:', formData);
+    
+    // Check if this is a temporary ID (not saved yet)
+    if (selectedTable.startsWith('temp_')) {
+        console.log('Table not saved yet, updating local data only');
+        // Update local data only for temporary tables
+        const tableData = currentLayoutData.tables.find(t => t.layout_id === selectedTable);
+        if (tableData) {
+            Object.assign(tableData, formData);
+            console.log('Updated local table data:', tableData);
+            // Re-render canvas
+            renderLayoutCanvas();
+            showMessage('Table properties updated (will be saved when layout is saved)', 'info');
+        } else {
+            console.warn('Table data not found in currentLayoutData for layoutId:', selectedTable);
+        }
+        return;
+    }
+    
     try {
-        const formData = {
-            table_name: document.getElementById('layoutTableName').value,
-            capacity: parseInt(document.getElementById('tableCapacity').value),
-            shape: document.getElementById('tableShape').value,
-            color: document.getElementById('tableColor').value,
-            show_name: document.getElementById('tableShowName').checked,
-            show_capacity: document.getElementById('tableShowCapacity').checked
-        };
-        
-        console.log('Form data to send:', formData);
-        
         const response = await fetch(`${API_BASE_URL}/api/layout/tables/${selectedTable}`, {
             method: 'PUT',
             headers: {
@@ -3764,6 +3801,23 @@ async function deleteSelectedTable() {
     if (!selectedTable) return;
     
     if (!confirm('Are you sure you want to delete this table?')) {
+        return;
+    }
+    
+    // Check if this is a temporary ID (not saved yet)
+    if (selectedTable.startsWith('temp_')) {
+        console.log('Deleting temporary table from local data only');
+        // Remove from local data only for temporary tables
+        currentLayoutData.tables = currentLayoutData.tables.filter(t => t.layout_id !== selectedTable);
+        
+        // Re-render canvas
+        renderLayoutCanvas();
+        
+        // Hide properties panel
+        document.getElementById('tableProperties').style.display = 'none';
+        selectedTable = null;
+        
+        showMessage('Table deleted (was not saved yet)', 'info');
         return;
     }
     
@@ -3941,12 +3995,29 @@ async function assignReservationToTable(reservationId, tableId) {
 }
 
 async function saveLayout() {
+    console.log('=== saveLayout START ===');
+    
     if (!currentLayoutRoom) {
         showMessage('No room selected', 'warning');
         return;
     }
     
-    showMessage('Layout saved automatically', 'success');
+    try {
+        // Find all temporary tables that need to be saved
+        const temporaryTables = currentLayoutData.tables.filter(t => t.layout_id.startsWith('temp_'));
+        console.log('Found temporary tables to save:', temporaryTables);
+        
+        // Save each temporary table
+        for (const tableData of temporaryTables) {
+            await saveNewTable(tableData);
+        }
+        
+        showMessage('Layout saved successfully', 'success');
+        console.log('=== saveLayout SUCCESS ===');
+    } catch (error) {
+        console.error('Error saving layout:', error);
+        showMessage('Error saving layout: ' + error.message, 'error');
+    }
 }
 
 async function exportLayout() {

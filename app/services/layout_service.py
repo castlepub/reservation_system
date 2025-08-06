@@ -17,6 +17,8 @@ import json
 class LayoutService:
     def __init__(self, db: Session):
         self.db = db
+        self._cache = {}  # Simple in-memory cache
+        self._cache_ttl = 300  # 5 minutes TTL
 
     # Table Layout Management
     def create_table_layout(self, layout_data: TableLayoutCreate) -> TableLayout:
@@ -43,6 +45,10 @@ class LayoutService:
         self.db.add(layout)
         self.db.commit()
         self.db.refresh(layout)
+        
+        # Clear cache for this room
+        self._clear_room_cache(layout_data.room_id)
+        
         return layout
 
     def update_table_layout(self, layout_id: str, layout_data: TableLayoutUpdate) -> Optional[TableLayout]:
@@ -57,6 +63,10 @@ class LayoutService:
         layout.updated_at = datetime.utcnow()
         self.db.commit()
         self.db.refresh(layout)
+        
+        # Clear cache for this room
+        self._clear_room_cache(layout.room_id)
+        
         return layout
 
     def delete_table_layout(self, layout_id: str) -> bool:
@@ -65,8 +75,13 @@ class LayoutService:
         if not layout:
             return False
         
+        room_id = layout.room_id
         self.db.delete(layout)
         self.db.commit()
+        
+        # Clear cache for this room
+        self._clear_room_cache(room_id)
+        
         return True
 
     def get_table_layout(self, layout_id: str) -> Optional[TableLayout]:
@@ -117,8 +132,38 @@ class LayoutService:
         return self.db.query(RoomLayout).filter(RoomLayout.room_id == room_id).first()
 
     # Layout Editor Data
+    def _get_cache_key(self, room_id: str, target_date: date) -> str:
+        """Generate cache key for layout data"""
+        return f"layout_editor_{room_id}_{target_date}"
+    
+    def _get_from_cache(self, key: str):
+        """Get data from cache if not expired"""
+        if key in self._cache:
+            data, timestamp = self._cache[key]
+            if (datetime.utcnow() - timestamp).seconds < self._cache_ttl:
+                return data
+            else:
+                del self._cache[key]
+        return None
+    
+    def _set_cache(self, key: str, data):
+        """Set data in cache with timestamp"""
+        self._cache[key] = (data, datetime.utcnow())
+    
+    def _clear_room_cache(self, room_id: str):
+        """Clear cache for a specific room"""
+        keys_to_remove = [key for key in self._cache.keys() if f"layout_editor_{room_id}_" in key]
+        for key in keys_to_remove:
+            del self._cache[key]
+    
     def get_layout_editor_data(self, room_id: str, target_date: date) -> LayoutEditorData:
         """Get comprehensive data for the layout editor"""
+        # Check cache first
+        cache_key = self._get_cache_key(room_id, target_date)
+        cached_data = self._get_from_cache(cache_key)
+        if cached_data:
+            return cached_data
+        
         # Get room layout
         room_layout = self.get_room_layout(room_id)
         if not room_layout:
@@ -134,19 +179,46 @@ class LayoutService:
             TableLayout.room_id == room_id
         ).all()
 
-        # Get reservations for the target date
-        reservations = self.db.query(Reservation).filter(
-            Reservation.date == target_date
-        ).all()
+        # Get table names for this room to filter reservations efficiently
+        room_table_names = [table.name for _, table in table_layouts]
+        
+        # Get reservations for the target date that are assigned to tables in this room
+        from app.models.reservation import ReservationTable
+        
+        # Get table IDs for this room
+        room_table_ids = [table.id for _, table in table_layouts]
+        
+        # Get reservations that have table assignments in this room
+        reservations = []
+        if room_table_ids:
+            reservation_ids = self.db.query(ReservationTable.reservation_id).filter(
+                ReservationTable.table_id.in_(room_table_ids)
+            ).distinct().all()
+            
+            if reservation_ids:
+                reservation_ids = [r[0] for r in reservation_ids]
+                reservations = self.db.query(Reservation).filter(
+                    and_(
+                        Reservation.date == target_date,
+                        Reservation.id.in_(reservation_ids)
+                    )
+                ).all()
 
         # Create table with reservation data
         tables_with_reservations = []
         for layout, table in table_layouts:
             # Find reservations for this table
-            table_reservations = [
-                r for r in reservations 
-                if table.name in (r.assigned_tables or [])
-            ]
+            table_reservations = []
+            for reservation in reservations:
+                # Check if this reservation is assigned to this table
+                table_assignment = self.db.query(ReservationTable).filter(
+                    and_(
+                        ReservationTable.reservation_id == reservation.id,
+                        ReservationTable.table_id == table.id
+                    )
+                ).first()
+                if table_assignment:
+                    table_reservations.append(reservation)
             
             table_with_reservation = TableWithReservation(
                 layout_id=layout.id,
@@ -171,12 +243,17 @@ class LayoutService:
             )
             tables_with_reservations.append(table_with_reservation)
 
-        return LayoutEditorData(
+        result = LayoutEditorData(
             room_id=room_id,
             room_layout=room_layout,
             tables=tables_with_reservations,
             reservations=reservations
         )
+        
+        # Cache the result
+        self._set_cache(cache_key, result)
+        
+        return result
 
     # Smart Table Assignment
     def suggest_table_assignment(self, room_id: str, party_size: int, target_date: date, target_time: str) -> List[Dict[str, Any]]:
@@ -195,8 +272,14 @@ class LayoutService:
         # Get reserved table names
         reserved_tables = set()
         for reservation in existing_reservations:
-            if reservation.assigned_tables:
-                reserved_tables.update(reservation.assigned_tables)
+            # Get table assignments for this reservation
+            table_assignments = self.db.query(ReservationTable).filter(
+                ReservationTable.reservation_id == reservation.id
+            ).all()
+            for assignment in table_assignments:
+                table = self.db.query(Table).filter(Table.id == assignment.table_id).first()
+                if table:
+                    reserved_tables.add(table.name)
         
         suggestions = []
         for layout in table_layouts:
