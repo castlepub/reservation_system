@@ -187,6 +187,26 @@ async def get_restaurant_settings():
         {"key": "email", "value": "info@castlepub.com"}
     ]
 
+@app.get("/api/settings/working-hours")
+async def get_working_hours():
+    """Basic working hours"""
+    return {
+        "working_hours": [
+            {"day_of_week": "MONDAY", "is_open": True, "open_time": "17:00", "close_time": "22:00"},
+            {"day_of_week": "TUESDAY", "is_open": True, "open_time": "17:00", "close_time": "22:00"},
+            {"day_of_week": "WEDNESDAY", "is_open": True, "open_time": "17:00", "close_time": "22:00"},
+            {"day_of_week": "THURSDAY", "is_open": True, "open_time": "17:00", "close_time": "22:00"},
+            {"day_of_week": "FRIDAY", "is_open": True, "open_time": "17:00", "close_time": "23:00"},
+            {"day_of_week": "SATURDAY", "is_open": True, "open_time": "17:00", "close_time": "23:00"},
+            {"day_of_week": "SUNDAY", "is_open": True, "open_time": "17:00", "close_time": "22:00"}
+        ]
+    }
+
+@app.get("/api/settings/special-days")
+async def get_special_days():
+    """Basic special days"""
+    return []
+
 # Basic admin endpoints
 @app.get("/admin/rooms")
 async def get_admin_rooms(db: Session = Depends(get_db)):
