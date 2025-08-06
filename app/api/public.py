@@ -12,7 +12,8 @@ from app.services.reservation_service import ReservationService
 from app.services.table_service import TableService
 from app.services.working_hours_service import WorkingHoursService
 from app.services.email_service import EmailService
-from app.models.room import Room, AreaType
+from app.models.room import Room
+# from app.models.room import AreaType  # Temporarily disabled
 
 router = APIRouter(tags=["public"])
 

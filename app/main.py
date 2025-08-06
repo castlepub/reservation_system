@@ -1,11 +1,17 @@
 import os
 from datetime import datetime
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from sqlalchemy.orm import Session
-from app.core.database import get_db
+
+# Import routers
+from app.api.admin import router as admin_router
+from app.api.auth import router as auth_router
+from app.api.settings import router as settings_router
+from app.api.public import router as public_router
+from app.api.dashboard import router as dashboard_router
+from app.api.layout import router as layout_router
 
 # Create FastAPI app
 app = FastAPI(title="The Castle Pub Reservation System")
@@ -18,6 +24,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include routers
+app.include_router(auth_router, prefix="/api/auth")
+app.include_router(admin_router, prefix="/admin")
+app.include_router(settings_router, prefix="/api")
+app.include_router(public_router, prefix="/api")
+app.include_router(dashboard_router, prefix="/api")
+app.include_router(layout_router, prefix="/api/layout")
 
 # Mount static files
 static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
@@ -52,275 +66,3 @@ async def ping():
 async def api_root():
     """API root endpoint"""
     return {"message": "The Castle Pub Reservation System API", "status": "running"}
-
-@app.get("/api/debug/database")
-async def debug_database(db: Session = Depends(get_db)):
-    """Debug endpoint to check database status"""
-    try:
-        # Get all tables
-        tables_result = db.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'")
-        tables = [row.table_name for row in tables_result.fetchall()]
-        
-        info = {
-            "tables": tables,
-            "counts": {}
-        }
-        
-        # Get counts for main tables
-        for table in ["rooms", "reservations", "tables", "users"]:
-            if table in tables:
-                try:
-                    count_result = db.execute(f"SELECT COUNT(*) as count FROM {table}")
-                    count = count_result.fetchone()
-                    info["counts"][table] = count.count if count else 0
-                except Exception as e:
-                    info["counts"][table] = f"Error: {str(e)}"
-        
-        return info
-    except Exception as e:
-        return {"error": str(e), "message": "Database connection failed"}
-
-# Simple working auth endpoints
-@app.post("/api/auth/login")
-async def login():
-    """Simple login endpoint that always works"""
-    return {
-        "access_token": "temp_token_123",
-        "token_type": "bearer",
-        "user": {
-            "id": "admin",
-            "username": "admin",
-            "role": "admin",
-            "created_at": datetime.utcnow().isoformat()
-        }
-    }
-
-@app.get("/api/auth/me")
-async def get_current_user():
-    """Simple auth check endpoint"""
-    return {
-        "id": "admin",
-        "username": "admin",
-        "role": "admin",
-        "created_at": datetime.utcnow().isoformat()
-    }
-
-# Simple working room endpoint
-@app.get("/api/rooms")
-async def get_rooms(db: Session = Depends(get_db)):
-    """Get rooms using basic SQL to avoid model issues"""
-    try:
-        # First, let's check if the table exists (PostgreSQL syntax)
-        tables_check = db.execute("SELECT table_name FROM information_schema.tables WHERE table_name = 'rooms'")
-        table_exists = tables_check.fetchone()
-        
-        if not table_exists:
-            print("Rooms table does not exist!")
-            return [{"id": "fallback", "name": "Main Dining Room", "description": "Fallback room"}]
-        
-        # Check all rooms first (including inactive)
-        all_rooms_result = db.execute("SELECT id, name, description, active FROM rooms ORDER BY name")
-        all_rooms = all_rooms_result.fetchall()
-        print(f"Found {len(all_rooms)} total rooms in database")
-        
-        # Get only active rooms
-        result = db.execute("SELECT id, name, description FROM rooms WHERE active = true ORDER BY name")
-        rooms = result.fetchall()
-        print(f"Found {len(rooms)} active rooms")
-        
-        if len(rooms) == 0:
-            print("No active rooms found, returning fallback")
-            return [{"id": "fallback", "name": "Main Dining Room", "description": "No active rooms found"}]
-        
-        return [
-            {
-                "id": str(room.id),
-                "name": room.name,
-                "description": room.description or ""
-            }
-            for room in rooms
-        ]
-    except Exception as e:
-        print(f"Database error in /api/rooms: {e}")
-        # Return fallback data
-        return [
-            {"id": "room1", "name": "Main Dining Room", "description": "Main dining area"},
-            {"id": "room2", "name": "Private Dining", "description": "Private dining room"}
-        ]
-
-# Simple dashboard endpoints
-@app.get("/api/dashboard/stats")
-async def get_dashboard_stats():
-    """Basic dashboard stats"""
-    return {
-        "total_reservations_today": 0,
-        "total_guests_today": 0,
-        "total_reservations_week": 0,
-        "total_guests_week": 0,
-        "weekly_forecast": [],
-        "guest_notes": []
-    }
-
-@app.get("/api/dashboard/notes")
-async def get_dashboard_notes():
-    """Basic dashboard notes"""
-    return []
-
-@app.get("/api/dashboard/customers")
-async def get_dashboard_customers():
-    """Basic dashboard customers"""
-    return []
-
-@app.get("/api/dashboard/today")
-async def get_dashboard_today():
-    """Basic today's reservations"""
-    return []
-
-# Basic settings
-@app.get("/api/settings/restaurant")
-async def get_restaurant_settings():
-    """Basic restaurant settings"""
-    return [
-        {"key": "name", "value": "The Castle Pub"},
-        {"key": "address", "value": "123 Castle Street"},
-        {"key": "phone", "value": "+1 234 567 8900"},
-        {"key": "email", "value": "info@castlepub.com"}
-    ]
-
-@app.get("/api/settings/working-hours")
-async def get_working_hours():
-    """Basic working hours"""
-    return {
-        "working_hours": [
-            {"day_of_week": "MONDAY", "is_open": True, "open_time": "17:00", "close_time": "22:00"},
-            {"day_of_week": "TUESDAY", "is_open": True, "open_time": "17:00", "close_time": "22:00"},
-            {"day_of_week": "WEDNESDAY", "is_open": True, "open_time": "17:00", "close_time": "22:00"},
-            {"day_of_week": "THURSDAY", "is_open": True, "open_time": "17:00", "close_time": "22:00"},
-            {"day_of_week": "FRIDAY", "is_open": True, "open_time": "17:00", "close_time": "23:00"},
-            {"day_of_week": "SATURDAY", "is_open": True, "open_time": "17:00", "close_time": "23:00"},
-            {"day_of_week": "SUNDAY", "is_open": True, "open_time": "17:00", "close_time": "22:00"}
-        ]
-    }
-
-@app.get("/api/settings/special-days")
-async def get_special_days():
-    """Basic special days"""
-    return []
-
-# Basic admin endpoints
-@app.get("/admin/rooms")
-async def get_admin_rooms(db: Session = Depends(get_db)):
-    """Get rooms for admin"""
-    try:
-        result = db.execute("SELECT id, name, description, active, created_at FROM rooms ORDER BY name")
-        rooms = result.fetchall()
-        return [
-            {
-                "id": str(room.id),
-                "name": room.name,
-                "description": room.description or "",
-                "active": room.active,
-                "created_at": room.created_at.isoformat() if room.created_at else None
-            }
-            for room in rooms
-        ]
-    except Exception as e:
-        print(f"Database error in /admin/rooms: {e}")
-        return []
-
-@app.get("/admin/tables")
-async def get_admin_tables(db: Session = Depends(get_db)):
-    """Get tables for admin"""
-    try:
-        result = db.execute("""
-            SELECT t.id, t.name, t.room_id, t.capacity, t.combinable, t.active, t.created_at,
-                   r.name as room_name
-            FROM tables t
-            LEFT JOIN rooms r ON t.room_id = r.id
-            ORDER BY r.name, t.name
-        """)
-        tables = result.fetchall()
-        return [
-            {
-                "id": str(table.id),
-                "name": table.name,
-                "room_id": str(table.room_id) if table.room_id else None,
-                "room_name": table.room_name or "Unknown Room",
-                "capacity": table.capacity,
-                "combinable": table.combinable,
-                "active": table.active,
-                "created_at": table.created_at.isoformat() if table.created_at else None
-            }
-            for table in tables
-        ]
-    except Exception as e:
-        print(f"Database error in /admin/tables: {e}")
-        return []
-
-@app.get("/admin/reservations")
-async def get_admin_reservations(db: Session = Depends(get_db)):
-    """Get reservations for admin"""
-    try:
-        # First check if reservations table exists
-        tables_check = db.execute("SELECT table_name FROM information_schema.tables WHERE table_name = 'reservations'")
-        table_exists = tables_check.fetchone()
-        
-        if not table_exists:
-            print("Reservations table does not exist!")
-            return []
-        
-        # Get total count of reservations
-        count_result = db.execute("SELECT COUNT(*) as total FROM reservations")
-        total_count = count_result.fetchone()
-        print(f"Total reservations in database: {total_count.total if total_count else 0}")
-        
-        # Get today's reservations by default
-        from datetime import date
-        today = date.today()
-        
-        result = db.execute("""
-            SELECT r.id, r.customer_name, r.email, r.phone, r.date, r.time, 
-                   r.party_size, r.status, r.notes, r.created_at,
-                   rm.name as room_name
-            FROM reservations r
-            LEFT JOIN rooms rm ON r.room_id = rm.id
-            WHERE r.date = :date
-            ORDER BY r.time
-        """, {"date": today})
-        reservations = result.fetchall()
-        print(f"Found {len(reservations)} reservations for {today}")
-        
-        # If no reservations today, get recent reservations
-        if len(reservations) == 0:
-            print("No reservations today, getting recent reservations...")
-            recent_result = db.execute("""
-                SELECT r.id, r.customer_name, r.email, r.phone, r.date, r.time, 
-                       r.party_size, r.status, r.notes, r.created_at,
-                       rm.name as room_name
-                FROM reservations r
-                LEFT JOIN rooms rm ON r.room_id = rm.id
-                ORDER BY r.date DESC, r.time DESC
-                LIMIT 20
-            """)
-            reservations = recent_result.fetchall()
-            print(f"Found {len(reservations)} recent reservations")
-        
-        return [
-            {
-                "id": str(reservation.id),
-                "customer_name": reservation.customer_name,
-                "email": reservation.email,
-                "phone": reservation.phone,
-                "date": reservation.date.isoformat() if reservation.date else None,
-                "time": str(reservation.time) if reservation.time else None,
-                "party_size": reservation.party_size,
-                "status": reservation.status,
-                "notes": reservation.notes,
-                "room_name": reservation.room_name,
-                "created_at": reservation.created_at.isoformat() if reservation.created_at else None
-            }
-            for reservation in reservations
-        ]
-    except Exception as e:
-        print(f"Database error in /admin/reservations: {e}")
-        return []

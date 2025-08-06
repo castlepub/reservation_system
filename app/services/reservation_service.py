@@ -9,7 +9,7 @@ from app.models.table import Table
 from app.schemas.reservation import ReservationCreate, ReservationUpdate, ReservationWithTables
 from app.services.table_service import TableService
 from app.services.working_hours_service import WorkingHoursService
-from app.services.area_service import AreaService
+# from app.services.area_service import AreaService  # Temporarily disabled
 from app.core.security import create_reservation_token
 from app.core.config import settings
 
@@ -19,7 +19,7 @@ class ReservationService:
         self.db = db
         self.table_service = TableService(db)
         self.working_hours_service = WorkingHoursService(db)
-        self.area_service = AreaService(db)
+        # self.area_service = AreaService(db)  # Temporarily disabled
 
     def create_reservation(self, reservation_data: ReservationCreate) -> ReservationWithTables:
         """Create a new reservation with intelligent area and table assignment"""
