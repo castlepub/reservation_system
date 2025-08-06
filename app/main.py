@@ -53,6 +53,33 @@ async def api_root():
     """API root endpoint"""
     return {"message": "The Castle Pub Reservation System API", "status": "running"}
 
+@app.get("/api/debug/database")
+async def debug_database(db: Session = Depends(get_db)):
+    """Debug endpoint to check database status"""
+    try:
+        # Get all tables
+        tables_result = db.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'")
+        tables = [row.table_name for row in tables_result.fetchall()]
+        
+        info = {
+            "tables": tables,
+            "counts": {}
+        }
+        
+        # Get counts for main tables
+        for table in ["rooms", "reservations", "tables", "users"]:
+            if table in tables:
+                try:
+                    count_result = db.execute(f"SELECT COUNT(*) as count FROM {table}")
+                    count = count_result.fetchone()
+                    info["counts"][table] = count.count if count else 0
+                except Exception as e:
+                    info["counts"][table] = f"Error: {str(e)}"
+        
+        return info
+    except Exception as e:
+        return {"error": str(e), "message": "Database connection failed"}
+
 # Simple working auth endpoints
 @app.post("/api/auth/login")
 async def login():
@@ -83,9 +110,28 @@ async def get_current_user():
 async def get_rooms(db: Session = Depends(get_db)):
     """Get rooms using basic SQL to avoid model issues"""
     try:
-        # Use raw SQL to avoid any model issues
+        # First, let's check if the table exists (PostgreSQL syntax)
+        tables_check = db.execute("SELECT table_name FROM information_schema.tables WHERE table_name = 'rooms'")
+        table_exists = tables_check.fetchone()
+        
+        if not table_exists:
+            print("Rooms table does not exist!")
+            return [{"id": "fallback", "name": "Main Dining Room", "description": "Fallback room"}]
+        
+        # Check all rooms first (including inactive)
+        all_rooms_result = db.execute("SELECT id, name, description, active FROM rooms ORDER BY name")
+        all_rooms = all_rooms_result.fetchall()
+        print(f"Found {len(all_rooms)} total rooms in database")
+        
+        # Get only active rooms
         result = db.execute("SELECT id, name, description FROM rooms WHERE active = true ORDER BY name")
         rooms = result.fetchall()
+        print(f"Found {len(rooms)} active rooms")
+        
+        if len(rooms) == 0:
+            print("No active rooms found, returning fallback")
+            return [{"id": "fallback", "name": "Main Dining Room", "description": "No active rooms found"}]
+        
         return [
             {
                 "id": str(room.id),
@@ -195,6 +241,19 @@ async def get_admin_tables(db: Session = Depends(get_db)):
 async def get_admin_reservations(db: Session = Depends(get_db)):
     """Get reservations for admin"""
     try:
+        # First check if reservations table exists
+        tables_check = db.execute("SELECT table_name FROM information_schema.tables WHERE table_name = 'reservations'")
+        table_exists = tables_check.fetchone()
+        
+        if not table_exists:
+            print("Reservations table does not exist!")
+            return []
+        
+        # Get total count of reservations
+        count_result = db.execute("SELECT COUNT(*) as total FROM reservations")
+        total_count = count_result.fetchone()
+        print(f"Total reservations in database: {total_count.total if total_count else 0}")
+        
         # Get today's reservations by default
         from datetime import date
         today = date.today()
@@ -209,6 +268,22 @@ async def get_admin_reservations(db: Session = Depends(get_db)):
             ORDER BY r.time
         """, {"date": today})
         reservations = result.fetchall()
+        print(f"Found {len(reservations)} reservations for {today}")
+        
+        # If no reservations today, get recent reservations
+        if len(reservations) == 0:
+            print("No reservations today, getting recent reservations...")
+            recent_result = db.execute("""
+                SELECT r.id, r.customer_name, r.email, r.phone, r.date, r.time, 
+                       r.party_size, r.status, r.notes, r.created_at,
+                       rm.name as room_name
+                FROM reservations r
+                LEFT JOIN rooms rm ON r.room_id = rm.id
+                ORDER BY r.date DESC, r.time DESC
+                LIMIT 20
+            """)
+            reservations = recent_result.fetchall()
+            print(f"Found {len(reservations)} recent reservations")
         
         return [
             {
