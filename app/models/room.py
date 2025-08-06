@@ -20,14 +20,14 @@ class Room(Base):
     description = Column(Text)
     active = Column(Boolean, default=True, nullable=False)
     
-    # Area management (new features)
-    area_type = Column(Enum(AreaType), default=AreaType.INDOOR, nullable=False)
-    priority = Column(Integer, default=5)  # 1-10 priority for assignment order
-    is_fallback_area = Column(Boolean, default=False)  # For weather-dependent assignments
-    fallback_for = Column(Text, nullable=True)  # Room ID this can fallback to
+    # Area management (temporarily disabled to fix database issues)
+    # area_type = Column(Enum(AreaType), default=AreaType.INDOOR, nullable=False)
+    # priority = Column(Integer, default=5)  # 1-10 priority for assignment order
+    # is_fallback_area = Column(Boolean, default=False)  # For weather-dependent assignments
+    # fallback_for = Column(Text, nullable=True)  # Room ID this can fallback to
     
     # Display order for drag-and-drop reordering
-    display_order = Column(Integer, default=0)
+    # display_order = Column(Integer, default=0)
     
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, onupdate=func.now())
