@@ -118,3 +118,30 @@ async def ping():
 async def api_root():
     """API root endpoint"""
     return {"message": "The Castle Pub Reservation System API", "status": "running"}
+
+@app.get("/api/debug/db-test")
+async def test_database_connection():
+    """Test database connection without dependencies"""
+    try:
+        from app.core.database import get_db
+        from sqlalchemy.orm import Session
+        
+        # Try to get a database session
+        db_gen = get_db()
+        db = next(db_gen)
+        
+        # Try a simple query
+        result = db.execute("SELECT 1 as test")
+        test_result = result.fetchone()
+        
+        return {
+            "status": "success",
+            "message": "Database connection working",
+            "test_query_result": test_result.test if test_result else None
+        }
+    except Exception as e:
+        return {
+            "status": "error", 
+            "message": f"Database connection failed: {str(e)}",
+            "error_type": type(e).__name__
+        }
