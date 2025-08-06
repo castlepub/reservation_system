@@ -26,7 +26,7 @@ app.add_middleware(
 )
 
 # Include routers
-app.include_router(auth_router, prefix="/auth")
+app.include_router(auth_router, prefix="/api/auth")
 app.include_router(admin_router, prefix="/admin")
 app.include_router(settings_router, prefix="/api")
 app.include_router(public_router, prefix="/api")
