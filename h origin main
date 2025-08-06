@@ -1,0 +1,5 @@
+[33mfb90818[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m Remove weather functionality and enhance smart area management
+[33mabc0cd5[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Fix table shapes - update shape handling and add CSS classes
+[33md63bd8b[m Fix layout
+[33m6ede6a9[m Fix times dropdown and table properties saving issues
+[33m2c2baa8[m Fix layout saving issue: Update cache versions and add debugging

@@ -1100,8 +1100,8 @@ async function checkAvailability() {
     showLoading();
     
     try {
-        // First, get smart availability
-        await updateSmartAvailability();
+        // Smart availability temporarily disabled
+        // await updateSmartAvailability();
         
         // Then check traditional availability
         const response = await fetch(`${API_BASE_URL}/api/availability`, {
@@ -4364,42 +4364,15 @@ function initializeLayoutEditorOnLoad() {
 // Smart Availability Functions
 
 async function loadSmartAvailability(date, partySize, preferredAreaType = null, reservationType = 'dinner') {
-    try {
-        let url = `${API_BASE_URL}/api/availability/smart?date=${date}&party_size=${partySize}&reservation_type=${reservationType}`;
-        if (preferredAreaType) {
-            url += `&preferred_area_type=${preferredAreaType}`;
-        }
-        
-        const response = await fetch(url);
-        if (response.ok) {
-            smartAvailabilityData = await response.json();
-            displaySmartAvailability(smartAvailabilityData);
-            return smartAvailabilityData;
-        } else {
-            console.error('Failed to load smart availability');
-            return null;
-        }
-    } catch (error) {
-        console.error('Error loading smart availability:', error);
-        return null;
-    }
+    // Temporarily disabled to prevent 500 errors
+    console.log('Smart availability temporarily disabled');
+    return null;
 }
 
 async function loadAreaRecommendations(partySize, reservationType = 'dinner') {
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/areas/recommendations?party_size=${partySize}&reservation_type=${reservationType}`);
-        if (response.ok) {
-            const recommendations = await response.json();
-            displayAreaRecommendations(recommendations);
-            return recommendations;
-        } else {
-            console.error('Failed to load area recommendations');
-            return null;
-        }
-    } catch (error) {
-        console.error('Error loading area recommendations:', error);
-        return null;
-    }
+    // Temporarily disabled to prevent 500 errors
+    console.log('Area recommendations temporarily disabled');
+    return null;
 }
 
 function displayAreaRecommendations(recommendations) {
@@ -4534,21 +4507,6 @@ function displaySmartAvailability(availabilityData) {
 
 
 async function updateSmartAvailability() {
-    const dateInput = document.getElementById('date');
-    const partySizeInput = document.getElementById('partySize');
-    const areaTypeInput = document.getElementById('preferredAreaType');
-    const reservationTypeInput = document.getElementById('reservationType');
-    
-    if (dateInput && dateInput.value) {
-        const selectedDate = dateInput.value;
-        const partySize = partySizeInput ? parseInt(partySizeInput.value) || 4 : 4;
-        const preferredAreaType = areaTypeInput ? areaTypeInput.value : null;
-        const reservationType = reservationTypeInput ? reservationTypeInput.value : 'dinner';
-        
-        // Load smart availability
-        await loadSmartAvailability(selectedDate, partySize, preferredAreaType, reservationType);
-        
-        // Load area recommendations
-        await loadAreaRecommendations(partySize, reservationType);
-    }
+    // Temporarily disabled to prevent 500 errors
+    console.log('Smart availability update temporarily disabled');
 }
