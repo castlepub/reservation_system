@@ -976,8 +976,15 @@ function populateRoomOptions(rooms) {
 }
 
 function populateTimeSlots(selectId = 'time') {
+    console.log('=== populateTimeSlots START ===', { selectId });
+    
     const timeSelect = document.getElementById(selectId);
-    if (!timeSelect) return;
+    console.log('Time select element:', timeSelect);
+    
+    if (!timeSelect) {
+        console.error('Time select element not found for ID:', selectId);
+        return;
+    }
     
     // Keep the first option
     while (timeSelect.options.length > 1) {
@@ -994,6 +1001,9 @@ function populateTimeSlots(selectId = 'time') {
             timeSelect.appendChild(option);
         }
     }
+    
+    console.log('Added time slots, total options:', timeSelect.options.length);
+    console.log('=== populateTimeSlots END ===');
 }
 
 async function updateTimeSlotsForDate(dateInput, timeSelectId) {
@@ -3691,7 +3701,12 @@ async function saveNewTable(tableData) {
 }
 
 async function updateTableProperties() {
-    if (!selectedTable) return;
+    if (!selectedTable) {
+        console.error('No table selected for property update');
+        return;
+    }
+    
+    console.log('=== updateTableProperties START ===', { selectedTable });
     
     try {
         const formData = {
@@ -3703,6 +3718,8 @@ async function updateTableProperties() {
             show_capacity: document.getElementById('tableShowCapacity').checked
         };
         
+        console.log('Form data to send:', formData);
+        
         const response = await fetch(`${API_BASE_URL}/api/layout/tables/${selectedTable}`, {
             method: 'PUT',
             headers: {
@@ -3712,23 +3729,35 @@ async function updateTableProperties() {
             body: JSON.stringify(formData)
         });
         
+        console.log('PUT response status:', response.status);
+        
         if (response.ok) {
+            const responseData = await response.json();
+            console.log('PUT response data:', responseData);
+            
             // Update local data
             const tableData = currentLayoutData.tables.find(t => t.layout_id === selectedTable);
             if (tableData) {
                 Object.assign(tableData, formData);
+                console.log('Updated local table data:', tableData);
+            } else {
+                console.warn('Table data not found in currentLayoutData for layoutId:', selectedTable);
             }
             
             // Re-render canvas
             renderLayoutCanvas();
             showMessage('Table properties updated successfully', 'success');
         } else {
-            throw new Error('Failed to update table properties');
+            const errorText = await response.text();
+            console.error('PUT response error:', errorText);
+            throw new Error(`Failed to update table properties: ${response.status} ${errorText}`);
         }
     } catch (error) {
         console.error('Error updating table properties:', error);
-        showMessage('Error updating table properties', 'error');
+        showMessage('Error updating table properties: ' + error.message, 'error');
     }
+    
+    console.log('=== updateTableProperties END ===');
 }
 
 async function deleteSelectedTable() {

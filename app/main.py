@@ -681,6 +681,33 @@ async def get_working_hours_time_slots_temp(day: str):
         "message": "Restaurant is open"
     }
 
+@app.get("/api/working-hours/{date}")
+async def get_working_hours_for_date_temp(date: str):
+    """Get working hours for a specific date - used by frontend for time slots"""
+    try:
+        # For now, return standard hours for any date
+        # In a real implementation, this would check the actual working hours for the day of week
+        return {
+            "date": date,
+            "summary": {
+                "is_open": True,
+                "message": "Restaurant is open"
+            },
+            "available_time_slots": [
+                "17:00", "17:30", "18:00", "18:30", "19:00", 
+                "19:30", "20:00", "20:30", "21:00", "21:30"
+            ]
+        }
+    except Exception as e:
+        return {
+            "date": date,
+            "summary": {
+                "is_open": False,
+                "message": "Error loading working hours"
+            },
+            "available_time_slots": []
+        }
+
 @app.get("/api/layout/daily/{date}")
 async def get_layout_daily_temp(date: str, db: Session = Depends(get_db)):
     """Get daily view with all room layouts and reservations"""
@@ -1298,8 +1325,9 @@ async def delete_admin_table_temp(table_id: str, db: Session = Depends(get_db)):
 # Layout API endpoints for table positioning and management
 @app.put("/api/layout/tables/{layout_id}")
 async def update_table_position_temp(layout_id: str, position_data: dict, db: Session = Depends(get_db)):
-    """Update table position in layout"""
+    """Update table position and properties in layout"""
     from app.models.table_layout import TableLayout
+    from app.models.table import Table
     
     try:
         # Find the table layout
@@ -1307,7 +1335,7 @@ async def update_table_position_temp(layout_id: str, position_data: dict, db: Se
         if not layout:
             raise HTTPException(status_code=404, detail="Table layout not found")
         
-        # Update position and properties
+        # Update layout properties
         if "x_position" in position_data:
             layout.x_position = float(position_data["x_position"])
         if "y_position" in position_data:
@@ -1320,21 +1348,37 @@ async def update_table_position_temp(layout_id: str, position_data: dict, db: Se
             layout.color = position_data["color"]
         if "shape" in position_data:
             layout.shape = position_data["shape"]
+        if "show_name" in position_data:
+            layout.show_name = position_data["show_name"]
+        if "show_capacity" in position_data:
+            layout.show_capacity = position_data["show_capacity"]
+        
+        # Update table properties (name and capacity)
+        table = db.query(Table).filter(Table.id == layout.table_id).first()
+        if table:
+            if "table_name" in position_data:
+                table.name = position_data["table_name"]
+            if "capacity" in position_data:
+                table.capacity = int(position_data["capacity"])
         
         db.commit()
         db.refresh(layout)
+        if table:
+            db.refresh(table)
         
         return {
-            "message": "Table position updated successfully",
+            "message": "Table updated successfully",
             "layout_id": layout_id,
             "x_position": layout.x_position,
-            "y_position": layout.y_position
+            "y_position": layout.y_position,
+            "table_name": table.name if table else None,
+            "capacity": table.capacity if table else None
         }
     except HTTPException:
         raise
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to update table position: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to update table: {str(e)}")
 
 @app.post("/api/layout/tables")
 async def create_layout_table_temp(table_data: dict, db: Session = Depends(get_db)):
