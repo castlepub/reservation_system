@@ -438,3 +438,80 @@ async def check_database_data():
             "message": f"Failed to check data: {str(e)}",
             "error_type": type(e).__name__
         }
+
+@app.post("/api/simple-init")
+async def simple_initialize():
+    """Simple database initialization without problematic imports"""
+    try:
+        from app.core.database import SessionLocal
+        from app.models.user import User, UserRole
+        from app.models.room import Room
+        from app.models.table import Table
+        from app.core.security import get_password_hash
+        
+        db = SessionLocal()
+        
+        # Create admin user
+        existing_admin = db.query(User).filter(User.username == "admin").first()
+        if not existing_admin:
+            admin_user = User(
+                username="admin",
+                password_hash=get_password_hash("admin123"),
+                role=UserRole.ADMIN,
+                email="admin@thecastle.de"
+            )
+            db.add(admin_user)
+            print("✅ Admin user created")
+        
+        # Create rooms with correct names
+        rooms_data = [
+            {"name": "Front Room", "description": "Front dining area", "table_count": 6},
+            {"name": "Middle Room", "description": "Middle dining area", "table_count": 6},
+            {"name": "Back Room", "description": "Back dining area", "table_count": 6},
+            {"name": "Biergarden", "description": "Outdoor beer garden", "table_count": 12}
+        ]
+        
+        for room_data in rooms_data:
+            existing_room = db.query(Room).filter(Room.name == room_data["name"]).first()
+            if not existing_room:
+                room = Room(
+                    name=room_data["name"],
+                    description=room_data["description"],
+                    active=True
+                )
+                db.add(room)
+                db.commit()
+                db.refresh(room)
+                print(f"✅ Room created: {room.name}")
+                
+                # Create tables for this room
+                table_count = room_data["table_count"]
+                for i in range(1, table_count + 1):
+                    table = Table(
+                        name=f"{room.name[:2]}{i}",  # FR1, FR2, etc.
+                        capacity=4,  # Default capacity
+                        room_id=room.id,
+                        active=True
+                    )
+                    db.add(table)
+                print(f"✅ Created {table_count} tables for {room.name}")
+        
+        db.commit()
+        db.close()
+        
+        return {
+            "status": "success",
+            "message": "Database initialized with admin user and rooms",
+            "admin_credentials": {
+                "username": "admin",
+                "password": "admin123"
+            },
+            "rooms_created": [room["name"] for room in rooms_data]
+        }
+        
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Failed to initialize database: {str(e)}",
+            "error_type": type(e).__name__
+        }
