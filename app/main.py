@@ -285,7 +285,7 @@ async def create_admin_user():
 
 @app.post("/api/init-database")
 async def initialize_database():
-    """Initialize database with basic data"""
+    """Initialize database with correct data"""
     try:
         from app.core.database import SessionLocal
         from app.models.user import User, UserRole
@@ -309,29 +309,38 @@ async def initialize_database():
             db.add(admin_user)
             print("✅ Admin user created")
         
-        # Create default room
-        existing_room = db.query(Room).first()
-        if not existing_room:
-            default_room = Room(
-                name="Main Dining Room",
-                description="The main dining area",
-                active=True
-            )
-            db.add(default_room)
-            db.commit()
-            db.refresh(default_room)
-            print("✅ Default room created")
-            
-            # Create some tables
-            tables = [
-                Table(name="T1", capacity=4, room_id=default_room.id, active=True),
-                Table(name="T2", capacity=6, room_id=default_room.id, active=True),
-                Table(name="T3", capacity=4, room_id=default_room.id, active=True),
-                Table(name="T4", capacity=8, room_id=default_room.id, active=True),
-            ]
-            for table in tables:
-                db.add(table)
-            print("✅ Default tables created")
+        # Create rooms with correct names
+        rooms_data = [
+            {"name": "Front Room", "description": "Front dining area", "table_count": 6},
+            {"name": "Middle Room", "description": "Middle dining area", "table_count": 6},
+            {"name": "Back Room", "description": "Back dining area", "table_count": 6},
+            {"name": "Biergarden", "description": "Outdoor beer garden", "table_count": 12}
+        ]
+        
+        for room_data in rooms_data:
+            existing_room = db.query(Room).filter(Room.name == room_data["name"]).first()
+            if not existing_room:
+                room = Room(
+                    name=room_data["name"],
+                    description=room_data["description"],
+                    active=True
+                )
+                db.add(room)
+                db.commit()
+                db.refresh(room)
+                print(f"✅ Room created: {room.name}")
+                
+                # Create tables for this room
+                table_count = room_data["table_count"]
+                for i in range(1, table_count + 1):
+                    table = Table(
+                        name=f"{room.name[:2]}{i}",  # FR1, FR2, etc.
+                        capacity=4,  # Default capacity
+                        room_id=room.id,
+                        active=True
+                    )
+                    db.add(table)
+                print(f"✅ Created {table_count} tables for {room.name}")
         
         # Create settings
         existing_settings = db.query(Settings).first()
@@ -345,30 +354,41 @@ async def initialize_database():
             db.add(settings)
             print("✅ Settings created")
         
-        # Create working hours
-        existing_hours = db.query(WorkingHours).first()
-        if not existing_hours:
-            days = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY']
-            for day in days:
+        # Create working hours with correct schedule
+        working_hours_data = [
+            {"day": "MONDAY", "open": "15:00", "close": "01:00"},
+            {"day": "TUESDAY", "open": "15:00", "close": "01:00"},
+            {"day": "WEDNESDAY", "open": "15:00", "close": "01:00"},
+            {"day": "THURSDAY", "open": "15:00", "close": "01:00"},
+            {"day": "FRIDAY", "open": "15:00", "close": "02:00"},
+            {"day": "SATURDAY", "open": "13:00", "close": "02:00"},
+            {"day": "SUNDAY", "open": "13:00", "close": "01:00"}
+        ]
+        
+        for wh_data in working_hours_data:
+            existing_wh = db.query(WorkingHours).filter(WorkingHours.day_of_week == wh_data["day"]).first()
+            if not existing_wh:
                 wh = WorkingHours(
-                    day_of_week=day,
+                    day_of_week=wh_data["day"],
                     is_open=True,
-                    open_time="11:00",
-                    close_time="23:00"
+                    open_time=wh_data["open"],
+                    close_time=wh_data["close"]
                 )
                 db.add(wh)
-            print("✅ Working hours created")
+                print(f"✅ Working hours created for {wh_data['day']}: {wh_data['open']}-{wh_data['close']}")
         
         db.commit()
         db.close()
         
         return {
             "status": "success",
-            "message": "Database initialized with basic data",
+            "message": "Database initialized with correct data",
             "admin_credentials": {
                 "username": "admin",
                 "password": "admin123"
-            }
+            },
+            "rooms_created": [room["name"] for room in rooms_data],
+            "working_hours": "Mon-Thu: 15:00-01:00, Fri: 15:00-02:00, Sat: 13:00-02:00, Sun: 13:00-01:00"
         }
         
     except Exception as e:
