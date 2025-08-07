@@ -62,7 +62,7 @@ app.add_middleware(
 
 # Include routers - only if they imported successfully
 if auth_router:
-    app.include_router(auth_router, prefix="/api/auth")
+    app.include_router(auth_router, prefix="/api")
     print("✅ Auth router included")
 
 if admin_router:
