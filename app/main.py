@@ -187,3 +187,49 @@ async def setup_database():
             "message": f"Database setup failed: {str(e)}",
             "error_type": type(e).__name__
         }
+
+@app.get("/api/debug/check-tables")
+async def check_tables():
+    """Check table structure and schema"""
+    try:
+        from app.core.database import engine
+        from sqlalchemy import text
+        
+        with engine.connect() as connection:
+            # Check current schema
+            result = connection.execute(text("SELECT current_schema()"))
+            current_schema = result.fetchone()[0]
+            
+            # Check tables in current schema
+            result = connection.execute(text("""
+                SELECT table_name 
+                FROM information_schema.tables 
+                WHERE table_schema = current_schema()
+                ORDER BY table_name
+            """))
+            tables = [row[0] for row in result]
+            
+            # Check if users table exists specifically
+            result = connection.execute(text("""
+                SELECT EXISTS (
+                    SELECT 1 FROM information_schema.tables 
+                    WHERE table_schema = current_schema() 
+                    AND table_name = 'users'
+                )
+            """))
+            users_exists = result.fetchone()[0]
+            
+            return {
+                "status": "success",
+                "current_schema": current_schema,
+                "tables": tables,
+                "users_table_exists": users_exists,
+                "total_tables": len(tables)
+            }
+            
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Failed to check tables: {str(e)}",
+            "error_type": type(e).__name__
+        }
