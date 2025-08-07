@@ -2315,6 +2315,12 @@ async function handleAddReservation(event) {
         timeValue = `${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}:00`;
     }
     
+    // Debug: Log form data
+    console.log('Form data debug:');
+    for (let [key, value] of formData.entries()) {
+        console.log(`${key}: ${value}`);
+    }
+    
     const reservationData = {
         customer_name: formData.get('customerName'),
         email: formData.get('email'),
@@ -2328,6 +2334,8 @@ async function handleAddReservation(event) {
         notes: formData.get('notes') || null,
         admin_notes: formData.get('adminNotes') || null
     };
+    
+    console.log('Reservation data:', reservationData);
     
     try {
         const response = await fetch(`${API_BASE_URL}/api/reservations`, {
