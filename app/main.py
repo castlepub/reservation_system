@@ -152,7 +152,7 @@ async def setup_database():
     """Set up database tables if they don't exist"""
     try:
         from app.core.database import engine
-        from app.models import user, room, table, reservation, settings
+        from app.models import user, room, table, reservation
         from sqlalchemy import text
         
         # Test connection first
