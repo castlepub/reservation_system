@@ -278,7 +278,7 @@ class TableService:
         overlapping_reservations = self.db.query(Reservation).filter(
             and_(
                 Reservation.date == date,
-                Reservation.status.in_(['confirmed', 'pending']),
+                Reservation.status.in_(['CONFIRMED', 'PENDING']),
                 Reservation.id != exclude_reservation_id if exclude_reservation_id else True
             )
         ).all()
