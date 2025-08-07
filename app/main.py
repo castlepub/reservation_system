@@ -734,3 +734,64 @@ async def assign_tables_to_existing_reservations():
         }
     finally:
         db.close()
+
+@app.post("/api/debug-table-assignment")
+async def debug_table_assignment():
+    """Debug table assignment step by step"""
+    try:
+        from app.core.database import SessionLocal
+        from app.models.room import Room
+        from app.models.table import Table
+        from app.models.reservation import Reservation, ReservationTable
+        from app.services.table_service import TableService
+        from datetime import date, time
+        
+        db = SessionLocal()
+        table_service = TableService(db)
+        
+        # Get first room
+        room = db.query(Room).filter(Room.active == True).first()
+        if not room:
+            return {"error": "No active rooms found"}
+        
+        # Get all tables in this room
+        tables = db.query(Table).filter(Table.room_id == room.id).all()
+        
+        # Get all reservations for today
+        today = date(2025, 8, 8)
+        reservations = db.query(Reservation).filter(Reservation.date == today).all()
+        
+        # Get table assignments for today
+        table_assignments = db.query(ReservationTable).join(Reservation).filter(Reservation.date == today).all()
+        
+        # Test table combination finding
+        test_time = time(18, 0)
+        table_combo = table_service.find_best_table_combination(
+            room.id,
+            today,
+            test_time,
+            4
+        )
+        
+        return {
+            "status": "success",
+            "room": {
+                "id": str(room.id),
+                "name": room.name
+            },
+            "tables_in_room": len(tables),
+            "reservations_today": len(reservations),
+            "table_assignments_today": len(table_assignments),
+            "test_table_combo_found": table_combo is not None,
+            "test_table_combo_count": len(table_combo) if table_combo else 0,
+            "test_table_combo": [{"id": str(t.id), "name": t.name, "capacity": t.capacity} for t in table_combo] if table_combo else None
+        }
+        
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Debug failed: {str(e)}",
+            "error_type": type(e).__name__
+        }
+    finally:
+        db.close()
