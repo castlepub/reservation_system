@@ -622,181 +622,7 @@ async def update_working_hours_schedule():
             "error_type": type(e).__name__
         }
 
-@app.post("/api/test-reservation")
-async def create_test_reservation():
-    """Create a simple test reservation directly"""
-    try:
-        from app.core.database import SessionLocal
-        from app.models.reservation import Reservation
-        from app.models.room import Room
-        
-        db = SessionLocal()
-        
-        # Get first active room
-        room = db.query(Room).filter(Room.active == True).first()
-        if not room:
-            return {"error": "No active rooms found"}
-        
-        # Create simple reservation
-        reservation = Reservation(
-            customer_name="Test Customer",
-            email="test@example.com",
-            phone="1234567890",
-            party_size=2,
-            date=date(2025, 8, 10),
-            time=time(15, 0),
-            duration_hours=2,
-            room_id=room.id,
-            reservation_type="dining",
-            notes="Test reservation"
-        )
-        
-        db.add(reservation)
-        db.commit()
-        db.refresh(reservation)
-        
-        return {
-            "status": "success",
-            "message": "Test reservation created",
-            "reservation_id": str(reservation.id),
-            "room_id": str(reservation.room_id)
-        }
-        
-    except Exception as e:
-        return {
-            "status": "error",
-            "message": f"Failed to create test reservation: {str(e)}",
-            "error_type": type(e).__name__
-        }
-    finally:
-        db.close()
 
-@app.post("/api/create-test-reservations")
-async def create_test_reservations():
-    """Create 6 test reservations with different sizes, times and days"""
-    try:
-        from app.core.database import SessionLocal
-        from app.models.reservation import Reservation
-        from app.models.room import Room
-        
-        db = SessionLocal()
-        
-        # Get first active room
-        room = db.query(Room).filter(Room.active == True).first()
-        if not room:
-            return {"error": "No active rooms found"}
-        
-        # Test reservations data
-        test_reservations = [
-            {
-                "customer_name": "Emma Thompson",
-                "email": "emma@example.com", 
-                "phone": "1234567891",
-                "party_size": 2,
-                "date": date(2025, 8, 7),
-                "time": time(15, 30),
-                "duration_hours": 2,
-                "reservation_type": "dining",
-                "notes": "Window seat preferred"
-            },
-            {
-                "customer_name": "James Wilson",
-                "email": "james@example.com",
-                "phone": "1234567892", 
-                "party_size": 6,
-                "date": date(2025, 8, 7),
-                "time": time(19, 0),
-                "duration_hours": 3,
-                "reservation_type": "dining",
-                "notes": "Birthday celebration"
-            },
-            {
-                "customer_name": "Sophie Mueller",
-                "email": "sophie@example.com",
-                "phone": "1234567893",
-                "party_size": 4,
-                "date": date(2025, 8, 8),
-                "time": time(16, 0),
-                "duration_hours": 2,
-                "reservation_type": "dining", 
-                "notes": "Quiet table please"
-            },
-            {
-                "customer_name": "Michael Brown",
-                "email": "michael@example.com",
-                "phone": "1234567894",
-                "party_size": 8,
-                "date": date(2025, 8, 8),
-                "time": time(20, 30),
-                "duration_hours": 4,
-                "reservation_type": "dining",
-                "notes": "Business dinner"
-            },
-            {
-                "customer_name": "Anna Schmidt",
-                "email": "anna@example.com",
-                "phone": "1234567895",
-                "party_size": 3,
-                "date": date(2025, 8, 9),
-                "time": time(17, 0),
-                "duration_hours": 2,
-                "reservation_type": "dining",
-                "notes": "Anniversary dinner"
-            },
-            {
-                "customer_name": "David Johnson",
-                "email": "david@example.com",
-                "phone": "1234567896",
-                "party_size": 5,
-                "date": date(2025, 8, 9),
-                "time": time(21, 0),
-                "duration_hours": 3,
-                "reservation_type": "dining",
-                "notes": "Late dinner"
-            }
-        ]
-        
-        created_reservations = []
-        for res_data in test_reservations:
-            reservation = Reservation(
-                customer_name=res_data["customer_name"],
-                email=res_data["email"],
-                phone=res_data["phone"],
-                party_size=res_data["party_size"],
-                date=res_data["date"],
-                time=res_data["time"],
-                duration_hours=res_data["duration_hours"],
-                room_id=room.id,
-                reservation_type=res_data["reservation_type"],
-                notes=res_data["notes"]
-            )
-            
-            db.add(reservation)
-            db.flush()  # Get the ID
-            created_reservations.append({
-                "id": str(reservation.id),
-                "customer_name": reservation.customer_name,
-                "date": reservation.date.isoformat(),
-                "time": reservation.time.strftime("%H:%M"),
-                "party_size": reservation.party_size
-            })
-        
-        db.commit()
-        
-        return {
-            "status": "success",
-            "message": f"Created {len(created_reservations)} test reservations",
-            "reservations": created_reservations
-        }
-        
-    except Exception as e:
-        return {
-            "status": "error",
-            "message": f"Failed to create test reservations: {str(e)}",
-            "error_type": type(e).__name__
-        }
-    finally:
-        db.close()
 
 @app.post("/api/cleanup-duplicates")
 async def cleanup_duplicate_reservations():
@@ -843,6 +669,67 @@ async def cleanup_duplicate_reservations():
         return {
             "status": "error",
             "message": f"Failed to cleanup duplicates: {str(e)}",
+            "error_type": type(e).__name__
+        }
+    finally:
+        db.close()
+
+@app.post("/api/assign-tables-to-existing")
+async def assign_tables_to_existing_reservations():
+    """Assign tables to existing reservations that don't have table assignments"""
+    try:
+        from app.core.database import SessionLocal
+        from app.models.reservation import Reservation, ReservationTable
+        from app.models.table import Table
+        from app.services.table_service import TableService
+        
+        db = SessionLocal()
+        table_service = TableService(db)
+        
+        # Get all reservations without table assignments
+        reservations_without_tables = []
+        all_reservations = db.query(Reservation).all()
+        
+        for reservation in all_reservations:
+            table_assignments = db.query(ReservationTable).filter(
+                ReservationTable.reservation_id == reservation.id
+            ).all()
+            
+            if not table_assignments:
+                reservations_without_tables.append(reservation)
+        
+        assigned_count = 0
+        for reservation in reservations_without_tables:
+            # Find available tables for this reservation
+            table_combo = table_service.find_best_table_combination(
+                reservation.room_id,
+                reservation.date,
+                reservation.time,
+                reservation.party_size
+            )
+            
+            if table_combo:
+                # Assign tables
+                table_ids = [str(table.id) for table in table_combo]
+                table_service.assign_tables_to_reservation(str(reservation.id), table_ids)
+                assigned_count += 1
+                print(f"✅ Assigned tables to reservation {reservation.customer_name}")
+            else:
+                print(f"❌ No tables available for reservation {reservation.customer_name}")
+        
+        db.commit()
+        
+        return {
+            "status": "success",
+            "message": f"Assigned tables to {assigned_count} reservations",
+            "assigned_count": assigned_count,
+            "total_without_tables": len(reservations_without_tables)
+        }
+        
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Failed to assign tables: {str(e)}",
             "error_type": type(e).__name__
         }
     finally:
