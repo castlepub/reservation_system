@@ -146,3 +146,44 @@ async def test_database_connection():
             "message": f"Database connection failed: {str(e)}",
             "error_type": type(e).__name__
         }
+
+@app.get("/api/setup-database")
+async def setup_database():
+    """Set up database tables if they don't exist"""
+    try:
+        from app.core.database import engine
+        from app.models import user, room, table, reservation, settings, working_hours
+        from sqlalchemy import text
+        
+        # Test connection first
+        with engine.connect() as connection:
+            result = connection.execute(text("SELECT 1"))
+            print("✅ Database connection working!")
+            
+            # Create all tables
+            from app.core.database import Base
+            Base.metadata.create_all(bind=engine)
+            print("✅ Database tables created!")
+            
+            # Test if we can query tables
+            result = connection.execute(text("""
+                SELECT table_name 
+                FROM information_schema.tables 
+                WHERE table_schema = 'public'
+                ORDER BY table_name
+            """))
+            tables = [row[0] for row in result]
+            print(f"✅ Found {len(tables)} tables: {tables}")
+            
+            return {
+                "status": "success",
+                "message": "Database setup completed",
+                "tables": tables
+            }
+            
+    except Exception as e:
+        return {
+            "status": "error", 
+            "message": f"Database setup failed: {str(e)}",
+            "error_type": type(e).__name__
+        }
