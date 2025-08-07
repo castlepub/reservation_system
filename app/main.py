@@ -795,3 +795,157 @@ async def debug_table_assignment():
         }
     finally:
         db.close()
+
+@app.post("/api/debug-reservation-creation")
+async def debug_reservation_creation():
+    """Debug reservation creation step by step"""
+    try:
+        from app.core.database import SessionLocal
+        from app.models.room import Room
+        from app.models.table import Table
+        from app.models.reservation import Reservation, ReservationTable
+        from app.services.table_service import TableService
+        from app.services.reservation_service import ReservationService
+        from app.schemas.reservation import ReservationCreate
+        from datetime import date, time
+        
+        db = SessionLocal()
+        table_service = TableService(db)
+        reservation_service = ReservationService(db)
+        
+        # Get first room
+        room = db.query(Room).filter(Room.active == True).first()
+        if not room:
+            return {"error": "No active rooms found"}
+        
+        # Create test reservation data
+        test_data = ReservationCreate(
+            customer_name="Debug Test",
+            email="debug@test.com",
+            phone="1234567890",
+            party_size=4,
+            date=date(2025, 8, 8),
+            time=time(18, 0),
+            duration_hours=2,
+            room_id=room.id,
+            reservation_type="dining",
+            notes="Debug test"
+        )
+        
+        debug_steps = []
+        
+        # Step 1: Validate reservation request
+        try:
+            reservation_service._validate_reservation_request(test_data)
+            debug_steps.append("✅ Step 1: Validation passed")
+        except Exception as e:
+            debug_steps.append(f"❌ Step 1: Validation failed - {str(e)}")
+            return {"debug_steps": debug_steps}
+        
+        # Step 2: Find optimal room
+        try:
+            optimal_room_id = reservation_service._find_optimal_room_for_reservation(test_data)
+            debug_steps.append(f"✅ Step 2: Optimal room found - {optimal_room_id}")
+        except Exception as e:
+            debug_steps.append(f"❌ Step 2: Optimal room failed - {str(e)}")
+            return {"debug_steps": debug_steps}
+        
+        # Step 3: Find table combination
+        try:
+            table_combo = table_service.find_best_table_combination(
+                optimal_room_id,
+                test_data.date,
+                test_data.time,
+                test_data.party_size
+            )
+            if table_combo:
+                debug_steps.append(f"✅ Step 3: Table combo found - {len(table_combo)} tables")
+            else:
+                debug_steps.append("❌ Step 3: No table combo found")
+                return {"debug_steps": debug_steps}
+        except Exception as e:
+            debug_steps.append(f"❌ Step 3: Table combo failed - {str(e)}")
+            return {"debug_steps": debug_steps}
+        
+        # Step 4: Create reservation object
+        try:
+            actual_room_id = table_combo[0].room_id
+            reservation = Reservation(
+                customer_name=test_data.customer_name,
+                email=test_data.email,
+                phone=test_data.phone,
+                party_size=test_data.party_size,
+                date=test_data.date,
+                time=test_data.time,
+                room_id=actual_room_id,
+                reservation_type=test_data.reservation_type,
+                notes=test_data.notes
+            )
+            debug_steps.append("✅ Step 4: Reservation object created")
+        except Exception as e:
+            debug_steps.append(f"❌ Step 4: Reservation object failed - {str(e)}")
+            return {"debug_steps": debug_steps}
+        
+        # Step 5: Add to database
+        try:
+            db.add(reservation)
+            db.flush()
+            debug_steps.append(f"✅ Step 5: Reservation added to DB - ID: {reservation.id}")
+        except Exception as e:
+            debug_steps.append(f"❌ Step 5: Add to DB failed - {str(e)}")
+            return {"debug_steps": debug_steps}
+        
+        # Step 6: Assign tables
+        try:
+            table_ids = [str(table.id) for table in table_combo]
+            table_service.assign_tables_to_reservation(str(reservation.id), table_ids)
+            debug_steps.append(f"✅ Step 6: Tables assigned - {len(table_ids)} tables")
+        except Exception as e:
+            debug_steps.append(f"❌ Step 6: Table assignment failed - {str(e)}")
+            return {"debug_steps": debug_steps}
+        
+        # Step 7: Commit transaction
+        try:
+            db.commit()
+            debug_steps.append("✅ Step 7: Transaction committed")
+        except Exception as e:
+            debug_steps.append(f"❌ Step 7: Commit failed - {str(e)}")
+            return {"debug_steps": debug_steps}
+        
+        # Step 8: Build response
+        try:
+            room_name = room.name if room else ""
+            table_assignments = [
+                {
+                    "table_id": str(table.id),
+                    "table_name": table.name,
+                    "capacity": table.capacity
+                } for table in table_combo
+            ]
+            debug_steps.append("✅ Step 8: Response built successfully")
+        except Exception as e:
+            debug_steps.append(f"❌ Step 8: Response building failed - {str(e)}")
+            return {"debug_steps": debug_steps}
+        
+        # Clean up - delete the test reservation
+        try:
+            db.delete(reservation)
+            db.commit()
+            debug_steps.append("✅ Cleanup: Test reservation deleted")
+        except Exception as e:
+            debug_steps.append(f"⚠️ Cleanup: Failed to delete test reservation - {str(e)}")
+        
+        return {
+            "status": "success",
+            "debug_steps": debug_steps,
+            "final_result": "All steps completed successfully"
+        }
+        
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Debug failed: {str(e)}",
+            "error_type": type(e).__name__
+        }
+    finally:
+        db.close()
