@@ -342,17 +342,7 @@ async def initialize_database():
                     db.add(table)
                 print(f"✅ Created {table_count} tables for {room.name}")
         
-        # Create settings
-        existing_settings = db.query(Settings).first()
-        if not existing_settings:
-            settings = Settings(
-                restaurant_name="The Castle Pub",
-                max_party_size=20,
-                min_reservation_hours=0,
-                max_reservation_days=90
-            )
-            db.add(settings)
-            print("✅ Settings created")
+        # Settings will be created later if needed
         
         # Create working hours with correct schedule
         working_hours_data = [
