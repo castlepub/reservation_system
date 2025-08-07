@@ -131,7 +131,8 @@ async def test_database_connection():
         db = next(db_gen)
         
         # Try a simple query
-        result = db.execute("SELECT 1 as test")
+        from sqlalchemy import text
+        result = db.execute(text("SELECT 1 as test"))
         test_result = result.fetchone()
         
         return {
