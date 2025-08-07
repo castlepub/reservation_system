@@ -949,3 +949,139 @@ async def debug_reservation_creation():
         }
     finally:
         db.close()
+
+@app.post("/api/test-reservation-with-schema")
+async def test_reservation_with_schema():
+    """Test reservation creation with ReservationWithTables schema"""
+    try:
+        from app.core.database import SessionLocal
+        from app.models.room import Room
+        from app.models.table import Table
+        from app.models.reservation import Reservation, ReservationTable
+        from app.services.table_service import TableService
+        from app.services.reservation_service import ReservationService
+        from app.schemas.reservation import ReservationCreate, ReservationWithTables
+        from datetime import date, time
+        
+        db = SessionLocal()
+        table_service = TableService(db)
+        reservation_service = ReservationService(db)
+        
+        # Get first room
+        room = db.query(Room).filter(Room.active == True).first()
+        if not room:
+            return {"error": "No active rooms found"}
+        
+        # Create test reservation data
+        test_data = ReservationCreate(
+            customer_name="Schema Test",
+            email="schema@test.com",
+            phone="1234567890",
+            party_size=4,
+            date=date(2025, 8, 8),
+            time=time(18, 0),
+            duration_hours=2,
+            room_id=room.id,
+            reservation_type="dining",
+            notes="Schema test"
+        )
+        
+        # Use the same logic as the actual service
+        reservation_service._validate_reservation_request(test_data)
+        optimal_room_id = reservation_service._find_optimal_room_for_reservation(test_data)
+        table_combo = table_service.find_best_table_combination(
+            optimal_room_id,
+            test_data.date,
+            test_data.time,
+            test_data.party_size
+        )
+        
+        if not table_combo:
+            return {"error": "No suitable tables available"}
+        
+        actual_room_id = table_combo[0].room_id
+        
+        # Create reservation
+        reservation = Reservation(
+            customer_name=test_data.customer_name,
+            email=test_data.email,
+            phone=test_data.phone,
+            party_size=test_data.party_size,
+            date=test_data.date,
+            time=test_data.time,
+            room_id=actual_room_id,
+            reservation_type=test_data.reservation_type,
+            notes=test_data.notes
+        )
+        
+        db.add(reservation)
+        db.flush()
+        
+        # Assign tables
+        table_ids = [str(table.id) for table in table_combo]
+        table_service.assign_tables_to_reservation(str(reservation.id), table_ids)
+        
+        db.commit()
+        
+        # Get room name for response
+        room = db.query(Room).filter(Room.id == actual_room_id).first()
+        
+        # Build response with table assignments
+        table_assignments = [
+            {
+                "table_id": str(table.id),
+                "table_name": table.name,
+                "capacity": table.capacity
+            } for table in table_combo
+        ]
+        
+        # Try to create ReservationWithTables
+        try:
+            result = ReservationWithTables(
+                id=str(reservation.id),
+                customer_name=reservation.customer_name,
+                email=reservation.email,
+                phone=reservation.phone,
+                party_size=reservation.party_size,
+                date=reservation.date,
+                time=reservation.time,
+                room_id=str(actual_room_id),
+                room_name=room.name if room else "",
+                status=reservation.status,
+                reservation_type=reservation.reservation_type,
+                notes=reservation.notes,
+                admin_notes=reservation.admin_notes,
+                created_at=reservation.created_at,
+                updated_at=reservation.updated_at,
+                tables=table_assignments
+            )
+            
+            # Clean up
+            db.delete(reservation)
+            db.commit()
+            
+            return {
+                "status": "success",
+                "message": "ReservationWithTables created successfully",
+                "reservation": result.dict()
+            }
+            
+        except Exception as e:
+            # Clean up
+            db.delete(reservation)
+            db.commit()
+            
+            return {
+                "status": "error",
+                "message": f"ReservationWithTables creation failed: {str(e)}",
+                "error_type": type(e).__name__
+            }
+        
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Test failed: {str(e)}",
+            "error_type": type(e).__name__
+        }
+    finally:
+        db.close()
