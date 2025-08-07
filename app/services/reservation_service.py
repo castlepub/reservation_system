@@ -380,12 +380,12 @@ class ReservationService:
         
         optimal_area_type = self._determine_preferred_area_type(reservation_type)
         
-        # Get all active rooms
-        rooms = self.db.query(Room).filter(Room.active == True).order_by(Room.priority.asc()).all()
+        # Get all active rooms (priority column is disabled)
+        rooms = self.db.query(Room).filter(Room.active == True).all()
         
         availability_data = {
             "date": date.isoformat(),
-            "recommended_area_type": optimal_area_type.value,
+            "recommended_area_type": optimal_area_type.value if optimal_area_type else None,
             "reservation_type": reservation_type,
             "rooms": []
         }
@@ -411,10 +411,10 @@ class ReservationService:
         return {
             "room_id": str(room.id),
             "room_name": room.name,
-            "area_type": room.area_type.value,
-            "priority": room.priority,
-            "is_fallback_area": room.is_fallback_area,
-            "fallback_for": room.fallback_for,
+            "area_type": "indoor",  # Default since area_type column is disabled
+            "priority": 5,  # Default since priority column is disabled
+            "is_fallback_area": False,  # Default since column is disabled
+            "fallback_for": None,  # Default since column is disabled
             "total_capacity": self._get_room_capacity(room.id),
             "available_time_slots": [
                 {
