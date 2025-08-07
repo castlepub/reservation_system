@@ -565,3 +565,59 @@ async def create_working_hours():
             "message": f"Failed to create working hours: {str(e)}",
             "error_type": type(e).__name__
         }
+
+@app.post("/api/update-working-hours")
+async def update_working_hours_schedule():
+    """Update working hours with correct schedule"""
+    try:
+        from app.core.database import SessionLocal
+        from app.models.settings import WorkingHours
+        
+        db = SessionLocal()
+        
+        # Update working hours with correct schedule
+        working_hours_data = [
+            {"day": "MONDAY", "open": "15:00", "close": "01:00"},
+            {"day": "TUESDAY", "open": "15:00", "close": "01:00"},
+            {"day": "WEDNESDAY", "open": "15:00", "close": "01:00"},
+            {"day": "THURSDAY", "open": "15:00", "close": "01:00"},
+            {"day": "FRIDAY", "open": "15:00", "close": "02:00"},
+            {"day": "SATURDAY", "open": "13:00", "close": "02:00"},
+            {"day": "SUNDAY", "open": "13:00", "close": "01:00"}
+        ]
+        
+        updated_count = 0
+        for wh_data in working_hours_data:
+            existing_wh = db.query(WorkingHours).filter(WorkingHours.day_of_week == wh_data["day"]).first()
+            if existing_wh:
+                existing_wh.open_time = wh_data["open"]
+                existing_wh.close_time = wh_data["close"]
+                existing_wh.is_open = True
+                updated_count += 1
+                print(f"✅ Updated working hours for {wh_data['day']}: {wh_data['open']}-{wh_data['close']}")
+            else:
+                wh = WorkingHours(
+                    day_of_week=wh_data["day"],
+                    is_open=True,
+                    open_time=wh_data["open"],
+                    close_time=wh_data["close"]
+                )
+                db.add(wh)
+                updated_count += 1
+                print(f"✅ Created working hours for {wh_data['day']}: {wh_data['open']}-{wh_data['close']}")
+        
+        db.commit()
+        db.close()
+        
+        return {
+            "status": "success",
+            "message": f"Updated {updated_count} working hours entries",
+            "working_hours": "Mon-Thu: 15:00-01:00, Fri: 15:00-02:00, Sat: 13:00-02:00, Sun: 13:00-01:00"
+        }
+        
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Failed to update working hours: {str(e)}",
+            "error_type": type(e).__name__
+        }
