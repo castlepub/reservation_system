@@ -237,3 +237,48 @@ async def check_tables():
             "message": f"Failed to check tables: {str(e)}",
             "error_type": type(e).__name__
         }
+
+@app.post("/api/create-admin")
+async def create_admin_user():
+    """Create a default admin user"""
+    try:
+        from app.core.database import SessionLocal
+        from app.models.user import User, UserRole
+        from app.core.security import get_password_hash
+        
+        db = SessionLocal()
+        
+        # Check if admin user already exists
+        existing_admin = db.query(User).filter(User.username == "admin").first()
+        if existing_admin:
+            return {
+                "status": "error",
+                "message": "Admin user already exists"
+            }
+        
+        # Create admin user
+        admin_user = User(
+            username="admin",
+            password_hash=get_password_hash("admin123"),
+            role=UserRole.ADMIN,
+            email="admin@thecastle.de"
+        )
+        
+        db.add(admin_user)
+        db.commit()
+        db.refresh(admin_user)
+        db.close()
+        
+        return {
+            "status": "success",
+            "message": "Admin user created successfully",
+            "username": "admin",
+            "password": "admin123"
+        }
+        
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Failed to create admin user: {str(e)}",
+            "error_type": type(e).__name__
+        }
