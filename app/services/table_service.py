@@ -6,6 +6,7 @@ import itertools
 from app.models.table import Table
 from app.models.reservation import Reservation, ReservationTable
 from app.schemas.reservation import TableAssignment, TimeSlot
+from sqlalchemy import func
 
 
 class TableService:
@@ -268,44 +269,43 @@ class TableService:
         return reserved_table_ids
     
     def get_reserved_table_ids_with_duration(self, date: date, time: time, duration_hours: int = 2, exclude_reservation_id: str = None) -> List[str]:
-        """Get list of table IDs that are reserved with time overlap checking"""
-        from app.models.reservation import ReservationStatus, Reservation
-        from datetime import datetime, timedelta
+        """Get table IDs that are reserved for a given time slot with duration overlap checking"""
+        # Calculate the end time for the reservation
+        start_datetime = datetime.combine(date, time)
+        end_datetime = start_datetime + timedelta(hours=duration_hours)
         
-        # Convert date and time to datetime for easier comparison
-        target_start = datetime.combine(date, time)
-        target_end = target_start + timedelta(hours=duration_hours)
-        
-        # Get all reservations on the same date
-        query = self.db.query(Reservation).filter(
+        # Get all reservations that overlap with this time slot
+        overlapping_reservations = self.db.query(Reservation).filter(
             and_(
                 Reservation.date == date,
-                Reservation.status == ReservationStatus.CONFIRMED
+                Reservation.status.in_(['confirmed', 'pending']),
+                Reservation.id != exclude_reservation_id if exclude_reservation_id else True
             )
-        )
+        ).all()
         
-        # Exclude a specific reservation if provided (useful for editing)
-        if exclude_reservation_id:
-            query = query.filter(Reservation.id != exclude_reservation_id)
-        
-        reservations = query.all()
-        
+        # Check for time overlap
         reserved_table_ids = []
-        for reservation in reservations:
-            # Calculate reservation time window
-            res_start = datetime.combine(date, reservation.time)
-            res_duration = reservation.duration_hours if hasattr(reservation, 'duration_hours') and reservation.duration_hours else 2
-            res_end = res_start + timedelta(hours=res_duration)
+        for reservation in overlapping_reservations:
+            reservation_start = datetime.combine(reservation.date, reservation.time)
+            reservation_end = reservation_start + timedelta(hours=reservation.duration_hours)
             
-            # Check for time overlap
-            # Two time ranges overlap if: start1 < end2 AND start2 < end1
-            if target_start < res_end and res_start < target_end:
-                # This reservation overlaps with our target time, get its tables
-                table_assignments = self.db.query(ReservationTable).filter(
+            # Check if there's any overlap
+            if (start_datetime < reservation_end and end_datetime > reservation_start):
+                # Get table IDs for this reservation
+                reservation_tables = self.db.query(ReservationTable).filter(
                     ReservationTable.reservation_id == reservation.id
                 ).all()
-                
-                for assignment in table_assignments:
-                    reserved_table_ids.append(str(assignment.table_id))
+                reserved_table_ids.extend([str(rt.table_id) for rt in reservation_tables])
         
-        return reserved_table_ids 
+        return list(set(reserved_table_ids))  # Remove duplicates
+
+    def _get_room_capacity(self, room_id: str) -> int:
+        """Get the total capacity of all active tables in a room"""
+        total_capacity = self.db.query(Table).filter(
+            and_(
+                Table.room_id == room_id,
+                Table.active == True
+            )
+        ).with_entities(func.sum(Table.capacity)).scalar()
+        
+        return total_capacity or 0 
