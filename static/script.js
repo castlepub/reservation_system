@@ -2322,7 +2322,7 @@ async function handleAddReservation(event) {
         party_size: parseInt(formData.get('partySize')),
         date: formData.get('date'),
         time: timeValue,
-        duration_hours: parseInt(formData.get('duration')),
+        duration_hours: parseInt(formData.get('duration')) || 2,
         room_id: formData.get('room') || null,
         reservation_type: formData.get('reservationType'),
         notes: formData.get('notes') || null,
