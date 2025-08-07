@@ -797,3 +797,53 @@ async def create_test_reservations():
         }
     finally:
         db.close()
+
+@app.post("/api/cleanup-duplicates")
+async def cleanup_duplicate_reservations():
+    """Clean up duplicate reservations, keeping only the first one for each customer/date/time"""
+    try:
+        from app.core.database import SessionLocal
+        from app.models.reservation import Reservation
+        from sqlalchemy import func
+        
+        db = SessionLocal()
+        
+        # Get all reservations
+        all_reservations = db.query(Reservation).all()
+        
+        # Group by customer_name, date, time
+        grouped = {}
+        for res in all_reservations:
+            key = (res.customer_name, res.date, res.time)
+            if key not in grouped:
+                grouped[key] = []
+            grouped[key].append(res)
+        
+        # Find duplicates and delete them
+        deleted_count = 0
+        for key, reservations in grouped.items():
+            if len(reservations) > 1:
+                # Sort by created_at to keep the oldest one
+                reservations.sort(key=lambda x: x.created_at)
+                
+                # Delete all except the first one
+                for res in reservations[1:]:
+                    db.delete(res)
+                    deleted_count += 1
+        
+        db.commit()
+        
+        return {
+            "status": "success",
+            "message": f"Cleaned up {deleted_count} duplicate reservations",
+            "deleted_count": deleted_count
+        }
+        
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Failed to cleanup duplicates: {str(e)}",
+            "error_type": type(e).__name__
+        }
+    finally:
+        db.close()
