@@ -377,3 +377,54 @@ async def initialize_database():
             "message": f"Failed to initialize database: {str(e)}",
             "error_type": type(e).__name__
         }
+
+@app.get("/api/debug/check-data")
+async def check_database_data():
+    """Check what data exists in the database"""
+    try:
+        from app.core.database import SessionLocal
+        from app.models.user import User
+        from app.models.room import Room
+        from app.models.table import Table
+        from app.models.reservation import Reservation
+        from app.models.settings import Settings
+        from app.models.working_hours import WorkingHours
+        
+        db = SessionLocal()
+        
+        # Count records in each table
+        user_count = db.query(User).count()
+        room_count = db.query(Room).count()
+        table_count = db.query(Table).count()
+        reservation_count = db.query(Reservation).count()
+        settings_count = db.query(Settings).count()
+        working_hours_count = db.query(WorkingHours).count()
+        
+        # Get some sample data
+        users = db.query(User).limit(3).all()
+        rooms = db.query(Room).limit(3).all()
+        reservations = db.query(Reservation).limit(3).all()
+        
+        db.close()
+        
+        return {
+            "status": "success",
+            "counts": {
+                "users": user_count,
+                "rooms": room_count,
+                "tables": table_count,
+                "reservations": reservation_count,
+                "settings": settings_count,
+                "working_hours": working_hours_count
+            },
+            "sample_users": [{"username": u.username, "role": u.role.value} for u in users],
+            "sample_rooms": [{"name": r.name, "active": r.active} for r in rooms],
+            "sample_reservations": [{"id": str(r.id), "guest_name": r.guest_name} for r in reservations]
+        }
+        
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Failed to check data: {str(e)}",
+            "error_type": type(e).__name__
+        }
