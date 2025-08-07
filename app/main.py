@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import datetime, date, time
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -621,3 +621,52 @@ async def update_working_hours_schedule():
             "message": f"Failed to update working hours: {str(e)}",
             "error_type": type(e).__name__
         }
+
+@app.post("/api/test-reservation")
+async def create_test_reservation():
+    """Create a simple test reservation directly"""
+    try:
+        from app.core.database import SessionLocal
+        from app.models.reservation import Reservation
+        from app.models.room import Room
+        
+        db = SessionLocal()
+        
+        # Get first active room
+        room = db.query(Room).filter(Room.active == True).first()
+        if not room:
+            return {"error": "No active rooms found"}
+        
+        # Create simple reservation
+        reservation = Reservation(
+            customer_name="Test Customer",
+            email="test@example.com",
+            phone="1234567890",
+            party_size=2,
+            date=date(2025, 8, 10),
+            time=time(15, 0),
+            duration_hours=2,
+            room_id=room.id,
+            reservation_type="dining",
+            notes="Test reservation"
+        )
+        
+        db.add(reservation)
+        db.commit()
+        db.refresh(reservation)
+        
+        return {
+            "status": "success",
+            "message": "Test reservation created",
+            "reservation_id": str(reservation.id),
+            "room_id": str(reservation.room_id)
+        }
+        
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Failed to create test reservation: {str(e)}",
+            "error_type": type(e).__name__
+        }
+    finally:
+        db.close()
