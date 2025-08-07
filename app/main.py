@@ -66,7 +66,7 @@ if auth_router:
     print("✅ Auth router included")
 
 if admin_router:
-    app.include_router(admin_router, prefix="/admin")
+    app.include_router(admin_router)
     print("✅ Admin router included")
 
 if settings_router:
