@@ -90,6 +90,7 @@ class ReservationService:
             party_size=reservation.party_size,
             date=reservation.date,
             time=reservation.time,
+            duration_hours=reservation.duration_hours,
             room_id=str(actual_room_id),
             room_name=room.name if room else "",
             status=reservation.status,
