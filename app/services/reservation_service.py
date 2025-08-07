@@ -329,26 +329,11 @@ class ReservationService:
     def _find_fallback_room(self, party_size: int, preferred_area_type: Optional[str]) -> Optional[str]:
         """Find a fallback room when optimal room is not available"""
         
-        # Get all active rooms ordered by priority
-        rooms = self.db.query(Room).filter(
-            and_(
-                Room.active == True,
-                Room.area_type == preferred_area_type
-            )
-        ).order_by(Room.priority.asc()).all()
+        # Get all active rooms (area_type and priority columns are disabled)
+        rooms = self.db.query(Room).filter(Room.active == True).all()
         
         # Check each room for capacity
         for room in rooms:
-            total_capacity = self._get_room_capacity(room.id)
-            if total_capacity >= party_size:
-                return room.id
-        
-        # If no room of preferred type has capacity, try any room
-        all_rooms = self.db.query(Room).filter(
-            Room.active == True
-        ).order_by(Room.priority.asc()).all()
-        
-        for room in all_rooms:
             total_capacity = self._get_room_capacity(room.id)
             if total_capacity >= party_size:
                 return room.id
@@ -368,10 +353,8 @@ class ReservationService:
     def _find_tables_in_alternative_rooms(self, reservation_data: ReservationCreate) -> Optional[List[Table]]:
         """Find tables in alternative rooms when preferred room is full"""
         
-        # Get all active rooms ordered by priority
-        rooms = self.db.query(Room).filter(
-            Room.active == True
-        ).order_by(Room.priority.asc()).all()
+        # Get all active rooms (priority column is disabled)
+        rooms = self.db.query(Room).filter(Room.active == True).all()
         
         # Try each room for table availability
         for room in rooms:
