@@ -160,10 +160,14 @@ async def setup_database():
             result = connection.execute(text("SELECT 1"))
             print("✅ Database connection working!")
             
-            # Create all tables
+            # Create all tables in public schema
             from app.core.database import Base
             Base.metadata.create_all(bind=engine)
             print("✅ Database tables created!")
+            
+            # Ensure we're using the public schema
+            connection.execute(text("SET search_path TO public"))
+            print("✅ Schema set to public")
             
             # Test if we can query tables
             result = connection.execute(text("""
