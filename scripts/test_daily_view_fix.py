@@ -29,77 +29,122 @@ def test_daily_view():
             print(f"- Date: {data.get('date')}")
             print(f"- Rooms count: {len(data.get('rooms', []))}")
             
+            # Check each room
             for i, room in enumerate(data.get('rooms', [])):
-                print(f"\nRoom {i+1}: {room.get('name')}")
-                print(f"- Tables count: {len(room.get('tables', []))}")
-                print(f"- Reservations count: {len(room.get('reservations', []))}")
+                print(f"\nRoom {i+1}: {room.get('name', 'Unknown')}")
+                print(f"  - ID: {room.get('id')}")
+                print(f"  - Tables count: {len(room.get('tables', []))}")
+                print(f"  - Reservations count: {len(room.get('reservations', []))}")
                 
-                # Check each table
+                # Check tables
                 for j, table in enumerate(room.get('tables', [])):
-                    print(f"  Table {j+1}: {table.get('table_name')}")
-                    print(f"    - Has reservations property: {'reservations' in table}")
-                    print(f"    - Reservations count: {len(table.get('reservations', []))}")
-                    
-                    # Check if reservations array exists and is valid
-                    reservations = table.get('reservations', [])
-                    if reservations is None:
-                        print(f"    - ERROR: reservations is None!")
-                    elif not isinstance(reservations, list):
-                        print(f"    - ERROR: reservations is not a list: {type(reservations)}")
-                    else:
-                        print(f"    - Reservations array is valid")
+                    print(f"    Table {j+1}: {table.get('table_name', 'Unknown')}")
+                    print(f"      - Capacity: {table.get('capacity', 0)}")
+                    print(f"      - Position: ({table.get('x_position', 0)}, {table.get('y_position', 0)})")
+                    print(f"      - Reservations: {len(table.get('reservations', []))}")
+                
+                # Check reservations
+                for j, reservation in enumerate(room.get('reservations', [])):
+                    print(f"    Reservation {j+1}: {reservation.get('customer_name', 'Unknown')}")
+                    print(f"      - ID: {reservation.get('id')}")
+                    print(f"      - Party size: {reservation.get('party_size', 0)}")
+                    print(f"      - Time: {reservation.get('time', 'Unknown')}")
+                    print(f"      - Tables: {len(reservation.get('tables', []))}")
+            
+            return True
         else:
             print(f"Error response: {response.text}")
+            return False
             
     except Exception as e:
-        print(f"Error testing daily view: {str(e)}")
+        print(f"Error testing daily view: {e}")
+        return False
 
-def test_admin_tables():
-    """Test the admin tables endpoint"""
+def test_frontend_data_structure():
+    """Test if the data structure matches what the frontend expects"""
     try:
-        url = f"{API_BASE_URL}/admin/tables"
-        print(f"\nTesting admin tables URL: {url}")
+        test_date = datetime.now().strftime("%Y-%m-%d")
+        url = f"{API_BASE_URL}/api/layout/daily/{test_date}"
         
         response = requests.get(url)
-        print(f"Response status: {response.status_code}")
+        if response.status_code != 200:
+            print("❌ API not responding")
+            return False
         
-        if response.status_code == 200:
-            data = response.json()
-            print(f"Tables count: {len(data)}")
+        data = response.json()
+        
+        # Check required structure
+        if 'rooms' not in data:
+            print("❌ Missing 'rooms' key in response")
+            return False
+        
+        if not isinstance(data['rooms'], list):
+            print("❌ 'rooms' is not an array")
+            return False
+        
+        for room in data['rooms']:
+            # Check room structure
+            if 'id' not in room:
+                print("❌ Room missing 'id'")
+                return False
             
-            for table in data[:3]:  # Show first 3 tables
-                print(f"- Table: {table.get('name')} in {table.get('room_name')}")
-        else:
-            print(f"Error response: {response.text}")
+            if 'name' not in room:
+                print("❌ Room missing 'name'")
+                return False
             
+            if 'reservations' not in room:
+                print("❌ Room missing 'reservations'")
+                return False
+            
+            if not isinstance(room['reservations'], list):
+                print("❌ Room reservations is not an array")
+                return False
+            
+            # Check each reservation
+            for reservation in room['reservations']:
+                if 'id' not in reservation:
+                    print("❌ Reservation missing 'id'")
+                    return False
+                
+                if 'customer_name' not in reservation:
+                    print("❌ Reservation missing 'customer_name'")
+                    return False
+                
+                if 'party_size' not in reservation:
+                    print("❌ Reservation missing 'party_size'")
+                    return False
+                
+                if 'time' not in reservation:
+                    print("❌ Reservation missing 'time'")
+                    return False
+                
+                if 'status' not in reservation:
+                    print("❌ Reservation missing 'status'")
+                    return False
+        
+        print("✅ Data structure validation passed")
+        return True
+        
     except Exception as e:
-        print(f"Error testing admin tables: {str(e)}")
-
-def test_admin_rooms():
-    """Test the admin rooms endpoint"""
-    try:
-        url = f"{API_BASE_URL}/admin/rooms"
-        print(f"\nTesting admin rooms URL: {url}")
-        
-        response = requests.get(url)
-        print(f"Response status: {response.status_code}")
-        
-        if response.status_code == 200:
-            data = response.json()
-            print(f"Rooms count: {len(data)}")
-            
-            for room in data:
-                print(f"- Room: {room.get('name')}")
-        else:
-            print(f"Error response: {response.text}")
-            
-    except Exception as e:
-        print(f"Error testing admin rooms: {str(e)}")
+        print(f"❌ Error validating data structure: {e}")
+        return False
 
 if __name__ == "__main__":
-    print("Testing Daily View API Fix")
+    print("🧪 Testing Daily View Fix")
     print("=" * 50)
     
-    test_daily_view()
-    test_admin_tables()
-    test_admin_rooms() 
+    # Test 1: Basic API response
+    print("\n1. Testing basic API response...")
+    if test_daily_view():
+        print("✅ Daily view API is working")
+    else:
+        print("❌ Daily view API has issues")
+    
+    # Test 2: Data structure validation
+    print("\n2. Testing data structure...")
+    if test_frontend_data_structure():
+        print("✅ Data structure is correct")
+    else:
+        print("❌ Data structure has issues")
+    
+    print("\n🎉 Testing complete!") 

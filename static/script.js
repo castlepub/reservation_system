@@ -2903,8 +2903,8 @@ function updateDateDisplay() {
 
 function getReservationTableInfo(reservation) {
     // Check if reservation has table assignments
-    if (reservation.tables && reservation.tables.length > 0) {
-        const tableNames = reservation.tables.map(t => t.table_name || t.name).join(', ');
+    if (reservation.tables && Array.isArray(reservation.tables) && reservation.tables.length > 0) {
+        const tableNames = reservation.tables.map(t => t.table_name || t.name || 'Unknown').join(', ');
         return `Tables: ${tableNames}`;
     }
     
@@ -2916,10 +2916,11 @@ function getReservationTableInfo(reservation) {
     // Check if table is assigned in layout but not showing correctly
     if (dailyViewData && dailyViewData.rooms) {
         for (const room of dailyViewData.rooms) {
-            if (room.tables) {
+            if (room.tables && Array.isArray(room.tables)) {
                 for (const table of room.tables) {
-                    if (table.reservations && table.reservations.some(r => r.id === reservation.id)) {
-                        return `Table: ${table.table_name}`;
+                    if (table.reservations && Array.isArray(table.reservations) && 
+                        table.reservations.some(r => r && r.id === reservation.id)) {
+                        return `Table: ${table.table_name || 'Unknown'}`;
                     }
                 }
             }
@@ -2934,28 +2935,40 @@ function renderReservationsList() {
     if (!container || !dailyViewData) return;
     
     let allReservations = [];
-    dailyViewData.rooms.forEach(room => {
-        allReservations = allReservations.concat(room.reservations);
-    });
+    if (dailyViewData.rooms && Array.isArray(dailyViewData.rooms)) {
+        dailyViewData.rooms.forEach(room => {
+            if (room.reservations && Array.isArray(room.reservations)) {
+                allReservations = allReservations.concat(room.reservations);
+            }
+        });
+    }
     
     if (allReservations.length === 0) {
         container.innerHTML = '<div class="no-reservations">No reservations for this date</div>';
         return;
     }
     
-    const reservationsHtml = allReservations.map(reservation => `
-        <div class="reservation-item" onclick="selectReservation('${reservation.id}')">
-            <div class="reservation-time">${formatTime(reservation.time)}</div>
-            <div class="reservation-details">
-                <div class="customer-name">${reservation.customer_name}</div>
-                <div class="party-size">${reservation.party_size} guests</div>
-                <div class="reservation-status ${reservation.status.toLowerCase()}">${reservation.status}</div>
+    const reservationsHtml = allReservations.map(reservation => {
+        // Ensure reservation has required properties
+        if (!reservation || !reservation.id) {
+            console.warn('Invalid reservation data:', reservation);
+            return '';
+        }
+        
+        return `
+            <div class="reservation-item" onclick="selectReservation('${reservation.id}')">
+                <div class="reservation-time">${formatTime(reservation.time || '')}</div>
+                <div class="reservation-details">
+                    <div class="customer-name">${reservation.customer_name || 'Unknown'}</div>
+                    <div class="party-size">${reservation.party_size || 0} guests</div>
+                    <div class="reservation-status ${(reservation.status || 'confirmed').toLowerCase()}">${reservation.status || 'confirmed'}</div>
+                </div>
+                <div class="table-info">
+                    ${getReservationTableInfo(reservation)}
+                </div>
             </div>
-            <div class="table-info">
-                ${getReservationTableInfo(reservation)}
-            </div>
-        </div>
-    `).join('');
+        `;
+    }).filter(html => html !== '').join('');
     
     container.innerHTML = reservationsHtml;
 }
@@ -2964,10 +2977,15 @@ function renderRoomTabs() {
     const container = document.getElementById('roomTabs');
     if (!container || !dailyViewData) return;
     
+    if (!dailyViewData.rooms || !Array.isArray(dailyViewData.rooms)) {
+        container.innerHTML = '<div class="no-rooms">No rooms available</div>';
+        return;
+    }
+    
     const roomTabsHtml = dailyViewData.rooms.map(room => `
         <button class="room-tab ${room.id === currentRoomId ? 'active' : ''}" 
                 onclick="switchRoom('${room.id}')">
-            ${room.name}
+            ${room.name || 'Unknown Room'}
         </button>
     `).join('');
     
@@ -2985,55 +3003,69 @@ function renderTableLayout() {
     container.innerHTML = '';
     
     // Set container dimensions
-    container.style.width = `${currentRoom.layout.width}px`;
-    container.style.height = `${currentRoom.layout.height}px`;
-    container.style.backgroundColor = currentRoom.layout.background_color;
+    if (currentRoom.layout) {
+        container.style.width = `${currentRoom.layout.width || 800}px`;
+        container.style.height = `${currentRoom.layout.height || 600}px`;
+        container.style.backgroundColor = currentRoom.layout.background_color || '#f5f5f5';
+    } else {
+        container.style.width = '800px';
+        container.style.height = '600px';
+        container.style.backgroundColor = '#f5f5f5';
+    }
     container.style.position = 'relative';
     
     // Add tables
-    currentRoom.tables.forEach(table => {
-        const tableElement = document.createElement('div');
-        tableElement.className = `table-element ${table.shape || 'rectangular'}`;
-        tableElement.style.left = `${table.x_position}px`;
-        tableElement.style.top = `${table.y_position}px`;
-        tableElement.style.width = `${table.width}px`;
-        tableElement.style.height = `${table.height}px`;
-        tableElement.style.backgroundColor = table.color;
-        tableElement.style.borderColor = table.border_color;
-        tableElement.style.color = table.text_color;
-        tableElement.style.fontSize = `${table.font_size}px`;
-        tableElement.style.zIndex = table.z_index;
-        tableElement.style.position = 'absolute';
-        tableElement.style.border = '2px solid';
-        tableElement.style.borderRadius = table.shape === 'circle' ? '50%' : '0';
-        tableElement.style.display = 'flex';
-        tableElement.style.flexDirection = 'column';
-        tableElement.style.justifyContent = 'center';
-        tableElement.style.alignItems = 'center';
-        tableElement.style.cursor = 'pointer';
-        
-        // Add table content
-        let tableContent = '';
-        if (table.show_name !== false) {
-            tableContent += `<div class="table-name">${table.table_name}</div>`;
-        }
-        if (table.show_capacity !== false) {
-            tableContent += `<div class="table-capacity">${table.capacity}p</div>`;
-        }
-        
-        // Add reservation info if table has reservations
-        if (table.reservations && table.reservations.length > 0) {
-            const reservation = table.reservations[0]; // Show first reservation
-            tableContent += `<div class="table-reservation">${reservation.customer_name}<br>${formatTime(reservation.time)}</div>`;
-        }
-        
-        tableElement.innerHTML = tableContent;
-        
-        // Add click handler
-        tableElement.onclick = () => showTableDetails(table.table_id);
-        
-        container.appendChild(tableElement);
-    });
+    if (currentRoom.tables && Array.isArray(currentRoom.tables)) {
+        currentRoom.tables.forEach(table => {
+            if (!table) return;
+            
+            const tableElement = document.createElement('div');
+            tableElement.className = `table-element ${table.shape || 'rectangular'}`;
+            tableElement.style.left = `${table.x_position || 0}px`;
+            tableElement.style.top = `${table.y_position || 0}px`;
+            tableElement.style.width = `${table.width || 120}px`;
+            tableElement.style.height = `${table.height || 80}px`;
+            tableElement.style.backgroundColor = table.color || '#ffffff';
+            tableElement.style.borderColor = table.border_color || '#333333';
+            tableElement.style.color = table.text_color || '#000000';
+            tableElement.style.fontSize = `${table.font_size || 12}px`;
+            tableElement.style.zIndex = table.z_index || 0;
+            tableElement.style.position = 'absolute';
+            tableElement.style.border = '2px solid';
+            tableElement.style.borderRadius = table.shape === 'circle' ? '50%' : '0';
+            tableElement.style.display = 'flex';
+            tableElement.style.flexDirection = 'column';
+            tableElement.style.justifyContent = 'center';
+            tableElement.style.alignItems = 'center';
+            tableElement.style.cursor = 'pointer';
+            
+            // Add table content
+            let tableContent = '';
+            if (table.show_name !== false) {
+                tableContent += `<div class="table-name">${table.table_name || 'Table'}</div>`;
+            }
+            if (table.show_capacity !== false) {
+                tableContent += `<div class="table-capacity">${table.capacity || 0}p</div>`;
+            }
+            
+            // Add reservation info if table has reservations
+            if (table.reservations && Array.isArray(table.reservations) && table.reservations.length > 0) {
+                const reservation = table.reservations[0]; // Show first reservation
+                if (reservation && reservation.customer_name) {
+                    tableContent += `<div class="table-reservation">${reservation.customer_name}<br>${formatTime(reservation.time || '')}</div>`;
+                }
+            }
+            
+            tableElement.innerHTML = tableContent;
+            
+            // Add click handler
+            tableElement.onclick = () => showTableDetails(table.table_id);
+            
+            container.appendChild(tableElement);
+        });
+    } else {
+        container.innerHTML = '<div class="no-tables">No tables configured for this room</div>';
+    }
 }
 
 function getTableNameById(tableId) {

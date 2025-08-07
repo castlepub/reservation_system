@@ -174,19 +174,28 @@ class LayoutService:
                 height=600.0
             ))
 
+        # Get all tables for this room
+        tables = self.db.query(Table).filter(
+            Table.room_id == room_id,
+            Table.active == True
+        ).all()
+        
         # Get table layouts with table data
         table_layouts = self.db.query(TableLayout, Table).join(Table).filter(
             TableLayout.room_id == room_id
         ).all()
-
+        
+        # Create a map of table_id to layout
+        layout_map = {table.id: layout for layout, table in table_layouts}
+        
         # Get table names for this room to filter reservations efficiently
-        room_table_names = [table.name for _, table in table_layouts]
+        room_table_names = [table.name for table in tables]
         
         # Get reservations for the target date that are assigned to tables in this room
         from app.models.reservation import ReservationTable
         
         # Get table IDs for this room
-        room_table_ids = [table.id for _, table in table_layouts]
+        room_table_ids = [table.id for table in tables]
         
         # Get reservations that have table assignments in this room
         reservations = []
@@ -206,7 +215,29 @@ class LayoutService:
 
         # Create table with reservation data
         tables_with_reservations = []
-        for layout, table in table_layouts:
+        for table in tables:
+            # Get or create layout for this table
+            layout = layout_map.get(table.id)
+            if not layout:
+                # Create default layout for this table
+                layout = self.create_table_layout(TableLayoutCreate(
+                    table_id=table.id,
+                    room_id=room_id,
+                    x_position=100 + (len(tables_with_reservations) * 150),
+                    y_position=100,
+                    width=120,
+                    height=80,
+                    shape="rectangular",
+                    color="#ffffff",
+                    border_color="#333333",
+                    text_color="#000000",
+                    show_capacity=True,
+                    show_name=True,
+                    font_size=12,
+                    custom_capacity=table.capacity,
+                    z_index=len(tables_with_reservations)
+                ))
+            
             # Find reservations for this table
             table_reservations = []
             for reservation in reservations:

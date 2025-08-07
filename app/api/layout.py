@@ -231,6 +231,9 @@ async def get_daily_layout_view(
         layout_service = LayoutService(db)
         # Get all active rooms
         from app.models.room import Room
+        from app.models.reservation import Reservation, ReservationTable
+        from app.models.table import Table
+        
         rooms = db.query(Room).filter(Room.active == True).all()
         
         daily_data = {
@@ -239,12 +242,58 @@ async def get_daily_layout_view(
         }
         
         for room in rooms:
+            # Get room layout data
             room_data = layout_service.get_layout_editor_data(str(room.id), target_date)
+            
+            # Get all reservations for this room on this date
+            reservations = db.query(Reservation).filter(
+                Reservation.room_id == room.id,
+                Reservation.date == target_date
+            ).all()
+            
+            # Convert reservations to proper format
+            formatted_reservations = []
+            for reservation in reservations:
+                # Get table assignments for this reservation
+                table_assignments = db.query(ReservationTable).filter(
+                    ReservationTable.reservation_id == reservation.id
+                ).all()
+                
+                assigned_tables = []
+                for assignment in table_assignments:
+                    table = db.query(Table).filter(Table.id == assignment.table_id).first()
+                    if table:
+                        assigned_tables.append({
+                            "id": table.id,
+                            "name": table.name,
+                            "table_name": table.name
+                        })
+                
+                formatted_reservation = {
+                    "id": reservation.id,
+                    "customer_name": reservation.customer_name,
+                    "email": reservation.email,
+                    "phone": reservation.phone,
+                    "party_size": reservation.party_size,
+                    "date": reservation.date.strftime("%Y-%m-%d"),
+                    "time": str(reservation.time),
+                    "duration_hours": reservation.duration_hours_safe,
+                    "room_id": reservation.room_id,
+                    "status": reservation.status.value,
+                    "reservation_type": reservation.reservation_type.value,
+                    "notes": reservation.notes,
+                    "admin_notes": reservation.admin_notes,
+                    "tables": assigned_tables
+                }
+                formatted_reservations.append(formatted_reservation)
+            
+            # Add room to daily data
             daily_data["rooms"].append({
                 "id": room.id,
                 "name": room.name,
                 "layout": room_data.room_layout,
-                "tables": room_data.tables
+                "tables": room_data.tables,
+                "reservations": formatted_reservations
             })
         
         return daily_data
