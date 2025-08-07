@@ -282,3 +282,98 @@ async def create_admin_user():
             "message": f"Failed to create admin user: {str(e)}",
             "error_type": type(e).__name__
         }
+
+@app.post("/api/init-database")
+async def initialize_database():
+    """Initialize database with basic data"""
+    try:
+        from app.core.database import SessionLocal
+        from app.models.user import User, UserRole
+        from app.models.room import Room
+        from app.models.table import Table
+        from app.models.settings import Settings
+        from app.models.working_hours import WorkingHours
+        from app.core.security import get_password_hash
+        
+        db = SessionLocal()
+        
+        # Create admin user
+        existing_admin = db.query(User).filter(User.username == "admin").first()
+        if not existing_admin:
+            admin_user = User(
+                username="admin",
+                password_hash=get_password_hash("admin123"),
+                role=UserRole.ADMIN,
+                email="admin@thecastle.de"
+            )
+            db.add(admin_user)
+            print("✅ Admin user created")
+        
+        # Create default room
+        existing_room = db.query(Room).first()
+        if not existing_room:
+            default_room = Room(
+                name="Main Dining Room",
+                description="The main dining area",
+                active=True
+            )
+            db.add(default_room)
+            db.commit()
+            db.refresh(default_room)
+            print("✅ Default room created")
+            
+            # Create some tables
+            tables = [
+                Table(name="T1", capacity=4, room_id=default_room.id, active=True),
+                Table(name="T2", capacity=6, room_id=default_room.id, active=True),
+                Table(name="T3", capacity=4, room_id=default_room.id, active=True),
+                Table(name="T4", capacity=8, room_id=default_room.id, active=True),
+            ]
+            for table in tables:
+                db.add(table)
+            print("✅ Default tables created")
+        
+        # Create settings
+        existing_settings = db.query(Settings).first()
+        if not existing_settings:
+            settings = Settings(
+                restaurant_name="The Castle Pub",
+                max_party_size=20,
+                min_reservation_hours=0,
+                max_reservation_days=90
+            )
+            db.add(settings)
+            print("✅ Settings created")
+        
+        # Create working hours
+        existing_hours = db.query(WorkingHours).first()
+        if not existing_hours:
+            days = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY']
+            for day in days:
+                wh = WorkingHours(
+                    day_of_week=day,
+                    is_open=True,
+                    open_time="11:00",
+                    close_time="23:00"
+                )
+                db.add(wh)
+            print("✅ Working hours created")
+        
+        db.commit()
+        db.close()
+        
+        return {
+            "status": "success",
+            "message": "Database initialized with basic data",
+            "admin_credentials": {
+                "username": "admin",
+                "password": "admin123"
+            }
+        }
+        
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Failed to initialize database: {str(e)}",
+            "error_type": type(e).__name__
+        }
