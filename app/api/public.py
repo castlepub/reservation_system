@@ -301,3 +301,19 @@ def cancel_reservation_by_token(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Reservation not found"
         ) 
+
+
+@router.get("/reservations")
+def get_reservations(
+    db: Session = Depends(get_db)
+):
+    """Get all reservations (public endpoint)"""
+    try:
+        from app.models.reservation import Reservation
+        reservations = db.query(Reservation).all()
+        return reservations
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get reservations: {str(e)}"
+        ) 
