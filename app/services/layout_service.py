@@ -22,9 +22,26 @@ class LayoutService:
 
     # Table Layout Management
     def create_table_layout(self, layout_data: TableLayoutCreate) -> TableLayout:
-        """Create a new table layout"""
+        """Create a new table layout. If table_id is not provided, create a Table first."""
+        # If table_id is missing, create a new Table record using provided optional fields
+        table_id = layout_data.table_id
+        if not table_id:
+            # Validate required info for creating a Table
+            if not layout_data.table_name or layout_data.capacity is None:
+                raise ValueError("Either table_id must be provided or table_name and capacity must be supplied to create a new table.")
+
+            new_table = Table(
+                room_id=layout_data.room_id,
+                name=layout_data.table_name,
+                capacity=layout_data.capacity,
+                combinable=layout_data.combinable if layout_data.combinable is not None else True,
+            )
+            self.db.add(new_table)
+            self.db.flush()  # obtain new_table.id without committing yet
+            table_id = new_table.id
+
         layout = TableLayout(
-            table_id=layout_data.table_id,
+            table_id=table_id,
             room_id=layout_data.room_id,
             x_position=layout_data.x_position,
             y_position=layout_data.y_position,
@@ -45,10 +62,10 @@ class LayoutService:
         self.db.add(layout)
         self.db.commit()
         self.db.refresh(layout)
-        
+
         # Clear cache for this room
         self._clear_room_cache(layout_data.room_id)
-        
+
         return layout
 
     def update_table_layout(self, layout_id: str, layout_data: TableLayoutUpdate) -> Optional[TableLayout]:

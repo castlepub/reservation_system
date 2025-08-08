@@ -32,8 +32,14 @@ class TableLayoutBase(BaseModel):
 
 
 class TableLayoutCreate(TableLayoutBase):
-    table_id: str
+    # If table_id is not provided, the API will create a new table using the
+    # provided table details (table_name, capacity, combinable)
+    table_id: Optional[str] = None
     room_id: str
+    # Optional fields to create a Table when table_id is not provided
+    table_name: Optional[str] = None
+    capacity: Optional[int] = Field(default=None, ge=1, le=50)
+    combinable: Optional[bool] = True
 
 
 class TableLayoutUpdate(BaseModel):
