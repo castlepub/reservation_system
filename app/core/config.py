@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     # Operating hours (will be overridden by database settings)
     OPENING_HOUR: int = 11
     CLOSING_HOUR: int = 23
+
+    # Chatbot integration
+    CHATBOT_API_KEY: Optional[str] = None
     
     class Config:
         env_file = ".env"

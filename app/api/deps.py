@@ -1,5 +1,5 @@
 from typing import Generator, Optional
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Header
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from app.core.database import get_db
@@ -87,3 +87,11 @@ def get_reservation_by_token(
         )
     
     return reservation 
+
+
+def require_chatbot_api_key(x_api_key: str = Header(default="")) -> None:
+    """Dependency to validate chatbot API key via X-Api-Key header."""
+    from app.core.config import settings
+    expected = getattr(settings, 'CHATBOT_API_KEY', None)
+    if not expected or x_api_key != expected:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key")

@@ -48,6 +48,13 @@ except Exception as e:
     print(f"❌ Layout router failed: {e}")
     layout_router = None
 
+try:
+    from app.api.chat import router as chat_router
+    print("✅ Chat router imported successfully")
+except Exception as e:
+    print(f"❌ Chat router failed: {e}")
+    chat_router = None
+
 # Create FastAPI app
 app = FastAPI(title="The Castle Pub Reservation System")
 
@@ -84,6 +91,10 @@ if dashboard_router:
 if layout_router:
     app.include_router(layout_router, prefix="/api/layout")
     print("✅ Layout router included")
+
+if chat_router:
+    app.include_router(chat_router, prefix="/api")
+    print("✅ Chat router included")
 
 # Mount static files
 static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
