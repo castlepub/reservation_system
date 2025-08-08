@@ -775,7 +775,7 @@
                                             <option value="">Choose a room...</option>
                                         </select>
                                     </div>
-                                    <div class="layout-toolbar">
+                                        <div class="layout-toolbar">
                                         <button type="button" class="btn btn-secondary" onclick="addTableToLayout('square')">
                                             <i class="fas fa-square"></i> Square
                                         </button>
@@ -791,6 +791,11 @@
                                         <button type="button" class="btn btn-secondary" onclick="toggleGrid()">
                                             <i class="fas fa-th"></i> Grid
                                         </button>
+                                            <div class="form-group" style="display:flex;align-items:center;gap:8px;margin-left:auto;min-width:220px;">
+                                                <label for="layoutZoom" style="white-space:nowrap;">Zoom</label>
+                                                <input id="layoutZoom" type="range" min="0.5" max="2" step="0.1" value="1" oninput="setLayoutZoom(this.value)" style="width:140px;">
+                                                <span id="layoutZoomValue">100%</span>
+                                            </div>
                                         <button type="button" class="btn btn-primary" onclick="saveLayout()">
                                             <i class="fas fa-save"></i> Save Layout
                                         </button>
@@ -822,6 +827,14 @@
                                                 <div class="form-group">
                                                     <label for="tableCapacity">Capacity</label>
                                                     <input type="number" id="tableCapacity" class="form-control" min="1" max="50">
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="tableSizePreset">Size</label>
+                                                    <select id="tableSizePreset" class="form-control">
+                                                        <option value="small">Small</option>
+                                                        <option value="medium" selected>Medium</option>
+                                                        <option value="large">Large</option>
+                                                    </select>
                                                 </div>
                                                 <div class="form-group">
                                                     <label for="tableShape">Shape</label>

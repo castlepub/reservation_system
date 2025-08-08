@@ -3629,6 +3629,16 @@ function createTableElement(table) {
     return tableElement;
 }
 
+// Zoom support for layout editor
+function setLayoutZoom(value) {
+    const canvas = document.getElementById('layoutCanvas');
+    const zoom = parseFloat(value) || 1;
+    canvas.style.transformOrigin = '0 0';
+    canvas.style.transform = `scale(${zoom})`;
+    const label = document.getElementById('layoutZoomValue');
+    if (label) label.textContent = `${Math.round(zoom * 100)}%`;
+}
+
 function getTableStatus(tableData) {
     if (tableData.reservations && tableData.reservations.length > 0) {
         return 'reserved';
@@ -3681,6 +3691,14 @@ function selectTable(tableElement) {
     document.getElementById('layoutTableName').value = tableData.table_name;
     document.getElementById('tableCapacity').value = tableData.capacity;
     document.getElementById('tableShape').value = tableData.shape;
+    // Size preset auto-detect
+    const preset = (function(w, h) {
+        if (w >= 140 || h >= 110) return 'large';
+        if (w <= 70 || h <= 55) return 'small';
+        return 'medium';
+    })(parseFloat(tableData.width), parseFloat(tableData.height));
+    const sizeSelect = document.getElementById('tableSizePreset');
+    if (sizeSelect) sizeSelect.value = preset;
     
     // Handle color select - find the closest match or default to green
     const colorSelect = document.getElementById('tableColor');
@@ -4030,6 +4048,19 @@ async function updateTableProperties() {
         show_name: document.getElementById('tableShowName').checked,
         show_capacity: document.getElementById('tableShowCapacity').checked
     };
+
+    // Apply size preset to width/height if provided
+    const sizePreset = document.getElementById('tableSizePreset')?.value;
+    if (sizePreset === 'small') {
+        formData.width = 70;
+        formData.height = 55;
+    } else if (sizePreset === 'medium') {
+        formData.width = 100;
+        formData.height = 80;
+    } else if (sizePreset === 'large') {
+        formData.width = 140;
+        formData.height = 110;
+    }
     
     console.log('Form data to send:', formData);
     
