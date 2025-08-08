@@ -22,7 +22,8 @@ class TableService:
         party_size: int,
         duration_hours: int = 2,
         exclude_reservation_id: str = None,
-        include_non_public: bool = False
+        include_non_public: bool = False,
+        exclude_table_ids: Optional[List[str]] = None
     ) -> List[Table]:
         """Get all available tables for a given room, date, and time slot"""
         print(f"DEBUG: Getting available tables for room {room_id} with proper conflict checking")
@@ -43,7 +44,11 @@ class TableService:
         reserved_table_ids = self.get_reserved_table_ids_with_duration(date, time, duration_hours, exclude_reservation_id)
         
         # Filter out reserved tables
-        available_tables = [table for table in all_tables if str(table.id) not in reserved_table_ids]
+        exclude_table_ids = set(exclude_table_ids or [])
+        available_tables = [
+            table for table in all_tables
+            if str(table.id) not in reserved_table_ids and str(table.id) not in exclude_table_ids
+        ]
         
         print(f"DEBUG: Found {len(all_tables)} total tables, {len(reserved_table_ids)} reserved, {len(available_tables)} available")
         return available_tables
@@ -55,7 +60,8 @@ class TableService:
         party_size: int,
         duration_hours: int = 2,
         exclude_reservation_id: str = None,
-        include_non_public: bool = False
+        include_non_public: bool = False,
+        exclude_table_ids: Optional[List[str]] = None
     ) -> List[Table]:
         """Get all available tables across all active rooms for a given date and time slot"""
         print(f"DEBUG: Getting available tables from all rooms with proper conflict checking")
@@ -77,7 +83,11 @@ class TableService:
         reserved_table_ids = self.get_reserved_table_ids_with_duration(date, time, duration_hours, exclude_reservation_id)
         
         # Filter out reserved tables
-        available_tables = [table for table in all_tables if str(table.id) not in reserved_table_ids]
+        exclude_table_ids = set(exclude_table_ids or [])
+        available_tables = [
+            table for table in all_tables
+            if str(table.id) not in reserved_table_ids and str(table.id) not in exclude_table_ids
+        ]
         
         print(f"DEBUG: Found {len(all_tables)} total tables, {len(reserved_table_ids)} reserved, {len(available_tables)} available")
         return available_tables
@@ -89,7 +99,8 @@ class TableService:
         time: time,
         party_size: int,
         duration_hours: int = 2,
-        include_non_public: bool = True
+        include_non_public: bool = True,
+        exclude_table_ids: Optional[List[str]] = None
     ) -> Optional[List[Table]]:
         """
         Find the best combination of tables for a party size.
@@ -99,12 +110,16 @@ class TableService:
         if room_id:
             # Search in specific room only
             available_tables = self.get_available_tables(
-                room_id, date, time, party_size, duration_hours, include_non_public=include_non_public
+                room_id, date, time, party_size, duration_hours,
+                include_non_public=include_non_public,
+                exclude_table_ids=exclude_table_ids
             )
             return self._find_best_combination_in_tables(available_tables, party_size)
         else:
             # Search across all active rooms with room preference
-            return self._find_best_combination_across_rooms(date, time, party_size, duration_hours, include_non_public)
+            return self._find_best_combination_across_rooms(
+                date, time, party_size, duration_hours, include_non_public, exclude_table_ids
+            )
     
     def _find_best_combination_in_tables(self, available_tables: List[Table], party_size: int) -> Optional[List[Table]]:
         """Find best table combination within a given set of tables"""
@@ -218,7 +233,7 @@ class TableService:
 
         return best_combination
     
-    def _find_best_combination_across_rooms(self, date: date, time: time, party_size: int, duration_hours: int = 2, include_non_public: bool = False) -> Optional[List[Table]]:
+    def _find_best_combination_across_rooms(self, date: date, time: time, party_size: int, duration_hours: int = 2, include_non_public: bool = False, exclude_table_ids: Optional[List[str]] = None) -> Optional[List[Table]]:
         """Find best table combination across all rooms, preferring same-room combinations"""
         from app.models.room import Room
         
@@ -231,7 +246,9 @@ class TableService:
         # First, try to find combinations within each room
         for room in active_rooms:
             room_tables = self.get_available_tables(
-                room.id, date, time, party_size, duration_hours, include_non_public=include_non_public
+                room.id, date, time, party_size, duration_hours,
+                include_non_public=include_non_public,
+                exclude_table_ids=exclude_table_ids
             )
             room_combo = self._find_best_combination_in_tables(room_tables, party_size)
             
@@ -248,7 +265,9 @@ class TableService:
         # If no single-room combination found, try cross-room combinations
         if not best_combination:
             all_tables = self.get_available_tables_all_rooms(
-                date, time, party_size, duration_hours, include_non_public=include_non_public
+                date, time, party_size, duration_hours,
+                include_non_public=include_non_public,
+                exclude_table_ids=exclude_table_ids
             )
             best_combination = self._find_best_combination_in_tables(all_tables, party_size)
         

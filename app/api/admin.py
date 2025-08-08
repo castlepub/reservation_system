@@ -508,10 +508,13 @@ def delete_table(
     ).first()
     
     if active_reservations:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot delete table with active reservations"
-        )
+        # Soft-delete instead of hard delete to keep reservation history intact
+        table.active = False
+        if hasattr(table, 'public_bookable'):
+            table.public_bookable = False
+        db.commit()
+        db.refresh(table)
+        return table
     
     db.delete(table)
     db.commit()
