@@ -444,12 +444,15 @@ function renderUpcomingReservations(items) {
                 <span class="note-title">${formatDate(d)} • ${dayItems.length} reservations • ${totalGuests} guests</span>
             </div>
             <div class="note-content">
-                ${dayItems.map(r => `
-                    <div class="flex-between" style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed #eee;cursor:pointer;" onclick="openReservationById('${r.id}')">
-                        <span><strong>${r.time.substring(0,5)}</strong> • ${r.customer_name} (${r.party_size}) ${r.room_name ? '• ' + r.room_name : ''}</span>
-                        <span>${(r.table_names||[]).join(', ')}</span>
-                    </div>
-                `).join('')}
+                ${dayItems.map(r => {
+                    const status = (r.status || '').toLowerCase();
+                    const color = status === 'cancelled' || status === 'no-show' ? '#c62828' : (status === 'confirmed' || status === 'arrived' ? '#2e7d32' : '#333');
+                    return `
+                        <div class="flex-between" style="display:flex;justify-content:space-between;padding:4px 6px;border-bottom:1px dashed #eee;cursor:pointer;" onclick="openReservationById('${r.id}')">
+                            <span style="color:${color}"><strong>${r.time.substring(0,5)}</strong> • ${r.customer_name} (${r.party_size}) ${r.room_name ? '• ' + r.room_name : ''}</span>
+                            <span style="color:${color}">${(r.table_names||[]).join(', ')}</span>
+                        </div>`;
+                }).join('')}
             </div>
         </div>`;
     }).join('');
@@ -2577,7 +2580,8 @@ async function cancelReservation(reservationId) {
     }
     
     try {
-        const response = await fetch(`${API_BASE_URL}/api/reservations/${reservationId}`, {
+        // Use admin endpoint to update status
+        const response = await fetch(`${API_BASE_URL}/admin/reservations/${reservationId}`, {
             method: 'PUT',
             headers: {
                 'Authorization': `Bearer ${authToken}`,
@@ -2590,13 +2594,19 @@ async function cancelReservation(reservationId) {
         
         if (response.ok) {
             showMessage('Reservation cancelled successfully', 'success');
-            loadAllReservations(); // Reload reservations list
+            document.querySelectorAll('.modal').forEach(m => m.remove());
+            // Reload lists and views
+            if (typeof loadAllReservations === 'function') loadAllReservations();
+            if (typeof loadTodayReservations === 'function') loadTodayReservations();
+            if (typeof loadDailyView === 'function') loadDailyView();
+            if (typeof loadUpcomingReservations === 'function') loadUpcomingReservations();
         } else {
-            throw new Error('Failed to cancel reservation');
+            const errData = await response.json().catch(() => ({}));
+            throw new Error(errData.detail || 'Failed to cancel reservation');
         }
     } catch (error) {
         console.error('Error cancelling reservation:', error);
-        showMessage('Error cancelling reservation', 'error');
+        showMessage('Error cancelling reservation: ' + error.message, 'error');
     }
 }
 

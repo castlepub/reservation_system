@@ -635,10 +635,10 @@ main {
 
 .dashboard-content {
     display: grid;
-    grid-template-columns: 1.5fr 1fr; /* chart left, larger notes right */
+    grid-template-columns: 1.4fr 1fr; /* slightly narrower chart, wider notes */
     grid-template-areas:
         "chart notes"
-        "upcoming notes";
+        "upcoming upcoming"; /* upcoming spans full width below */
     gap: 1.5rem;
 }
 
