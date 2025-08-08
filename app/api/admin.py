@@ -77,6 +77,22 @@ def force_database_migration(
         except Exception as e:
             db.rollback()
             print(f"Warning: Could not update reservation_type: {e}")
+
+        # Ensure tables.public_bookable exists (for public booking control)
+        try:
+            col_exists = db.execute(text(
+                """
+                SELECT column_name FROM information_schema.columns
+                WHERE table_name='tables' AND column_name='public_bookable'
+                """
+            )).fetchone()
+            if not col_exists:
+                db.execute(text("ALTER TABLE tables ADD COLUMN public_bookable BOOLEAN DEFAULT TRUE NOT NULL"))
+                db.commit()
+                print("✓ Added public_bookable column to tables")
+        except Exception as e:
+            db.rollback()
+            print(f"Warning: Could not add public_bookable: {e}")
         
         # Seed test data if no reservations exist
         reservation_count = db.query(Reservation).count()

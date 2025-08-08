@@ -27,9 +27,14 @@ async def get_layout_editor_data(
     """Get comprehensive data for the layout editor"""
     try:
         layout_service = LayoutService(db)
-        return layout_service.get_layout_editor_data(room_id, target_date)
+        data = layout_service.get_layout_editor_data(room_id, target_date)
+        return data
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to load layout editor data: {str(e)}")
+        # Provide clearer diagnostics to the caller and logs for server
+        import traceback as _tb
+        print("Layout editor load error:", str(e))
+        print(_tb.format_exc())
+        raise HTTPException(status_code=500, detail=f"Failed to load layout editor data: {type(e).__name__}: {str(e)}")
 
 
 @router.post("/tables")
