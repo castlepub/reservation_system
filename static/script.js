@@ -672,12 +672,54 @@ function updateTodayReservations(reservations) {
 
 // Modal Functions
 function showAddNoteModal() {
-    document.getElementById('addNoteModal').classList.remove('hidden');
+    let modal = document.getElementById('addNoteModal');
+    if (!modal) {
+        // Create modal dynamically if missing
+        modal = document.createElement('div');
+        modal.id = 'addNoteModal';
+        modal.className = 'modal';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Add Dashboard Note</h3>
+                    <button class="modal-close" onclick="hideAddNoteModal()"><i class="fas fa-times"></i></button>
+                </div>
+                <form id="addNoteForm" class="modal-form">
+                    <div class="form-group">
+                        <label for="noteTitle">Title *</label>
+                        <input type="text" id="noteTitle" name="title" required />
+                    </div>
+                    <div class="form-group">
+                        <label for="noteContent">Content *</label>
+                        <textarea id="noteContent" name="content" rows="4" required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="notePriority">Priority</label>
+                        <select id="notePriority" name="priority">
+                            <option value="normal">Normal</option>
+                            <option value="high">High</option>
+                            <option value="urgent">Urgent</option>
+                        </select>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn-secondary" onclick="hideAddNoteModal()">Cancel</button>
+                        <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save Note</button>
+                    </div>
+                </form>
+            </div>`;
+        document.body.appendChild(modal);
+        const form = modal.querySelector('#addNoteForm');
+        form.addEventListener('submit', handleAddNote);
+    }
+    modal.classList.remove('hidden');
 }
 
 function hideAddNoteModal() {
-    document.getElementById('addNoteModal').classList.add('hidden');
-    document.getElementById('addNoteForm').reset();
+    const modal = document.getElementById('addNoteModal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    const form = modal.querySelector('#addNoteForm');
+    if (form) form.reset();
 }
 
 async function handleAddNote(e) {
@@ -3073,12 +3115,12 @@ async function loadDailyView() {
         if (response.ok) {
             dailyViewData = await response.json();
             updateDateDisplay();
-
+            
             // Ensure a default room is selected and stays selected
             if (dailyViewData.rooms && dailyViewData.rooms.length > 0) {
                 const roomIds = dailyViewData.rooms.map(r => r.id);
                 if (!currentRoomId || !roomIds.includes(currentRoomId)) {
-                    currentRoomId = dailyViewData.rooms[0].id;
+                currentRoomId = dailyViewData.rooms[0].id;
                 }
             } else {
                 currentRoomId = null;
@@ -4434,7 +4476,12 @@ function openTableReservation(tableData) {
 }
 
 function showReservationDetails(reservation) {
-    // Create and show modal with reservation details
+    const statusText = (reservation.status || '').toString().toLowerCase();
+    const statusClass = statusText === 'cancelled' ? 'cancelled' : 'confirmed';
+
+    const timeStr = typeof reservation.time === 'string' ? reservation.time : (reservation.time ? formatTime(reservation.time) : '');
+    const tableNames = (reservation.tables || reservation.table_names || []).map(t => t.table_name || t).filter(Boolean);
+
     const modal = document.createElement('div');
     modal.className = 'modal';
     modal.innerHTML = `
@@ -4444,23 +4491,42 @@ function showReservationDetails(reservation) {
                 <button class="close-btn" onclick="this.closest('.modal').remove()">&times;</button>
             </div>
             <div class="modal-body">
-                <p><strong>Customer:</strong> ${reservation.customer_name}</p>
-                <p><strong>Time:</strong> ${reservation.time}</p>
-                <p><strong>Party Size:</strong> ${reservation.party_size}</p>
-                <p><strong>Type:</strong> ${reservation.reservation_type}</p>
-                <p><strong>Status:</strong> ${reservation.status}</p>
-                ${reservation.notes ? `<p><strong>Notes:</strong> ${reservation.notes}</p>` : ''}
+                <div class="reservation-header">
+                    <div class="customer-info">
+                        <h4>${reservation.customer_name}</h4>
+                        <span class="reservation-type-badge type-${reservation.reservation_type}">${reservation.reservation_type}</span>
+                    </div>
+                    <div class="reservation-time">${timeStr}</div>
+                </div>
+                <div class="reservation-details">
+                    <div class="detail-item">
+                        <div class="detail-label">Party Size</div>
+                        <div class="detail-value">${reservation.party_size}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Tables</div>
+                        <div class="detail-value">
+                            <div class="table-tags">${tableNames.map(t => `<span class=\"table-tag\">${t}</span>`).join('')}</div>
+                        </div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Status</div>
+                        <div class="detail-value"><span class="reservation-status-badge ${statusClass}">${statusText || 'confirmed'}</span></div>
+                    </div>
+                </div>
+                ${reservation.notes ? `<div class="customer-notes"><strong>Notes:</strong> ${reservation.notes}</div>` : ''}
+                ${reservation.admin_notes ? `<div class="admin-notes"><strong>Admin Notes:</strong> ${reservation.admin_notes}</div>` : ''}
                 <div class="modal-actions">
+                    <button class="btn btn-primary" onclick="editReservation('${reservation.id}')">Edit</button>
                     <button class="btn btn-secondary" onclick="markArrived('${reservation.id}')">Arrived</button>
                     <button class="btn btn-secondary" onclick="markNoShow('${reservation.id}')">No-Show</button>
-                    <button class="btn btn-secondary" onclick="cancelReservation('${reservation.id}')">Cancel</button>
+                    <button class="btn btn-danger" onclick="cancelReservation('${reservation.id}')">Cancel</button>
                 </div>
             </div>
         </div>
     `;
     
     document.body.appendChild(modal);
-    modal.classList.remove('hidden');
 }
 
 function showTableAssignmentModal(tableData) {

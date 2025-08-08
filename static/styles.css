@@ -2731,6 +2731,24 @@ main {
     color: #c62828;
 }
 
+/* Status badge styling in details modal */
+.reservation-status-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+.reservation-status-badge.confirmed {
+    background: #e8f5e8;
+    color: #2e7d32;
+}
+.reservation-status-badge.cancelled {
+    background: #ffebee;
+    color: #c62828;
+}
+
 .table-info {
     margin-top: 5px;
     font-size: 12px;
