@@ -21,6 +21,7 @@ import uuid
 import random
 import traceback
 from app.models.table_layout import TableLayout, RoomLayout, TableShape
+from app.services.email_service_zoho import ZohoEmailService
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -450,6 +451,23 @@ def seed_front_room_layout(
         upsert(name, cap, comb, shape, x, y, w, h)
 
     return {"message": "Front Room layout seeded/updated"}
+
+
+@router.post("/test-email")
+def send_test_email(
+    to: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user)
+):
+    """Send a test email via Zoho using current environment settings (admin only)."""
+    try:
+        service = ZohoEmailService()
+        ok = service.send_email(to, "Test Email - The Castle Pub", "<p>This is a test email from the reservation system.</p>")
+        if ok:
+            return {"status": "sent", "provider": "zoho"}
+        return {"status": "skipped_or_failed", "message": "Zoho not configured or send failed"}
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
 
 
 @router.put("/tables/{table_id}", response_model=TableResponse)
