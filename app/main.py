@@ -115,6 +115,29 @@ async def root():
         pass
     return {"message": "The Castle Pub Reservation System", "status": "running"}
 
+
+# Simple dynamic routes to serve token pages for edit/cancel from static assets
+@app.get("/edit/{token}")
+async def edit_page(token: str):
+    try:
+        html_file = os.path.join(static_dir, "edit.html")
+        if os.path.exists(html_file):
+            return FileResponse(html_file)
+    except Exception:
+        pass
+    return {"message": "Edit page not available"}
+
+
+@app.get("/cancel/{token}")
+async def cancel_page(token: str):
+    try:
+        html_file = os.path.join(static_dir, "cancel.html")
+        if os.path.exists(html_file):
+            return FileResponse(html_file)
+    except Exception:
+        pass
+    return {"message": "Cancel page not available"}
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint for Railway"""

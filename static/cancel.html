@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cancel Reservation</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f7fafc;">
+  <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;max-width:520px;width:92%;padding:24px;box-shadow:0 10px 30px rgba(0,0,0,0.1);">
+    <h2 style="margin-top:0">Cancel Reservation</h2>
+    <p id="status">Processing your request...</p>
+    <script>
+      (async function() {
+        try {
+          const token = location.pathname.split('/').pop();
+          const resp = await fetch(`/api/reservations/${token}`, { method: 'DELETE' });
+          if (resp.ok) {
+            document.getElementById('status').textContent = 'Your reservation has been cancelled successfully.';
+          } else {
+            const err = await resp.json().catch(()=>({detail:'Unknown error'}));
+            document.getElementById('status').textContent = 'Cancellation failed: ' + (err.detail || JSON.stringify(err));
+          }
+        } catch (e) {
+          document.getElementById('status').textContent = 'Cancellation failed: ' + e.message;
+        }
+      })();
+    </script>
+  </div>
+</body>
+</html>
+
+

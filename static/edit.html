@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Edit Reservation</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f7fafc;">
+  <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;max-width:560px;width:92%;padding:24px;box-shadow:0 10px 30px rgba(0,0,0,0.1);">
+    <h2 style="margin-top:0">Modify Reservation</h2>
+    <form id="editForm">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Date</label>
+          <input type="date" id="date" class="form-control" required />
+        </div>
+        <div class="form-group">
+          <label>Time</label>
+          <input type="time" id="time" class="form-control" required />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Party Size</label>
+          <input type="number" id="partySize" class="form-control" min="1" max="50" required />
+        </div>
+        <div class="form-group">
+          <label>Notes</label>
+          <input type="text" id="notes" class="form-control" />
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+      </div>
+      <p id="status" style="margin-top:10px"></p>
+    </form>
+  </div>
+  <script>
+    const token = location.pathname.split('/').pop();
+    document.getElementById('editForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const body = {
+        date: document.getElementById('date').value,
+        time: document.getElementById('time').value,
+        party_size: parseInt(document.getElementById('partySize').value, 10),
+        notes: document.getElementById('notes').value || null,
+      };
+      try {
+        const resp = await fetch(`/api/reservations/${token}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        if (resp.ok) {
+          document.getElementById('status').textContent = 'Reservation updated successfully!';
+        } else {
+          const err = await resp.json().catch(()=>({detail:'Unknown error'}));
+          document.getElementById('status').textContent = 'Update failed: ' + (err.detail || JSON.stringify(err));
+        }
+      } catch (e) {
+        document.getElementById('status').textContent = 'Update failed: ' + e.message;
+      }
+    });
+  </script>
+</body>
+</html>
+
+
