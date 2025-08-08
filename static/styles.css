@@ -635,7 +635,10 @@ main {
 
 .dashboard-content {
     display: grid;
-    grid-template-columns: 1.5fr 1fr;
+    grid-template-columns: 1.2fr 1.2fr; /* make right side larger by adding another column for notes */
+    grid-template-areas: 
+        "chart notes"
+        "upcoming notes";
     gap: 1.5rem;
 }
 
@@ -644,6 +647,7 @@ main {
     border-radius: 10px;
     padding: 1.5rem;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    grid-area: chart;
 }
 
 .chart-section h3 {
@@ -659,6 +663,17 @@ main {
     margin-bottom: 1rem;
 }
 
+/* Make the first notes panel (Team Notes) occupy the right column full height */
+.notes-section:first-of-type {
+    grid-area: notes;
+    min-height: 540px;
+}
+
+/* Place Upcoming Reservations under chart on the left */
+.notes-section:nth-of-type(2) {
+    grid-area: upcoming;
+}
+
 .notes-header {
     display: flex;
     justify-content: between;
@@ -672,7 +687,7 @@ main {
 }
 
 .notes-list, .guest-notes-list {
-    max-height: 300px;
+    max-height: 520px; /* allow more content visible */
     overflow-y: auto;
 }
 
