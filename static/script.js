@@ -1028,20 +1028,24 @@ function showTab(tabName) {
 }
 
 function showSettingsTab(tabName) {
-    // Hide all settings tab contents
+    // Hide all settings tab contents (ensure display swap as fallback)
     const settingsTabContents = document.querySelectorAll('.settings-tab-content');
-    settingsTabContents.forEach(content => content.classList.remove('active'));
-    
+    settingsTabContents.forEach(content => {
+        content.classList.remove('active');
+        content.style.display = 'none';
+    });
+
     // Remove active class from all settings tab buttons
     const settingsTabButtons = document.querySelectorAll('.settings-tab-btn');
     settingsTabButtons.forEach(btn => btn.classList.remove('active'));
-    
+
     // Show selected settings tab content
     const selectedSettingsTab = document.getElementById(tabName + 'SettingsTab');
     if (selectedSettingsTab) {
         selectedSettingsTab.classList.add('active');
+        selectedSettingsTab.style.display = 'block';
     }
-    
+
     // Add active class to selected settings tab button
     const selectedSettingsButton = document.querySelector(`[onclick="showSettingsTab('${tabName}')"]`);
     if (selectedSettingsButton) {
