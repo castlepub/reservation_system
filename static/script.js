@@ -22,6 +22,9 @@ document.addEventListener('DOMContentLoaded', function() {
     try {
         initializeApp();
         setupEventListeners();
+        // Route to section if hash present
+        updateSectionFromHash();
+        window.addEventListener('hashchange', updateSectionFromHash);
         
         // Initialize public dropdowns immediately (no auth required)
         initializePublicDropdowns();
@@ -37,6 +40,19 @@ document.addEventListener('DOMContentLoaded', function() {
         console.error('Error initializing app:', error);
     }
 });
+
+function updateSectionFromHash() {
+    const hash = window.location.hash || '#home';
+    if (hash === '#home') {
+        showSection('home');
+    } else if (hash === '#reservations') {
+        showSection('reservations');
+    } else if (hash === '#admin') {
+        showSection('admin');
+    } else {
+        showSection('home');
+    }
+}
 
 function initializePublicDropdowns() {
     // Set default party size options (fallback)
@@ -158,6 +174,19 @@ function setupEventListeners() {
     if (addSpecialDayBtn) {
         addSpecialDayBtn.addEventListener('click', addSpecialDay);
     }
+
+    // Top navigation links (Home, Make Reservation, Admin)
+    const navLinks = document.querySelectorAll('.nav-link');
+    navLinks.forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            const href = link.getAttribute('href') || '#home';
+            if (href) {
+                history.pushState(null, '', href);
+                updateSectionFromHash();
+            }
+        });
+    });
     
     // Edit room form
     const editRoomForm = document.getElementById('editRoomForm');
