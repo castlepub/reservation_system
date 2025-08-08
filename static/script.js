@@ -4972,6 +4972,106 @@ function initializeLayoutEditorOnLoad() {
 
 // --- Blocks UI ---
 async function initializeBlocksUI() {
+    // Ensure the Blocks panel exists in DOM (fallback injection for cached HTML)
+    let panel = document.getElementById('blocksSettingsTab');
+    if (!panel) {
+        const settingsRoot = document.getElementById('settingsTab');
+        if (settingsRoot) {
+            const fallback = document.createElement('div');
+            fallback.id = 'blocksSettingsTab';
+            fallback.className = 'settings-tab-content active';
+            fallback.style.display = 'block';
+            fallback.innerHTML = `
+                <div class="settings-content">
+                    <div class="setting-group">
+                        <h4>Availability Blocks</h4>
+                        <form id="createBlockForm" class="modal-form">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="blockType">Type</label>
+                                    <select id="blockType" class="form-control">
+                                        <option value="blackout">Blackout (start → end)</option>
+                                        <option value="release">Release (hide until time)</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="blockScope">Scope</label>
+                                    <select id="blockScope" class="form-control">
+                                        <option value="global">Global</option>
+                                        <option value="room">Room</option>
+                                        <option value="table">Table</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="blockRoom">Room</label>
+                                    <select id="blockRoom" class="form-control"><option value="">Select room</option></select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="blockTable">Table</label>
+                                    <select id="blockTable" class="form-control"><option value="">Select table</option></select>
+                                </div>
+                            </div>
+                            <div id="blackoutFields">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="blackoutStart">Start</label>
+                                        <input type="datetime-local" id="blackoutStart" class="form-control" />
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="blackoutEnd">End</label>
+                                        <input type="datetime-local" id="blackoutEnd" class="form-control" />
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="releaseFields" style="display:none;">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>Weekdays</label>
+                                        <div class="form-row" style="grid-template-columns: repeat(7, auto); gap:8px;">
+                                            <label><input type="checkbox" class="weekday" value="0" /> Mon</label>
+                                            <label><input type="checkbox" class="weekday" value="1" /> Tue</label>
+                                            <label><input type="checkbox" class="weekday" value="2" /> Wed</label>
+                                            <label><input type="checkbox" class="weekday" value="3" /> Thu</label>
+                                            <label><input type="checkbox" class="weekday" value="4" /> Fri</label>
+                                            <label><input type="checkbox" class="weekday" value="5" /> Sat</label>
+                                            <label><input type="checkbox" class="weekday" value="6" /> Sun</label>
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="releaseTime">Release Time</label>
+                                        <input type="time" id="releaseTime" class="form-control" value="10:00" />
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="blockReason">Reason</label>
+                                    <input type="text" id="blockReason" class="form-control" placeholder="e.g., Pub Quiz" />
+                                </div>
+                                <div class="form-group">
+                                    <label><input type="checkbox" id="blockActive" checked /> Active</label>
+                                </div>
+                            </div>
+                            <div class="form-actions">
+                                <button type="submit" class="btn btn-primary">Create Block</button>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="setting-group">
+                        <h4>Existing Blocks</h4>
+                        <div id="blocksList" class="tables-grid"></div>
+                    </div>
+                </div>`;
+            settingsRoot.appendChild(fallback);
+            panel = fallback;
+        }
+    } else {
+        // Ensure visible
+        panel.style.display = 'block';
+        panel.classList.add('active');
+    }
     // Load rooms for selectors
     const rooms = await loadRoomsForTables().catch(()=>[]);
     const roomSelect = document.getElementById('blockRoom');
