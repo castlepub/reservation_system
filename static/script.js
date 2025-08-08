@@ -407,6 +407,10 @@ function updateGuestNotes() {
     if (!dashboardStats || !dashboardStats.guest_notes) return;
 
     const container = document.getElementById('guestNotes');
+    if (!container) {
+        // Guest notes panel not present in the current layout
+        return;
+    }
     
     if (dashboardStats.guest_notes.length === 0) {
         container.innerHTML = '<p class="text-center text-gray-500">No recent guest notes</p>';
