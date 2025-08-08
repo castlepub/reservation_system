@@ -5,6 +5,7 @@ from app.core.config import settings
 from app.core.security import create_reservation_token
 from app.schemas.reservation import ReservationWithTables
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -12,11 +13,38 @@ logger = logging.getLogger(__name__)
 class EmailService:
     def __init__(self):
         self.sendgrid_client = SendGridAPIClient(api_key=settings.SENDGRID_API_KEY) if settings.SENDGRID_API_KEY else None
+        # Zoho envs (optional)
+        self.zoho_email = os.getenv("ZOHO_EMAIL")
+        self.zoho_password = os.getenv("ZOHO_PASSWORD")
+
+    def _try_send_via_zoho(self, to_email: str, subject: str, html_content: str) -> bool:
+        if not (self.zoho_email and self.zoho_password):
+            return False
+        try:
+            from app.services.email_service_zoho import ZohoEmailService
+            zoho = ZohoEmailService()
+            return zoho.send_email(to_email, subject, html_content)
+        except Exception as e:
+            logger.warning(f"Zoho send failed, falling back to SendGrid: {e}")
+            return False
+
+    def _send_via_sendgrid(self, to_email: str, customer_name: str, subject: str, html_content: str) -> bool:
+        if not self.sendgrid_client:
+            logger.warning("SendGrid API key not configured")
+            return False
+        message = Mail(
+            from_email=Email(settings.SENDGRID_FROM_EMAIL, "The Castle Pub"),
+            to_emails=To(to_email, customer_name),
+            subject=subject,
+            html_content=HtmlContent(html_content)
+        )
+        response = self.sendgrid_client.send(message)
+        return response.status_code in [200, 201, 202]
 
     def send_reservation_confirmation(self, reservation: ReservationWithTables) -> bool:
-        """Send confirmation email for a new reservation"""
-        if not self.sendgrid_client:
-            logger.warning("SendGrid API key not configured, skipping email")
+        """Send confirmation email for a new reservation (Zoho preferred, fallback to SendGrid)."""
+        if not reservation.email:
+            logger.info("Reservation has no email; skipping confirmation email.")
             return False
 
         try:
@@ -32,7 +60,6 @@ class EmailService:
             else:
                 table_info = "Table assignment pending"
 
-            # Email content
             subject = f"Reservation Confirmation - The Castle Pub"
             
             html_content = f"""
@@ -81,23 +108,16 @@ class EmailService:
             </html>
             """
 
-            # Create and send email
-            message = Mail(
-                from_email=Email(settings.SENDGRID_FROM_EMAIL, "The Castle Pub"),
-                to_emails=To(reservation.email, reservation.customer_name),
-                subject=subject,
-                html_content=HtmlContent(html_content)
-            )
-
-            response = self.sendgrid_client.send(message)
-            
-            if response.status_code in [200, 201, 202]:
-                logger.info(f"Confirmation email sent successfully to {reservation.email}")
+            # Try Zoho first, then SendGrid
+            if self._try_send_via_zoho(reservation.email, subject, html_content):
+                logger.info(f"Confirmation email sent via Zoho to {reservation.email}")
                 return True
+            ok = self._send_via_sendgrid(reservation.email, reservation.customer_name, subject, html_content)
+            if ok:
+                logger.info(f"Confirmation email sent via SendGrid to {reservation.email}")
             else:
-                logger.error(f"Failed to send email: {response.status_code} - {response.body}")
-                return False
-
+                logger.error("Confirmation email failed via both Zoho and SendGrid")
+            return ok
         except Exception as e:
             logger.error(f"Error sending confirmation email: {str(e)}")
             return False

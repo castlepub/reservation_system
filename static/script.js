@@ -934,8 +934,8 @@ async function handleAdminReservationSubmit(e) {
     const formData = new FormData(e.target);
     const reservationData = {
         customer_name: formData.get('customerName'),
-        email: formData.get('email'),
-        phone: formData.get('phone'),
+        email: formData.get('email') || null,
+        phone: formData.get('phone') || null,
         party_size: parseInt(formData.get('partySize')),
         date: formData.get('date'),
         time: formData.get('time'),

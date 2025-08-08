@@ -6,8 +6,8 @@ from app.models.reservation import ReservationStatus, ReservationType
 
 class ReservationCreate(BaseModel):
     customer_name: str
-    email: str
-    phone: str
+    email: Optional[str] = None
+    phone: Optional[str] = None
     party_size: int
     date: date
     time: time
