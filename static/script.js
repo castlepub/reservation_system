@@ -439,18 +439,22 @@ function renderUpcomingReservations(items) {
         const dayItems = byDate[d];
         const totalGuests = dayItems.reduce((sum, r) => sum + (r.party_size || 0), 0);
         return `
-        <div class="note-item">
-            <div class="note-header">
-                <span class="note-title">${formatDate(d)} • ${dayItems.length} reservations • ${totalGuests} guests</span>
+        <div class="upcoming-day">
+            <div class="upcoming-day-header" style="font-weight:600;margin:6px 0;">
+                ${formatDate(d)} • ${dayItems.length} reservations • ${totalGuests} guests
             </div>
-            <div class="note-content">
+            <div class="upcoming-day-list">
                 ${dayItems.map(r => {
                     const status = (r.status || '').toLowerCase();
-                    const color = status === 'cancelled' || status === 'no-show' ? '#c62828' : (status === 'confirmed' || status === 'arrived' ? '#2e7d32' : '#333');
+                    const userFlag = getReservationStatusFlag(r.id);
+                    const color = (userFlag === 'arrived')
+                        ? '#2e7d32'
+                        : ((status === 'cancelled' || userFlag === 'no-show') ? '#c62828' : '#333');
+                    const tableNames = (r.table_names || []).join(', ');
                     return `
-                        <div class="flex-between" style="display:flex;justify-content:space-between;padding:4px 6px;border-bottom:1px dashed #eee;cursor:pointer;" onclick="openReservationById('${r.id}')">
+                        <div class="reservation-line" style="display:flex;justify-content:space-between;align-items:center;padding:4px 6px;border-bottom:1px dashed #eee;cursor:pointer;" onclick="openReservationById('${r.id}')">
                             <span style="color:${color}"><strong>${r.time.substring(0,5)}</strong> • ${r.customer_name} (${r.party_size}) ${r.room_name ? '• ' + r.room_name : ''}</span>
-                            <span style="color:${color}">${(r.table_names||[]).join(', ')}</span>
+                            <span style="color:${color}">${tableNames}</span>
                         </div>`;
                 }).join('')}
             </div>
@@ -471,6 +475,29 @@ async function openReservationById(reservationId) {
     } catch (e) {
         console.error('Open reservation error:', e);
         showMessage('Failed to open reservation', 'error');
+    }
+}
+
+// Lightweight UI-only status memory so dashboard lists/modals can reflect Arrived/No-Show
+function setReservationStatusFlag(id, flag) {
+    try {
+        const key = 'uiReservationFlags';
+        const map = JSON.parse(localStorage.getItem(key) || '{}');
+        if (flag === null) {
+            delete map[id];
+        } else {
+            map[id] = flag; // 'arrived' | 'no-show'
+        }
+        localStorage.setItem(key, JSON.stringify(map));
+    } catch {}
+}
+
+function getReservationStatusFlag(id) {
+    try {
+        const map = JSON.parse(localStorage.getItem('uiReservationFlags') || '{}');
+        return map[id] || null;
+    } catch {
+        return null;
     }
 }
 
@@ -634,6 +661,11 @@ function updateTodayReservations(reservations) {
     }
 
     container.innerHTML = reservations.map(reservation => {
+        const status = (reservation.status || '').toString().toLowerCase();
+        const userFlag = getReservationStatusFlag(reservation.id);
+        const color = userFlag === 'arrived'
+            ? '#2e7d32'
+            : (userFlag === 'no-show' || status === 'cancelled' ? '#c62828' : '#333');
         const tableNames = Array.isArray(reservation.table_names) && reservation.table_names.length > 0
             ? reservation.table_names
             : ['TBD'];
@@ -642,29 +674,29 @@ function updateTodayReservations(reservations) {
         <div class="today-reservation-card">
             <div class="reservation-header">
                 <div class="customer-info">
-                    <h4>${reservation.customer_name}</h4>
+                    <h4 style="color:${color}">${reservation.customer_name}</h4>
                     <span class="reservation-type-badge type-${reservation.reservation_type}">
                         ${reservation.reservation_type}
                     </span>
                 </div>
-                <div class="reservation-time">${formatTime(timeStr)}</div>
+                <div class="reservation-time" style="color:${color}">${formatTime(timeStr)}</div>
             </div>
             <div class="reservation-details">
                 <div class="detail-item">
                     <div class="detail-label">Party Size</div>
-                    <div class="detail-value">${reservation.party_size}</div>
+                    <div class="detail-value" style="color:${color}">${reservation.party_size}</div>
                 </div>
                 <div class="detail-item">
                     <div class="detail-label">Tables</div>
                     <div class="detail-value">
-                        <div class="table-tags">
-                            ${tableNames.map(table => `<span class="table-tag">${table}</span>`).join('')}
+                        <div class="table-tags" style="color:${color}">
+                            ${tableNames.map(table => `<span class=\"table-tag\">${table}</span>`).join('')}
                         </div>
                     </div>
                 </div>
                 <div class="detail-item">
                     <div class="detail-label">Status</div>
-                    <div class="detail-value">${reservation.status}</div>
+                    <div class="detail-value" style="color:${color}">${userFlag || reservation.status}</div>
                 </div>
             </div>
             ${reservation.notes ? `<div class="customer-notes"><strong>Notes:</strong> ${reservation.notes}</div>` : ''}
@@ -2411,7 +2443,9 @@ function displayReservations(reservations) {
     let html = '<div class="reservations-grid">';
     
     reservations.forEach(reservation => {
-        const statusClass = reservation.status.toLowerCase();
+        const statusLower = reservation.status.toLowerCase();
+        const userFlag = getReservationStatusFlag(reservation.id);
+        const statusClass = userFlag === 'arrived' ? 'arrived' : (userFlag === 'no-show' ? 'no-show' : statusLower);
         const date = new Date(reservation.date).toLocaleDateString();
         const time = reservation.time;
         
@@ -2419,7 +2453,7 @@ function displayReservations(reservations) {
             <div class="reservation-card ${statusClass}">
                 <div class="reservation-header">
                     <h5>${reservation.customer_name}</h5>
-                    <span class="status-badge status-${statusClass}">${reservation.status}</span>
+                    <span class="status-badge status-${statusClass}">${userFlag || reservation.status}</span>
                 </div>
                 <div class="reservation-details">
                     <div class="detail-row">
@@ -2621,9 +2655,23 @@ async function markArrived(reservationId) {
             body: JSON.stringify({ status: 'confirmed' })
         });
         if (response.ok) {
+            // Persist visual state locally as "arrived"
+            setReservationStatusFlag(reservationId, 'arrived');
             showMessage('Marked as arrived', 'success');
-            document.querySelectorAll('.modal').forEach(m => m.remove());
-            // Refresh views so status colors update
+            // Update any open modal styles/badge without closing
+            const modal = document.querySelector('.modal .modal-content');
+            if (modal) {
+                modal.classList.remove('details-no-show');
+                modal.classList.add('details-arrived');
+                const badge = modal.querySelector('.reservation-status-badge');
+                if (badge) {
+                    badge.classList.remove('no-show', 'cancelled');
+                    badge.classList.add('arrived');
+                    badge.textContent = 'arrived';
+                }
+            }
+            // Refresh lists
+            if (typeof loadAllReservations === 'function') loadAllReservations();
             if (typeof loadTodayReservations === 'function') loadTodayReservations();
             if (typeof loadDailyView === 'function') loadDailyView();
             if (typeof loadUpcomingReservations === 'function') loadUpcomingReservations();
@@ -2646,10 +2694,26 @@ async function markNoShow(reservationId) {
             body: JSON.stringify({ status: 'cancelled' })
         });
         if (response.ok) {
+            // Persist visual state locally as "no-show"
+            setReservationStatusFlag(reservationId, 'no-show');
             showMessage('Marked as no-show', 'success');
-            document.querySelectorAll('.modal').forEach(m => m.remove());
-            loadTodayReservations();
+            // Update any open modal styles/badge without closing
+            const modal = document.querySelector('.modal .modal-content');
+            if (modal) {
+                modal.classList.remove('details-arrived');
+                modal.classList.add('details-no-show');
+                const badge = modal.querySelector('.reservation-status-badge');
+                if (badge) {
+                    badge.classList.remove('arrived', 'confirmed');
+                    badge.classList.add('no-show');
+                    badge.textContent = 'no-show';
+                }
+            }
+            // Refresh lists
+            if (typeof loadAllReservations === 'function') loadAllReservations();
+            if (typeof loadTodayReservations === 'function') loadTodayReservations();
             if (typeof loadDailyView === 'function') loadDailyView();
+            if (typeof loadUpcomingReservations === 'function') loadUpcomingReservations();
         } else {
             throw new Error('Failed to mark no-show');
         }
@@ -4548,7 +4612,10 @@ function openTableReservation(tableData) {
 
 function showReservationDetails(reservation) {
     const statusText = (reservation.status || '').toString().toLowerCase();
-    const statusClass = statusText === 'cancelled' ? 'cancelled' : 'confirmed';
+    const userFlag = getReservationStatusFlag(reservation.id);
+    const statusClass = userFlag === 'arrived'
+        ? 'arrived'
+        : (userFlag === 'no-show' ? 'no-show' : (statusText === 'cancelled' ? 'cancelled' : 'confirmed'));
 
     const timeStr = typeof reservation.time === 'string' ? reservation.time : (reservation.time ? formatTime(reservation.time) : '');
     const tableNames = (reservation.tables || reservation.table_names || []).map(t => t.table_name || t).filter(Boolean);
@@ -4556,7 +4623,7 @@ function showReservationDetails(reservation) {
     const modal = document.createElement('div');
     modal.className = 'modal';
     modal.innerHTML = `
-        <div class="modal-content">
+        <div class="modal-content ${statusClass === 'arrived' ? 'details-arrived' : statusClass === 'no-show' ? 'details-no-show' : ''}">
             <div class="modal-header">
                 <h4>Reservation Details</h4>
                 <button class="close-btn" onclick="this.closest('.modal').remove()">&times;</button>
@@ -4582,7 +4649,7 @@ function showReservationDetails(reservation) {
                     </div>
                     <div class="detail-item">
                         <div class="detail-label">Status</div>
-                        <div class="detail-value"><span class="reservation-status-badge ${statusClass}">${statusText || 'confirmed'}</span></div>
+                        <div class="detail-value"><span class="reservation-status-badge ${statusClass}">${userFlag || statusText || 'confirmed'}</span></div>
                     </div>
                 </div>
                 ${reservation.notes ? `<div class="customer-notes"><strong>Notes:</strong> ${reservation.notes}</div>` : ''}
