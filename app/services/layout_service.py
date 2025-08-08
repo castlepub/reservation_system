@@ -196,12 +196,55 @@ class LayoutService:
             Table.room_id == room_id,
             Table.active == True
         ).all()
-        
-        # Get table layouts with table data
+
+        # Ensure each table has a layout; create defaults for missing ones in a grid
+        existing_layouts = self.db.query(TableLayout).filter(TableLayout.room_id == room_id).all()
+        layouts_by_table_id = {l.table_id: l for l in existing_layouts}
+        if tables:
+            default_width = 100.0
+            default_height = 80.0
+            spacing_x = 30.0
+            spacing_y = 30.0
+            columns = 8
+            index = 0
+            # continue after existing layouts count for consistent positioning
+            start_index = len(existing_layouts)
+            for table in tables:
+                if table.id not in layouts_by_table_id:
+                    total_index = start_index + index
+                    col = total_index % columns
+                    row = total_index // columns
+                    x_pos = 25 + col * (default_width + spacing_x)
+                    y_pos = 25 + row * (default_height + spacing_y)
+                    layout = TableLayout(
+                        table_id=str(table.id),
+                        room_id=room_id,
+                        x_position=x_pos,
+                        y_position=y_pos,
+                        width=default_width,
+                        height=default_height,
+                        shape=TableShape.RECTANGULAR,
+                        color="#4A90E2",
+                        border_color="#2E5BBA",
+                        text_color="#FFFFFF",
+                        show_capacity=True,
+                        show_name=True,
+                        font_size=12,
+                        custom_capacity=None,
+                        is_connected=False,
+                        connected_to=None,
+                        z_index=1,
+                    )
+                    self.db.add(layout)
+                    index += 1
+            if index > 0:
+                self.db.commit()
+
+        # Get table layouts with table data (now guaranteed to exist for all tables)
         table_layouts = self.db.query(TableLayout, Table).join(Table).filter(
             TableLayout.room_id == room_id
         ).all()
-        
+
         # Create a map of table_id to layout
         layout_map = {table.id: layout for layout, table in table_layouts}
         
