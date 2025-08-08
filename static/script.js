@@ -3102,6 +3102,7 @@ async function handleEditReservation(event, reservationId) {
 let currentViewDate = new Date();
 let currentRoomId = null;
 let dailyViewData = null;
+let selectedReservationId = null;
 
 // Daily View Functions
 
@@ -3205,7 +3206,7 @@ function renderReservationsList() {
         }
         
         return `
-            <div class="reservation-item" onclick="openReservationById('${reservation.id}')">
+            <div class="reservation-item" onclick="openReservationById('${reservation.id}'); selectReservation('${reservation.id}')">
                 <div class="reservation-time">${formatTime(reservation.time || '')}</div>
                 <div class="reservation-details">
                     <div class="customer-name">${reservation.customer_name || 'Unknown'}</div>
@@ -3214,6 +3215,9 @@ function renderReservationsList() {
                 </div>
                 <div class="table-info">
                     ${getReservationTableInfo(reservation)}
+                </div>
+                <div class="reservation-actions-inline">
+                    <button class="btn btn-xs" onclick="event.stopPropagation(); selectedReservationId='${reservation.id}'; showMessage('Now click a table to move this reservation', 'info');">Move to table</button>
                 </div>
             </div>
         `;
@@ -3274,7 +3278,8 @@ function renderTableLayout() {
             tableElement.style.top = `${table.y_position || 0}px`;
             tableElement.style.width = `${table.width || 120}px`;
             tableElement.style.height = `${table.height || 80}px`;
-            tableElement.style.backgroundColor = table.color || '#ffffff';
+            // Default empty tables to white for easy availability scanning
+            tableElement.style.backgroundColor = '#ffffff';
             tableElement.style.borderColor = table.border_color || '#333333';
             tableElement.style.color = table.text_color || '#000000';
             tableElement.style.fontSize = `${table.font_size || 12}px`;
@@ -3303,6 +3308,8 @@ function renderTableLayout() {
                 if (reservation && reservation.customer_name) {
                     tableContent += `<div class="table-reservation">${reservation.customer_name}<br>${formatTime(reservation.time || '')}</div>`;
                 }
+                // Mark reserved tables with class for green styling
+                tableElement.classList.add('reserved');
             }
             
             tableElement.innerHTML = tableContent;
@@ -3347,6 +3354,9 @@ function selectReservation(reservationId) {
         selectedItem.classList.add('selected');
     }
     
+    // Track selection and highlight associated tables
+    selectedReservationId = reservationId;
+    
     // Highlight associated tables
     highlightReservationTables(reservationId);
 }
@@ -3383,17 +3393,42 @@ function showTableDetails(tableId) {
     
     if (!tableData) return;
     
-    // Show table details in a modal or tooltip
-    const details = `
-        Table: ${tableData.table_name}
-        Capacity: ${tableData.capacity} people
-        Status: ${tableData.status}
-        ${tableData.reservations && tableData.reservations.length > 0 ? 
-            `Reservations: ${tableData.reservations.map(r => `${r.customer_name} (${formatTime(r.time)})`).join(', ')}` : 
-            'No reservations'}
-    `;
-    
+    // If a reservation is selected for moving, confirm and assign
+    if (selectedReservationId) {
+        const ok = confirm(`Move selected reservation to table ${tableData.table_name}?`);
+        if (ok) {
+            assignSelectedReservationToTable(tableId);
+        }
+        return;
+    }
+
+    // Otherwise, show table details in a toast
+    const details = `Table: ${tableData.table_name}\nCapacity: ${tableData.capacity} people\n${tableData.reservations && tableData.reservations.length > 0 ? `Reservations: ${tableData.reservations.map(r => `${r.customer_name} (${formatTime(r.time)})`).join(', ')}` : 'No reservations'}`;
     showMessage(details, 'info');
+}
+
+async function assignSelectedReservationToTable(tableId) {
+    if (!selectedReservationId) return;
+    try {
+        const response = await fetch(`${API_BASE_URL}/admin/reservations/${selectedReservationId}/tables`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ table_ids: [tableId] })
+        });
+        if (!response.ok) {
+            const data = await response.json().catch(() => ({}));
+            throw new Error(data.detail || 'Failed to move reservation');
+        }
+        showMessage('Reservation moved to selected table', 'success');
+        selectedReservationId = null;
+        await loadDailyView();
+    } catch (error) {
+        console.error('Error moving reservation:', error);
+        showMessage('Error moving reservation: ' + error.message, 'error');
+    }
 }
 
 function previousDay() {

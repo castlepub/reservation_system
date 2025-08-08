@@ -2651,13 +2651,15 @@ main {
 }
 
 .table-element.reserved {
-    background-color: #FF9800 !important;
-    border-color: #E65100 !important;
+    background-color: #4CAF50 !important; /* green for reserved */
+    border-color: #2E7D32 !important;
+    color: #ffffff !important;
 }
 
 .table-element.available {
-    background-color: #4CAF50 !important;
-    border-color: #2E7D32 !important;
+    background-color: #ffffff !important; /* white for empty */
+    border-color: #CCCCCC !important;
+    color: #000000 !important;
 }
 
 .table-name {
