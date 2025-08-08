@@ -2519,7 +2519,97 @@ function displayReservations(reservations) {
 function showAddReservationForm() {
     console.log('showAddReservationForm called');
     
-    const modal = document.getElementById('addReservationModal');
+    // Some pages may not have injected the modal yet; try to insert if missing
+    let modal = document.getElementById('addReservationModal');
+    if (!modal) {
+        const container = document.getElementById('reservationsList')?.parentElement || document.body;
+        const html = `
+        <div id="addReservationModal" class="modal hidden">
+            <div class="modal-content large-modal">
+                <div class="modal-header">
+                    <h4>Add New Reservation</h4>
+                    <button class="close-btn" onclick="hideAddReservationForm()">&times;</button>
+                </div>
+                <form id="addReservationForm" onsubmit="handleAddReservation(event)">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="newCustomerName">Customer Name *</label>
+                            <input type="text" id="newCustomerName" name="customerName" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="newEmail">Email</label>
+                            <input type="email" id="newEmail" name="email">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="newPhone">Phone</label>
+                            <input type="tel" id="newPhone" name="phone">
+                        </div>
+                        <div class="form-group">
+                            <label for="newReservationType">Type *</nlabel>
+                            <select id="newReservationType" name="reservationType" required>
+                                <option value="dining">Dining</option>
+                                <option value="fun">Fun</option>
+                                <option value="team_event">Team Event</option>
+                                <option value="birthday">Birthday</option>
+                                <option value="party">Party</option>
+                                <option value="special_event">Special Event</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="newDate">Date *</label>
+                            <input type="date" id="newDate" name="date" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="newTime">Time *</label>
+                            <select id="newTime" name="time" required>
+                                <option value="">Select time</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="newPartySize">Party Size *</label>
+                            <select id="newPartySize" name="partySize" required></select>
+                        </div>
+                        <div class="form-group">
+                            <label for="newDuration">Duration *</label>
+                            <select id="newDuration" name="duration" required>
+                                <option value="2">2 hours</option>
+                                <option value="3">3 hours</option>
+                                <option value="4">4 hours</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="newRoom">Room</label>
+                            <select id="newRoom" name="room"><option value="">Any room</option></select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="newNotes">Customer Notes</label>
+                        <textarea id="newNotes" name="notes" rows="2"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="newAdminNotes">Admin Notes (Internal)</label>
+                        <textarea id="newAdminNotes" name="adminNotes" rows="2"></textarea>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="hideAddReservationForm()">Cancel</button>
+                        <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Create Reservation</button>
+                    </div>
+                </form>
+            </div>
+        </div>`;
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = html;
+        container.appendChild(wrapper.firstElementChild);
+        modal = document.getElementById('addReservationModal');
+    }
     console.log('Modal element:', modal);
     
     if (!modal) {
@@ -4032,10 +4122,12 @@ function createTableElement(table) {
 
 // Zoom support for layout editor
 function setLayoutZoom(value) {
-    const canvas = document.getElementById('layoutCanvas');
+    const inner = document.getElementById('layoutCanvasInner');
     const zoom = parseFloat(value) || 1;
-    canvas.style.transformOrigin = '0 0';
-    canvas.style.transform = `scale(${zoom})`;
+    if (inner) {
+        inner.style.transformOrigin = '0 0';
+        inner.style.transform = `scale(${zoom})`;
+    }
     const label = document.getElementById('layoutZoomValue');
     if (label) label.textContent = `${Math.round(zoom * 100)}%`;
 }

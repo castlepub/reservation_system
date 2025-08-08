@@ -2008,6 +2008,14 @@ main {
     min-height: 800px;
 }
 
+/* Inner wrapper that is scaled when zooming so the scroll container remains usable */
+#layoutCanvasInner {
+    position: absolute;
+    left: 0;
+    top: 0;
+    transform-origin: 0 0;
+}
+
 .layout-placeholder {
     display: flex;
     flex-direction: column;
