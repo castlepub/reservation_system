@@ -16,9 +16,10 @@ class ZohoEmailService:
         # Allow region override (e.g., smtp.zoho.eu)
         self.smtp_server = os.getenv("ZOHO_SMTP_HOST", "smtp.zoho.com")
         self.smtp_port = int(os.getenv("ZOHO_SMTP_PORT", "587"))
-        self.username = os.getenv("ZOHO_EMAIL")
-        self.password = os.getenv("ZOHO_PASSWORD")
-        self.from_email = os.getenv("ZOHO_EMAIL")
+        # Support both ZOHO_EMAIL and ZOHO_MAIL env names
+        self.username = os.getenv("ZOHO_EMAIL") or os.getenv("ZOHO_MAIL")
+        self.password = os.getenv("ZOHO_PASSWORD") or os.getenv("ZOHO_APP_PASSWORD")
+        self.from_email = os.getenv("ZOHO_EMAIL") or os.getenv("ZOHO_MAIL")
         
         if not all([self.username, self.password, self.from_email]):
             logger.warning("Zoho email credentials not configured. Email functionality will be disabled.")
