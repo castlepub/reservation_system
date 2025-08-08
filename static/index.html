@@ -319,25 +319,18 @@
                         <div class="dashboard-content">
                             <div class="chart-section">
                                 <h3>7-Day Forecast</h3>
-                                <canvas id="weeklyChart" width="400" height="200"></canvas>
+                                <canvas id="weeklyChart" width="900" height="360"></canvas>
                             </div>
 
                             <div class="notes-section">
-                                <div class="notes-header">
-                                    <h3>Notes & Messages</h3>
-                                    <button class="btn btn-sm btn-primary" onclick="showAddNoteModal()">
+                                <div class="notes-header" style="gap:12px; align-items:center;">
+                                    <h3 style="margin-right:12px;">Team Notes</h3>
+                                    <button class="btn btn-sm btn-primary" style="margin-left:8px;" onclick="showAddNoteModal()">
                                         <i class="fas fa-plus"></i> Add Note
                                     </button>
                                 </div>
-                                <div id="dashboardNotes" class="notes-list">
+                                <div id="dashboardNotes" class="notes-list" style="font-size:1.05rem; line-height:1.6;">
                                     <!-- Notes will be loaded here -->
-                                </div>
-                            </div>
-
-                            <div class="guest-notes-section">
-                                <h3>Recent Guest Notes</h3>
-                                <div id="guestNotes" class="guest-notes-list">
-                                    <!-- Guest notes will be loaded here -->
                                 </div>
                             </div>
                         </div>

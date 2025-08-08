@@ -306,10 +306,11 @@ function updateWeeklyChart() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
     // Chart settings
-    const margin = 40;
+    const margin = 50;
     const chartWidth = canvas.width - margin * 2;
     const chartHeight = canvas.height - margin * 2;
-    const barWidth = chartWidth / (data.length * 2);
+    const barGroupWidth = chartWidth / data.length;
+    const barWidth = Math.min(40, Math.floor(barGroupWidth / 3));
     
     // Draw axes
     ctx.strokeStyle = '#e2e8f0';
@@ -329,24 +330,24 @@ function updateWeeklyChart() {
     
     // Draw bars
     data.forEach((day, index) => {
-        const x = margin + (index * barWidth * 2);
+        const groupX = margin + (index * barGroupWidth) + (barGroupWidth / 2);
         const reservationHeight = (day.reservations / maxValue) * chartHeight;
         const guestHeight = (day.guests / maxValue) * chartHeight;
         
         // Reservations bar
         ctx.fillStyle = '#667eea';
-        ctx.fillRect(x, margin + chartHeight - reservationHeight, barWidth * 0.8, reservationHeight);
+        ctx.fillRect(groupX - barWidth - 4, margin + chartHeight - reservationHeight, barWidth, reservationHeight);
         
         // Guests bar
         ctx.fillStyle = '#764ba2';
-        ctx.fillRect(x + barWidth, margin + chartHeight - guestHeight, barWidth * 0.8, guestHeight);
+        ctx.fillRect(groupX + 4, margin + chartHeight - guestHeight, barWidth, guestHeight);
         
         // Day label
         ctx.fillStyle = '#4a5568';
-        ctx.font = '12px Inter';
+        ctx.font = '14px Inter';
         ctx.textAlign = 'center';
         const dayName = day.day_name.substring(0, 3);
-        ctx.fillText(dayName, x + barWidth, margin + chartHeight + 20);
+        ctx.fillText(dayName, groupX, margin + chartHeight + 24);
     });
     
     // Legend
@@ -358,8 +359,48 @@ function updateWeeklyChart() {
     ctx.fillText('Reservations', margin + 20, 22);
     
     ctx.fillStyle = '#764ba2';
-    ctx.fillRect(margin + 120, 10, 15, 15);
-    ctx.fillText('Guests', margin + 140, 22);
+    ctx.fillRect(margin + 140, 10, 15, 15);
+    ctx.fillText('Guests', margin + 160, 22);
+
+    // Hover tooltip
+    const tooltip = document.createElement('div');
+    tooltip.style.position = 'absolute';
+    tooltip.style.pointerEvents = 'none';
+    tooltip.style.background = 'rgba(0,0,0,0.8)';
+    tooltip.style.color = '#fff';
+    tooltip.style.padding = '6px 8px';
+    tooltip.style.borderRadius = '4px';
+    tooltip.style.fontSize = '12px';
+    tooltip.style.transform = 'translate(-50%, -120%)';
+    tooltip.style.display = 'none';
+    canvas.parentElement.style.position = 'relative';
+    canvas.parentElement.appendChild(tooltip);
+
+    const barRects = [];
+    data.forEach((day, index) => {
+        const groupX = margin + (index * barGroupWidth) + (barGroupWidth / 2);
+        const resHeight = (day.reservations / maxValue) * chartHeight;
+        const gueHeight = (day.guests / maxValue) * chartHeight;
+        barRects.push(
+            { x: groupX - barWidth - 4, y: margin + chartHeight - resHeight, w: barWidth, h: resHeight, type: 'Reservations', value: day.reservations, day: day.day_name },
+            { x: groupX + 4, y: margin + chartHeight - gueHeight, w: barWidth, h: gueHeight, type: 'Guests', value: day.guests, day: day.day_name }
+        );
+    });
+
+    canvas.onmousemove = (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        const hit = barRects.find(r => mx >= r.x && mx <= r.x + r.w && my >= r.y && my <= r.y + r.h);
+        if (hit) {
+            tooltip.textContent = `${hit.day} • ${hit.type}: ${hit.value}`;
+            tooltip.style.left = `${e.clientX - rect.left}px`;
+            tooltip.style.top = `${e.clientY - rect.top}px`;
+            tooltip.style.display = 'block';
+        } else {
+            tooltip.style.display = 'none';
+        }
+    };
 }
 
 function updateGuestNotes() {
