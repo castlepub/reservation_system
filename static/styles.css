@@ -908,18 +908,21 @@ main {
 
 .modal-content {
     background: white;
-    border-radius: 10px;
-    max-width: 500px;
-    width: 90%;
-    max-height: 80vh;
+    border-radius: 14px;
+    max-width: 720px;
+    width: 92%;
+    max-height: 82vh;
     overflow-y: auto;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.25);
 }
 
 .modal-header {
-    padding: 1.5rem 1.5rem 0;
+    padding: 1.25rem 1.5rem 0.75rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    border-bottom: 1px solid #edf2f7;
 }
 
 .modal-header h3 {
@@ -945,6 +948,7 @@ main {
     gap: 1rem;
     justify-content: flex-end;
     margin-top: 1.5rem;
+    padding: 0 1.5rem 1.25rem;
 }
 
 /* Admin Reservation Form */
