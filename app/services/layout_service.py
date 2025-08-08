@@ -184,11 +184,11 @@ class LayoutService:
         # Get room layout
         room_layout = self.get_room_layout(room_id)
         if not room_layout:
-            # Create default room layout
+            # Create default room layout (larger to fit many tables)
             room_layout = self.create_room_layout(RoomLayoutCreate(
                 room_id=room_id,
-                width=800.0,
-                height=600.0
+                width=1400.0,
+                height=900.0
             ))
 
         # Get all tables for this room
@@ -205,7 +205,7 @@ class LayoutService:
             default_height = 80.0
             spacing_x = 30.0
             spacing_y = 30.0
-            columns = 8
+            columns = 10
             index = 0
             # continue after existing layouts count for consistent positioning
             start_index = len(existing_layouts)
@@ -239,6 +239,23 @@ class LayoutService:
                     index += 1
             if index > 0:
                 self.db.commit()
+
+            # Auto-expand room canvas to fit all tables
+            total_tables = len(tables)
+            if total_tables > 0:
+                import math
+                rows_needed = math.ceil(total_tables / columns)
+                required_width = 25 + columns * (default_width + spacing_x) - spacing_x + 25
+                required_height = 25 + rows_needed * (default_height + spacing_y) - spacing_y + 25
+                updated = False
+                if room_layout.width < required_width:
+                    room_layout.width = float(required_width)
+                    updated = True
+                if room_layout.height < required_height:
+                    room_layout.height = float(required_height)
+                    updated = True
+                if updated:
+                    self.db.commit()
 
         # Get table layouts with table data (now guaranteed to exist for all tables)
         table_layouts = self.db.query(TableLayout, Table).join(Table).filter(

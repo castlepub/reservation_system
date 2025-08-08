@@ -1962,7 +1962,7 @@ main {
 .layout-editor-container {
     display: flex;
     gap: 20px;
-    height: 600px;
+    height: 900px;
     margin-top: 20px;
 }
 
@@ -1972,8 +1972,8 @@ main {
     border: 2px solid #e0e0e0;
     border-radius: 8px;
     position: relative;
-    overflow: hidden;
-    min-height: 500px;
+    overflow: auto;
+    min-height: 800px;
 }
 
 .layout-placeholder {
@@ -1993,12 +1993,15 @@ main {
 }
 
 .layout-sidebar {
-    width: 300px;
+    width: 260px;
     background: white;
     border: 1px solid #e0e0e0;
     border-radius: 8px;
     overflow-y: auto;
 }
+
+/* Hide reservations list in settings layout editor per requirement */
+.layout-reservations { display: none; }
 
 .layout-properties {
     padding: 15px;
