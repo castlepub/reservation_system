@@ -66,30 +66,38 @@ class PDFService:
                 .reservations-grid {
                     display: grid;
                     grid-template-columns: 1fr 1fr;
-                    gap: 5px;
+                    gap: 8px;
                     page-break-inside: avoid;
                 }
                 
                 .reservation-slip {
                     border: 1px solid #333;
-                    padding: 8px;
+                    padding: 10px;
                     page-break-inside: avoid;
                     position: relative;
                     background-color: #f9f9f9;
-                    min-height: 120px;
+                    min-height: 160px;
+                }
+
+                .slip-logo {
+                    width: 40px;
+                    height: 40px;
+                    object-fit: contain;
+                    display: block;
+                    margin: 0 auto 4px auto;
                 }
 
                 .reserved-banner {
                     text-align: center;
-                    font-size: 18px;
+                    font-size: 22px;
                     font-weight: 900;
                     color: #c0392b;
                     letter-spacing: 2px;
-                    margin-bottom: 6px;
+                    margin-bottom: 8px;
                 }
                 
                 .customer-name {
-                    font-size: 14px;
+                    font-size: 16px;
                     font-weight: bold;
                     color: #2c3e50;
                     margin-bottom: 3px;
@@ -99,17 +107,11 @@ class PDFService:
                     border-radius: 3px;
                 }
                 
-                .contact-info {
-                    color: #34495e;
-                    margin-bottom: 2px;
-                    font-size: 7px;
-                }
-                
                 .reservation-details {
                     background-color: #ffffff;
                     padding: 5px;
                     border-radius: 3px;
-                    margin-bottom: 5px;
+                    margin-bottom: 8px;
                     border: 1px solid #ddd;
                 }
                 
@@ -129,10 +131,7 @@ class PDFService:
                     color: #34495e;
                 }
 
-                .time-strong {
-                    font-weight: 800;
-                    font-size: 12px;
-                }
+                .time-strong { font-weight: 900; font-size: 20px; color: #111; }
                 
                 .tables-info {
                     background-color: #e8f4fd;
@@ -140,27 +139,6 @@ class PDFService:
                     border-radius: 3px;
                     margin-bottom: 3px;
                     font-size: 10px;
-                }
-                
-                .notes {
-                    background-color: #fff3cd;
-                    padding: 3px;
-                    border-radius: 3px;
-                    border-left: 2px solid #ffc107;
-                    font-size: 6px;
-                }
-                
-                .notes-label {
-                    font-weight: bold;
-                    color: #856404;
-                    margin-bottom: 2px;
-                }
-                
-                .footer {
-                    text-align: center;
-                    margin-top: 5px;
-                    font-size: 6px;
-                    color: #7f8c8d;
                 }
                 
                 .page-break {
@@ -178,7 +156,7 @@ class PDFService:
                     flex: 1;
                     display: grid;
                     grid-template-columns: 1fr 1fr;
-                    grid-template-rows: repeat(5, 1fr);
+                    grid-template-rows: repeat(4, 1fr);
                     gap: 5px;
                 }
             </style>
@@ -195,10 +173,9 @@ class PDFService:
             <div class="page-content">
             {% for reservation in reservations %}
             <div class="reservation-slip">
+                <img src="data:image/png;base64,{{ logo_base64 }}" alt="Logo" class="slip-logo">
                 <div class="reserved-banner">RESERVED</div>
                 <div class="customer-name">{{ reservation.customer_name }}</div>
-                <div class="contact-info">{{ reservation.email }}</div>
-                <div class="contact-info">{{ reservation.phone }}</div>
                 
                 <div class="reservation-details">
                     <div class="detail-row">
@@ -209,16 +186,6 @@ class PDFService:
                         <span class="detail-label">Time:</span>
                         <span class="detail-value time-strong">{{ reservation.time.strftime('%I:%M %p') }}</span>
                     </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Size:</span>
-                        <span class="detail-value">{{ reservation.party_size }}</span>
-                    </div>
-                    {% if reservation.room_name %}
-                    <div class="detail-row">
-                        <span class="detail-label">Room:</span>
-                        <span class="detail-value">{{ reservation.room_name }}</span>
-                    </div>
-                    {% endif %}
                 </div>
                 
                 {% if reservation.tables %}
@@ -227,22 +194,10 @@ class PDFService:
                     {% for table in reservation.tables %}
                     <div class="detail-row">
                         <span>{{ table.table_name }}</span>
-                        {% if table.capacity %}<span>({{ table.capacity }})</span>{% endif %}
                     </div>
                     {% endfor %}
                 </div>
                 {% endif %}
-                
-                {% if reservation.notes %}
-                <div class="notes">
-                    <div class="notes-label">Notes:</div>
-                    <div>{{ reservation.notes[:50] }}{% if reservation.notes|length > 50 %}...{% endif %}</div>
-                </div>
-                {% endif %}
-                
-                <div class="footer">
-                    ID: {{ reservation.id[:8] }} | {{ generated_at }}
-                </div>
             </div>
             {% endfor %}
             </div>
@@ -344,13 +299,13 @@ class PDFService:
                 c.setFont("Helvetica", 9)
                 c.drawString(30 * mm, y - 11 * mm, target_date.strftime('%A, %B %d, %Y'))
 
-                # Grid: 2 columns x 5 rows per page
+                # Grid: 2 columns x 4 rows per page (larger cards)
                 top_margin = y - 16 * mm
                 left_margin = 10 * mm
                 right_margin = 10 * mm
                 bottom_margin = 10 * mm
                 cols = 2
-                rows = 5
+                rows = 4
                 gap = 4 * mm
                 card_width = (page_width - left_margin - right_margin - gap) / cols
                 card_height = (top_margin - bottom_margin - (rows - 1) * gap) / rows
@@ -370,44 +325,31 @@ class PDFService:
 
                     # RESERVED banner
                     c.setFillColor(colors.HexColor("#c0392b"))
-                    c.setFont("Helvetica-Bold", 16)
+                    c.setFont("Helvetica-Bold", 22)
                     c.drawCentredString(x + card_width / 2, y0 - 8 * mm, "RESERVED")
 
                     # Customer name
                     c.setFillColor(colors.black)
-                    c.setFont("Helvetica-Bold", 12)
+                    c.setFont("Helvetica-Bold", 16)
                     c.drawCentredString(x + card_width / 2, y0 - 15 * mm, (reservation.customer_name or ""))
 
                     # Details
                     text_x = x + 6 * mm
                     line_y = y0 - 22 * mm
-                    c.setFont("Helvetica", 9)
+                    c.setFont("Helvetica", 11)
                     c.drawString(text_x, line_y, f"Date: {reservation.date.strftime('%m/%d') if hasattr(reservation.date, 'strftime') else ''}")
-                    c.setFont("Helvetica-Bold", 10)
-                    c.drawString(text_x + 60, line_y, f"Time: {reservation.time.strftime('%I:%M %p') if hasattr(reservation.time, 'strftime') else ''}")
-                    c.setFont("Helvetica", 9)
-                    c.drawString(text_x, line_y - 5 * mm, f"Size: {getattr(reservation, 'party_size', '')}")
-                    room_name = getattr(reservation, 'room_name', None) or ""
-                    if room_name:
-                        c.drawString(text_x + 60, line_y - 5 * mm, f"Room: {room_name}")
+                    c.setFont("Helvetica-Bold", 18)
+                    c.drawString(text_x + 70, line_y, f"Time: {reservation.time.strftime('%I:%M %p') if hasattr(reservation.time, 'strftime') else ''}")
 
                     # Tables
                     table_y = line_y - 11 * mm
                     tables = getattr(reservation, 'tables', []) or []
                     if tables:
-                        c.setFont("Helvetica-Bold", 9)
+                        c.setFont("Helvetica-Bold", 11)
                         c.drawString(text_x, table_y, "Table:")
-                        c.setFont("Helvetica", 9)
+                        c.setFont("Helvetica", 12)
                         names = ", ".join([t.get('table_name') if isinstance(t, dict) else getattr(t, 'table_name', '') for t in tables])
-                        c.drawString(text_x + 30, table_y, names[:50])
-
-                    # Notes
-                    notes = getattr(reservation, 'notes', None) or ""
-                    if notes:
-                        c.setFont("Helvetica-Oblique", 8)
-                        c.setFillColor(colors.HexColor('#856404'))
-                        c.drawString(text_x, table_y - 6 * mm, f"Notes: {notes[:80]}")
-                        c.setFillColor(colors.black)
+                        c.drawString(text_x + 35, table_y, names[:60])
 
                     # Footer
                     c.setFont("Helvetica", 7)
@@ -542,30 +484,25 @@ class PDFService:
                 c.roundRect(x, y0 - card_height, card_width, card_height, 4 * mm, stroke=1, fill=1)
 
                 c.setFillColor(colors.HexColor("#c0392b"))
-                c.setFont("Helvetica-Bold", 18)
+                c.setFont("Helvetica-Bold", 24)
                 c.drawCentredString(x + card_width / 2, y0 - 8 * mm, "RESERVED")
 
                 c.setFillColor(colors.black)
-                c.setFont("Helvetica-Bold", 14)
+                c.setFont("Helvetica-Bold", 18)
                 c.drawCentredString(x + card_width / 2, y0 - 16 * mm, (reservation.customer_name or ""))
 
                 text_x = x + 8 * mm
                 line_y = y0 - 24 * mm
-                c.setFont("Helvetica", 11)
+                c.setFont("Helvetica", 12)
                 c.drawString(text_x, line_y, f"Date: {reservation.date.strftime('%m/%d') if hasattr(reservation.date, 'strftime') else ''}")
-                c.setFont("Helvetica-Bold", 12)
-                c.drawString(text_x + 80, line_y, f"Time: {reservation.time.strftime('%I:%M %p') if hasattr(reservation.time, 'strftime') else ''}")
-                c.setFont("Helvetica", 11)
-                c.drawString(text_x, line_y - 6 * mm, f"Size: {getattr(reservation, 'party_size', '')}")
-                room_name = getattr(reservation, 'room_name', None) or ""
-                if room_name:
-                    c.drawString(text_x + 80, line_y - 6 * mm, f"Room: {room_name}")
+                c.setFont("Helvetica-Bold", 20)
+                c.drawString(text_x + 90, line_y, f"Time: {reservation.time.strftime('%I:%M %p') if hasattr(reservation.time, 'strftime') else ''}")
 
                 tables = getattr(reservation, 'tables', []) or []
                 if tables:
-                    c.setFont("Helvetica-Bold", 11)
+                    c.setFont("Helvetica-Bold", 12)
                     c.drawString(text_x, line_y - 12 * mm, "Table:")
-                    c.setFont("Helvetica", 11)
+                    c.setFont("Helvetica", 12)
                     names = ", ".join([t.get('table_name') if isinstance(t, dict) else getattr(t, 'table_name', '') for t in tables])
                     c.drawString(text_x + 35, line_y - 12 * mm, names[:60])
 
