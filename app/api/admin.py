@@ -470,6 +470,23 @@ def send_test_email(
         return {"status": "error", "error": str(e)}
 
 
+@router.get("/email-status")
+def email_status(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user)
+):
+    """Return non-sensitive Zoho email configuration status for debugging."""
+    svc = ZohoEmailService()
+    return {
+        "enabled": getattr(svc, "enabled", False),
+        "smtp_server": getattr(svc, "smtp_server", None),
+        "smtp_port": getattr(svc, "smtp_port", None),
+        "has_username": bool(getattr(svc, "username", None)),
+        "has_password": bool(getattr(svc, "password", None)),
+        "from_email": bool(getattr(svc, "from_email", None)),
+    }
+
+
 @router.put("/tables/{table_id}", response_model=TableResponse)
 def update_table(
     table_id: str,
