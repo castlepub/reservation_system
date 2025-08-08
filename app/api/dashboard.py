@@ -221,8 +221,13 @@ def get_today_reservations(
     try:
         today = date.today()
         
-        # Base query for today's reservations
-        query = db.query(Reservation).filter(Reservation.date == today)
+        # Base query for today's reservations (include cancelled so they still show in red)
+        query = db.query(Reservation).filter(
+            and_(
+                Reservation.date == today,
+                Reservation.status.in_([ReservationStatus.CONFIRMED, ReservationStatus.CANCELLED])
+            )
+        )
         
         # Apply filters
         if reservation_type:
@@ -290,12 +295,12 @@ def get_upcoming_reservations(
         today = date.today()
         end_date = today + timedelta(days=max(1, min(days_ahead, 30)))
 
-        # Fetch upcoming confirmed reservations
+        # Fetch upcoming reservations including cancelled (so they still appear in red)
         reservations = db.query(Reservation).filter(
             and_(
                 Reservation.date >= today,
                 Reservation.date <= end_date,
-                Reservation.status == ReservationStatus.CONFIRMED
+                Reservation.status.in_([ReservationStatus.CONFIRMED, ReservationStatus.CANCELLED])
             )
         ).order_by(Reservation.date, Reservation.time).all()
 
