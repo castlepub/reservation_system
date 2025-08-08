@@ -7,6 +7,7 @@ from app.models.table import Table
 from app.models.reservation import Reservation, ReservationTable
 from app.schemas.reservation import TableAssignment, TimeSlot
 from sqlalchemy import func
+from app.models.table_layout import TableLayout
 
 
 class TableService:
@@ -126,22 +127,83 @@ class TableService:
                 tables_by_room[room_id] = []
             tables_by_room[room_id].append(table)
 
+        def _fetch_layouts(tables: List[Table]) -> dict:
+            table_ids = [str(t.id) for t in tables]
+            layouts = (
+                self.db.query(TableLayout)
+                .filter(TableLayout.table_id.in_(table_ids))
+                .all()
+            )
+            return {str(l.table_id): l for l in layouts}
+
+        def _distance(a: TableLayout, b: TableLayout) -> float:
+            ax = (a.x_position or 0) + (a.width or 0) / 2.0
+            ay = (a.y_position or 0) + (a.height or 0) / 2.0
+            bx = (b.x_position or 0) + (b.width or 0) / 2.0
+            by = (b.y_position or 0) + (b.height or 0) / 2.0
+            return ((ax - bx) ** 2 + (ay - by) ** 2) ** 0.5
+
+        def _is_combo_connected(combo: List[Table], layouts_by_id: dict) -> bool:
+            # Build adjacency graph using explicit connections or proximity
+            ADJACENT_DISTANCE_PX = 150.0
+            ids = [str(t.id) for t in combo]
+            # adjacency list
+            graph = {i: set() for i in ids}
+            for i in range(len(combo)):
+                for j in range(i + 1, len(combo)):
+                    ti = combo[i]
+                    tj = combo[j]
+                    li = layouts_by_id.get(str(ti.id))
+                    lj = layouts_by_id.get(str(tj.id))
+                    connected = False
+                    if li and lj:
+                        if _distance(li, lj) <= ADJACENT_DISTANCE_PX:
+                            connected = True
+                        # Explicit linked tables also count
+                        if not connected:
+                            if (li.connected_to and str(li.connected_to) == str(lj.id)) or (
+                                lj.connected_to and str(lj.connected_to) == str(li.id)
+                            ) or li.is_connected or lj.is_connected:
+                                connected = True
+                    # If no layout info, fall back to allowing connection
+                    if not li or not lj:
+                        connected = connected or False
+                    if connected:
+                        graph[ids[i]].add(ids[j])
+                        graph[ids[j]].add(ids[i])
+            # BFS to check connected component size
+            if not ids:
+                return False
+            visited = set([ids[0]])
+            stack = [ids[0]]
+            while stack:
+                cur = stack.pop()
+                for nxt in graph[cur]:
+                    if nxt not in visited:
+                        visited.add(nxt)
+                        stack.append(nxt)
+            return len(visited) == len(ids)
+
         # Try combinations within each room
         for room_id, room_tables in tables_by_room.items():
-            # Try combinations of 2 to 4 tables (reasonable limit) within the same room
-            for r in range(2, min(5, len(room_tables) + 1)):
+            # Fetch layouts once per room
+            layouts_by_id = _fetch_layouts(room_tables)
+            # Try combinations of 2 to 6 tables (slightly higher cap) within the same room
+            for r in range(2, min(7, len(room_tables) + 1)):
                 for combo in itertools.combinations(room_tables, r):
                     total_capacity = sum(table.capacity for table in combo)
-                    
-                    if total_capacity >= party_size:
-                        # Score: excess seats + number of tables (weighted)
-                        excess_seats = total_capacity - party_size
-                        num_tables = len(combo)
-                        score = excess_seats + (num_tables * 0.1)  # Small penalty for more tables
-                        
-                        if score < best_score:
-                            best_score = score
-                            best_combination = list(combo)
+                    if total_capacity < party_size:
+                        continue
+                    # Ensure the combo is spatially connected/adjacent
+                    if not _is_combo_connected(list(combo), layouts_by_id):
+                        continue
+                    # Score: excess seats + number of tables (weighted)
+                    excess_seats = total_capacity - party_size
+                    num_tables = len(combo)
+                    score = excess_seats + (num_tables * 0.1)
+                    if score < best_score:
+                        best_score = score
+                        best_combination = list(combo)
 
         return best_combination
     
