@@ -1055,6 +1055,8 @@ function showSettingsTab(tabName) {
         loadWorkingHours();
     } else if (tabName === 'layout') {
         initializeLayoutEditor();
+    } else if (tabName === 'blocks') {
+        initializeBlocksUI();
     }
 }
 
@@ -4962,6 +4964,124 @@ function initializeLayoutEditorOnLoad() {
     if (document.getElementById('layoutRoomSelect')) {
         initializeLayoutEditor();
     }
+}
+
+// --- Blocks UI ---
+async function initializeBlocksUI() {
+    // Load rooms for selectors
+    const rooms = await loadRoomsForTables().catch(()=>[]);
+    const roomSelect = document.getElementById('blockRoom');
+    if (roomSelect) {
+        roomSelect.innerHTML = '<option value="">Select room (for Room/Table scope)</option>' +
+            rooms.map(r => `<option value="${r.id}">${r.name}</option>`).join('');
+    }
+    // Load tables for selected room on change
+    const tableSelect = document.getElementById('blockTable');
+    if (roomSelect && tableSelect) {
+        roomSelect.onchange = async () => {
+            const roomId = roomSelect.value;
+            if (!roomId) { tableSelect.innerHTML = '<option value="">Select table</option>'; return; }
+            const resp = await fetch(`${API_BASE_URL}/admin/tables?room_id=${roomId}`, { headers: { 'Authorization': `Bearer ${authToken}` }});
+            const tables = resp.ok ? await resp.json() : [];
+            tableSelect.innerHTML = '<option value="">Select table</option>' + tables.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+        };
+    }
+    // Toggle fields by type
+    const typeSel = document.getElementById('blockType');
+    const blackoutFields = document.getElementById('blackoutFields');
+    const releaseFields = document.getElementById('releaseFields');
+    if (typeSel) {
+        typeSel.onchange = () => {
+            const v = typeSel.value;
+            blackoutFields.style.display = v === 'blackout' ? '' : 'none';
+            releaseFields.style.display = v === 'release' ? '' : 'none';
+        };
+    }
+    // Submit
+    const form = document.getElementById('createBlockForm');
+    if (form) {
+        form.onsubmit = async (e) => {
+            e.preventDefault();
+            try {
+                const scope = document.getElementById('blockScope').value;
+                const block_type = document.getElementById('blockType').value;
+                const targetRoom = document.getElementById('blockRoom').value || null;
+                const targetTable = document.getElementById('blockTable').value || null;
+                const reason = document.getElementById('blockReason').value || null;
+                const active = document.getElementById('blockActive').checked;
+                const payload = { scope, block_type, reason, active, timezone: 'Europe/Berlin' };
+                if (scope === 'room') payload.target_id = targetRoom;
+                if (scope === 'table') payload.target_id = targetTable;
+                if (block_type === 'blackout') {
+                    payload.start_datetime = document.getElementById('blackoutStart').value || null;
+                    payload.end_datetime = document.getElementById('blackoutEnd').value || null;
+                } else {
+                    payload.recurrence = 'weekly';
+                    const weekdays = Array.from(document.querySelectorAll('.weekday:checked')).map(cb => cb.value).join(',');
+                    payload.weekdays = weekdays || null;
+                    payload.release_time = document.getElementById('releaseTime').value;
+                }
+                const resp = await fetch(`${API_BASE_URL}/admin/blocks`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (!resp.ok) throw new Error(await resp.text());
+                showMessage('Block created', 'success');
+                await loadBlocksList();
+            } catch (err) {
+                console.error(err);
+                showMessage('Failed to create block', 'error');
+            }
+        };
+    }
+    // Initial list
+    await loadBlocksList();
+}
+
+async function loadBlocksList() {
+    try {
+        const resp = await fetch(`${API_BASE_URL}/admin/blocks`, { headers: { 'Authorization': `Bearer ${authToken}` }});
+        const blocks = resp.ok ? await resp.json() : [];
+        const cont = document.getElementById('blocksList');
+        if (!cont) return;
+        cont.innerHTML = blocks.map(b => `
+            <div class="card">
+                <div class="card-header"><strong>${b.block_type.toUpperCase()}</strong> · ${b.scope}${b.target_id ? ' · ' + b.target_id : ''}</div>
+                <div class="card-details" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));">
+                    ${b.block_type==='blackout' ? `<div><div class='detail-label'>Start</div><div>${b.start_datetime || '-'}</div></div><div><div class='detail-label'>End</div><div>${b.end_datetime || '-'}</div></div>` : `<div><div class='detail-label'>Recurrence</div><div>${b.recurrence}</div></div><div><div class='detail-label'>Weekdays</div><div>${b.weekdays||'-'}</div></div><div><div class='detail-label'>Release</div><div>${b.release_time||'-'}</div></div>`}
+                    <div><div class='detail-label'>Active</div><div>${b.active ? 'Yes' : 'No'}</div></div>
+                    <div><div class='detail-label'>Reason</div><div>${b.reason || '-'}</div></div>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn btn-secondary" onclick="toggleBlockActive('${b.id}', ${!b.active})">${b.active ? 'Deactivate' : 'Activate'}</button>
+                    <button class="btn btn-danger" onclick="deleteBlock('${b.id}')">Delete</button>
+                </div>
+            </div>
+        `).join('');
+    } catch (e) {
+        showMessage('Failed to load blocks', 'error');
+    }
+}
+
+async function toggleBlockActive(id, active) {
+    try {
+        const resp = await fetch(`${API_BASE_URL}/admin/blocks/${id}`, {
+            method: 'PUT', headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ active })
+        });
+        if (!resp.ok) throw new Error(await resp.text());
+        await loadBlocksList();
+    } catch (e) { showMessage('Failed to update block', 'error'); }
+}
+
+async function deleteBlock(id) {
+    if (!confirm('Delete this block?')) return;
+    try {
+        const resp = await fetch(`${API_BASE_URL}/admin/blocks/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${authToken}` }});
+        if (!resp.ok) throw new Error(await resp.text());
+        await loadBlocksList();
+    } catch (e) { showMessage('Failed to delete block', 'error'); }
 }
 
 // Smart Availability Functions

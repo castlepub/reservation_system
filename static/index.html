@@ -681,6 +681,9 @@
                         <button class="settings-tab-btn" onclick="showSettingsTab('layout')">
                             <i class="fas fa-map"></i> Table Layout
                         </button>
+                         <button class="settings-tab-btn" onclick="showSettingsTab('blocks')">
+                             <i class="fas fa-ban"></i> Blocks
+                         </button>
                     </div>
                     
                     <!-- General Settings Tab -->
@@ -794,6 +797,103 @@
                                             <option value="">Choose a room...</option>
                                         </select>
                                     </div>
+
+                    <!-- Blocks Settings Tab -->
+                    <div id="blocksSettingsTab" class="settings-tab-content">
+                        <div class="settings-content">
+                            <div class="setting-group">
+                                <h4>Availability Blocks</h4>
+                                <p>Create blackout windows or weekly release gates for rooms/tables.</p>
+                                <form id="createBlockForm" class="modal-form">
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label for="blockType">Type</label>
+                                            <select id="blockType" class="form-control">
+                                                <option value="blackout">Blackout (start → end)</option>
+                                                <option value="release">Release (hide until time)</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="blockScope">Scope</label>
+                                            <select id="blockScope" class="form-control">
+                                                <option value="global">Global</option>
+                                                <option value="room">Room</option>
+                                                <option value="table">Table</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label for="blockRoom">Room</label>
+                                            <select id="blockRoom" class="form-control">
+                                                <option value="">Select room (for Room/Table scope)</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="blockTable">Table</label>
+                                            <select id="blockTable" class="form-control">
+                                                <option value="">Select table (for Table scope)</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div id="blackoutFields">
+                                        <div class="form-row">
+                                            <div class="form-group">
+                                                <label for="blackoutStart">Start</label>
+                                                <input type="datetime-local" id="blackoutStart" class="form-control" />
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="blackoutEnd">End</label>
+                                                <input type="datetime-local" id="blackoutEnd" class="form-control" />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div id="releaseFields" style="display:none;">
+                                        <div class="form-row">
+                                            <div class="form-group">
+                                                <label>Weekdays</label>
+                                                <div class="form-row" style="grid-template-columns: repeat(7, auto); gap:8px;">
+                                                    <label><input type="checkbox" class="weekday" value="0" /> Mon</label>
+                                                    <label><input type="checkbox" class="weekday" value="1" /> Tue</label>
+                                                    <label><input type="checkbox" class="weekday" value="2" /> Wed</label>
+                                                    <label><input type="checkbox" class="weekday" value="3" /> Thu</label>
+                                                    <label><input type="checkbox" class="weekday" value="4" /> Fri</label>
+                                                    <label><input type="checkbox" class="weekday" value="5" /> Sat</label>
+                                                    <label><input type="checkbox" class="weekday" value="6" /> Sun</label>
+                                                </div>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="releaseTime">Release Time</label>
+                                                <input type="time" id="releaseTime" class="form-control" value="10:00" />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label for="blockReason">Reason</label>
+                                            <input type="text" id="blockReason" class="form-control" placeholder="e.g., Pub Quiz" />
+                                        </div>
+                                        <div class="form-group">
+                                            <label><input type="checkbox" id="blockActive" checked /> Active</label>
+                                        </div>
+                                    </div>
+
+                                    <div class="form-actions">
+                                        <button type="submit" class="btn btn-primary"><i class="fas fa-plus"></i> Create Block</button>
+                                    </div>
+                                </form>
+                            </div>
+
+                            <div class="setting-group">
+                                <h4>Existing Blocks</h4>
+                                <div id="blocksList" class="tables-grid"></div>
+                            </div>
+                        </div>
+                    </div>
                                         <div class="layout-toolbar">
                                         <button type="button" class="btn btn-secondary" onclick="addTableToLayout('square')">
                                             <i class="fas fa-square"></i> Square
