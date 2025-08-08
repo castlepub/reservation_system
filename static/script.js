@@ -251,7 +251,9 @@ async function loadDashboardData() {
 async function loadDashboardStats() {
     try {
         console.log('Loading dashboard stats with token:', authToken ? 'Token exists' : 'No token');
-        const response = await fetch(`${API_BASE_URL}/api/dashboard/stats`, {
+        const daysSelect = document.getElementById('forecastDays');
+        const daysParam = daysSelect ? parseInt(daysSelect.value) || 7 : 7;
+        const response = await fetch(`${API_BASE_URL}/api/dashboard/stats?days=${daysParam}`, {
             headers: {
                 'Authorization': `Bearer ${authToken}`,
                 'Content-Type': 'application/json'
@@ -301,6 +303,8 @@ function updateWeeklyChart() {
 
     // Simple chart implementation
     const data = dashboardStats.weekly_forecast;
+    const metricSelect = document.getElementById('forecastMetric');
+    const metric = metricSelect ? metricSelect.value : 'both';
     const maxValue = Math.max(...data.map(d => Math.max(d.reservations, d.guests)));
     
     // Clear canvas
@@ -336,12 +340,18 @@ function updateWeeklyChart() {
         const guestHeight = (day.guests / maxValue) * chartHeight;
         
         // Reservations bar
-        ctx.fillStyle = '#667eea';
-        ctx.fillRect(groupX - barWidth - 4, margin + chartHeight - reservationHeight, barWidth, reservationHeight);
+        if (metric === 'both' || metric === 'reservations') {
+            ctx.fillStyle = '#667eea';
+            const x = metric === 'both' ? groupX - barWidth - 4 : groupX - (barWidth / 2);
+            ctx.fillRect(x, margin + chartHeight - reservationHeight, barWidth, reservationHeight);
+        }
         
         // Guests bar
-        ctx.fillStyle = '#764ba2';
-        ctx.fillRect(groupX + 4, margin + chartHeight - guestHeight, barWidth, guestHeight);
+        if (metric === 'both' || metric === 'guests') {
+            ctx.fillStyle = '#764ba2';
+            const x = metric === 'both' ? groupX + 4 : groupX - (barWidth / 2);
+            ctx.fillRect(x, margin + chartHeight - guestHeight, barWidth, guestHeight);
+        }
         
         // Day label
         ctx.fillStyle = '#4a5568';
@@ -352,16 +362,23 @@ function updateWeeklyChart() {
     });
     
     // Legend
-    ctx.fillStyle = '#667eea';
-    ctx.fillRect(margin, 10, 15, 15);
     ctx.fillStyle = '#4a5568';
     ctx.font = '12px Inter';
     ctx.textAlign = 'left';
-    ctx.fillText('Reservations', margin + 20, 22);
-    
-    ctx.fillStyle = '#764ba2';
-    ctx.fillRect(margin + 140, 10, 15, 15);
-    ctx.fillText('Guests', margin + 160, 22);
+    let legendX = margin;
+    if (metric === 'both' || metric === 'reservations') {
+        ctx.fillStyle = '#667eea';
+        ctx.fillRect(legendX, 10, 15, 15);
+        ctx.fillStyle = '#4a5568';
+        ctx.fillText('Reservations', legendX + 20, 22);
+        legendX += 140;
+    }
+    if (metric === 'both' || metric === 'guests') {
+        ctx.fillStyle = '#764ba2';
+        ctx.fillRect(legendX, 10, 15, 15);
+        ctx.fillStyle = '#4a5568';
+        ctx.fillText('Guests', legendX + 20, 22);
+    }
 
     // Hover tooltip
     const tooltip = document.createElement('div');

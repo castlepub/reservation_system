@@ -319,7 +319,23 @@
 
                         <div class="dashboard-content">
                             <div class="chart-section">
-                                <h3>7-Day Forecast</h3>
+                                <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+                                    <h3 style="margin:0;">7-Day Forecast</h3>
+                                    <div style="display:flex;gap:8px;align-items:center;">
+                                        <label for="forecastDays" style="font-weight:600;color:#4a5568;">Days</label>
+                                        <select id="forecastDays" class="form-control" style="min-width:90px;" onchange="loadDashboardStats()">
+                                            <option value="7" selected>7</option>
+                                            <option value="14">14</option>
+                                            <option value="30">30</option>
+                                        </select>
+                                        <label for="forecastMetric" style="margin-left:12px;font-weight:600;color:#4a5568;">Show</label>
+                                        <select id="forecastMetric" class="form-control" style="min-width:140px;" onchange="updateWeeklyChart()">
+                                            <option value="both" selected>Reservations & Guests</option>
+                                            <option value="reservations">Reservations</option>
+                                            <option value="guests">Guests</option>
+                                        </select>
+                                    </div>
+                                </div>
                                 <canvas id="weeklyChart" width="760" height="340"></canvas>
                             </div>
 

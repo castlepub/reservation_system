@@ -20,7 +20,8 @@ router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 @router.get("/stats", response_model=DashboardStats)
 def get_dashboard_stats(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    days: int = 7
 ):
     """Get comprehensive dashboard statistics"""
     try:
@@ -51,9 +52,10 @@ def get_dashboard_stats(
         total_reservations_week = len(week_reservations)
         total_guests_week = sum(r.party_size for r in week_reservations)
         
-        # Weekly forecast (next 7 days)
+        # Weekly forecast (next N days)
+        days = max(1, min(int(days), 30))
         weekly_forecast = []
-        for i in range(7):
+        for i in range(days):
             forecast_date = today + timedelta(days=i)
             day_reservations = db.query(Reservation).filter(
                 and_(
