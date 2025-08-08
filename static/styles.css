@@ -2734,8 +2734,8 @@ main {
 }
 
 .reservation-status.confirmed {
-    background: #e8f5e8;
-    color: #2e7d32;
+    background: #edf2f7; /* neutral */
+    color: #2d3748;
 }
 
 .reservation-status.pending {
@@ -2758,8 +2758,8 @@ main {
     text-transform: uppercase;
 }
 .reservation-status-badge.confirmed {
-    background: #e8f5e8;
-    color: #2e7d32;
+    background: #edf2f7; /* neutral */
+    color: #2d3748;
 }
 .reservation-status-badge.cancelled {
     background: #ffebee;

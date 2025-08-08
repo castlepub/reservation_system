@@ -2623,8 +2623,10 @@ async function markArrived(reservationId) {
         if (response.ok) {
             showMessage('Marked as arrived', 'success');
             document.querySelectorAll('.modal').forEach(m => m.remove());
-            loadTodayReservations();
+            // Refresh views so status colors update
+            if (typeof loadTodayReservations === 'function') loadTodayReservations();
             if (typeof loadDailyView === 'function') loadDailyView();
+            if (typeof loadUpcomingReservations === 'function') loadUpcomingReservations();
         } else {
             throw new Error('Failed to mark arrived');
         }
