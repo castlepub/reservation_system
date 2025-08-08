@@ -445,7 +445,7 @@ function renderUpcomingReservations(items) {
             </div>
             <div class="note-content">
                 ${dayItems.map(r => `
-                    <div class="flex-between" style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed #eee;">
+                    <div class="flex-between" style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed #eee;cursor:pointer;" onclick="openReservationById('${r.id}')">
                         <span><strong>${r.time.substring(0,5)}</strong> • ${r.customer_name} (${r.party_size}) ${r.room_name ? '• ' + r.room_name : ''}</span>
                         <span>${(r.table_names||[]).join(', ')}</span>
                     </div>
@@ -455,6 +455,20 @@ function renderUpcomingReservations(items) {
     }).join('');
 
     container.innerHTML = html;
+}
+
+async function openReservationById(reservationId) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/admin/reservations/${reservationId}`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        if (!response.ok) throw new Error('Failed to load reservation');
+        const reservation = await response.json();
+        showReservationDetails(reservation);
+    } catch (e) {
+        console.error('Open reservation error:', e);
+        showMessage('Failed to open reservation', 'error');
+    }
 }
 
 function updateGuestNotes() {
@@ -3149,7 +3163,7 @@ function renderReservationsList() {
         }
         
         return `
-            <div class="reservation-item" onclick="selectReservation('${reservation.id}')">
+            <div class="reservation-item" onclick="openReservationById('${reservation.id}')">
                 <div class="reservation-time">${formatTime(reservation.time || '')}</div>
                 <div class="reservation-details">
                     <div class="customer-name">${reservation.customer_name || 'Unknown'}</div>
