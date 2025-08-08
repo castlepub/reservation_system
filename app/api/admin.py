@@ -579,33 +579,32 @@ def cancel_reservation(
         )
 
 
-# Reports - DISABLED due to service issues, using simple endpoint in main.py
-# @router.get("/reports/daily")
-# def get_daily_report(
-#     report_date: date,
-#     db: Session = Depends(get_db),
-#     current_user: User = Depends(get_current_staff_user)
-# ):
-#     """Generate daily report"""
-#     try:
-#         # Get reservations for the date
-#         reservation_service = ReservationService(db)
-#         reservations = reservation_service.get_reservations_for_date(report_date)
-#         
-#         # Generate PDF with logo
-#         pdf_service = PDFService()
-#         pdf_content = pdf_service.generate_daily_pdf(reservations, report_date)
-#         
-#         return Response(
-#             content=pdf_content,
-#             media_type="text/html",  # Changed from application/pdf since we're returning HTML
-#             headers={"Content-Disposition": f"attachment; filename=daily_report_{report_date}.html"}
-#         )
-#     except Exception as e:
-#         raise HTTPException(
-#             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-#             detail=f"Error generating report: {str(e)}"
-#         )
+@router.get("/pdf/daily/{report_date}")
+def get_daily_report(
+    report_date: date,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_staff_user)
+):
+    """Generate daily report HTML (10 per page) with logo."""
+    try:
+        # Get reservations for the date (confirmed only)
+        reservation_service = ReservationService(db)
+        reservations = reservation_service.get_reservations_for_date(report_date)
+
+        # Generate PDF-like HTML with logo and 10 cards per page
+        pdf_service = PDFService()
+        html_content = pdf_service.generate_daily_pdf(reservations, report_date)
+
+        return Response(
+            content=html_content,
+            media_type="text/html",
+            headers={"Content-Disposition": f"attachment; filename=daily_report_{report_date}.html"}
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error generating report: {str(e)}"
+        )
 
 
 @router.get("/reservations/{reservation_id}/slip")

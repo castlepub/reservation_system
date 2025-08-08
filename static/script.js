@@ -609,7 +609,8 @@ function filterTodayReservations() {
 async function generateDailyPDF() {
     try {
         const today = new Date().toISOString().split('T')[0];
-        const response = await fetch(`${API_BASE_URL}/admin/reports/daily?report_date=${today}`, {
+        // Updated path to match API (admin router) – using /api/admin/pdf/daily/{date}
+        const response = await fetch(`${API_BASE_URL}/api/admin/pdf/daily/${today}`, {
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${authToken}`
@@ -2872,14 +2873,20 @@ async function loadDailyView() {
         if (response.ok) {
             dailyViewData = await response.json();
             updateDateDisplay();
-            renderReservationsList();
-            renderRoomTabs();
-            
-            // Select first room by default if available
+
+            // Ensure a default room is selected and stays selected
             if (dailyViewData.rooms && dailyViewData.rooms.length > 0) {
-                currentRoomId = dailyViewData.rooms[0].id;
-                renderTableLayout();
+                const roomIds = dailyViewData.rooms.map(r => r.id);
+                if (!currentRoomId || !roomIds.includes(currentRoomId)) {
+                    currentRoomId = dailyViewData.rooms[0].id;
+                }
+            } else {
+                currentRoomId = null;
             }
+
+            renderRoomTabs();
+            renderReservationsList();
+            renderTableLayout();
         } else {
             throw new Error('Failed to load daily view');
         }
