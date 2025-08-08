@@ -3977,8 +3977,9 @@ async function loadRoomLayout(roomId) {
 function renderLayoutCanvas() {
     console.log('=== renderLayoutCanvas START ===');
     const canvas = document.getElementById('layoutCanvas');
+    const inner = document.getElementById('layoutCanvasInner');
     console.log('Original canvas:', canvas);
-    canvas.innerHTML = '';
+    if (inner) inner.innerHTML = '';
     
     if (!currentLayoutData) {
         console.log('No currentLayoutData, returning early');
@@ -3989,8 +3990,16 @@ function renderLayoutCanvas() {
     
     // Set canvas size based on room layout
     const roomLayout = currentLayoutData.room_layout;
-    canvas.style.width = `${roomLayout.width}px`;
-    canvas.style.height = `${roomLayout.height}px`;
+    // Ensure inner wrapper exists
+    let innerWrapper = inner;
+    if (!innerWrapper) {
+        innerWrapper = document.createElement('div');
+        innerWrapper.id = 'layoutCanvasInner';
+        innerWrapper.style.transformOrigin = '0 0';
+        canvas.appendChild(innerWrapper);
+    }
+    innerWrapper.style.width = `${roomLayout.width}px`;
+    innerWrapper.style.height = `${roomLayout.height}px`;
     canvas.style.backgroundColor = roomLayout.background_color;
     
     // Add grid if enabled
@@ -4004,10 +4013,8 @@ function renderLayoutCanvas() {
     
     // Add click handler for canvas only once
     // Remove any existing listeners first
-    const newCanvas = canvas.cloneNode(true);
-    console.log('New canvas created:', newCanvas);
-    canvas.parentNode.replaceChild(newCanvas, canvas);
-    newCanvas.id = 'layoutCanvas';
+    // We no longer replace the outer canvas; we render content inside inner wrapper
+    const newCanvas = innerWrapper;
     
     console.log('Canvas replaced, re-adding room features');
     
