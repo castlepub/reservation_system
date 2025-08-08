@@ -377,8 +377,8 @@ main {
 }
 
 .status-confirmed {
-    background: #c6f6d5;
-    color: #22543d;
+    background: #eeeeee;
+    color: #333333;
 }
 
 .status-cancelled {
@@ -664,14 +664,14 @@ main {
 }
 
 /* Make the first notes panel (Team Notes) occupy the right column full height */
-.dashboard-content > .notes-section:first-of-type {
+.notes-section:first-of-type {
     grid-area: notes; /* Team Notes */
     min-height: 540px;
 }
 
 /* Place Upcoming Reservations under chart on the left */
-.dashboard-content > .notes-section:last-of-type {
-    grid-area: upcoming; /* Upcoming Reservations spans full width below */
+.notes-section:nth-of-type(2) {
+    grid-area: upcoming; /* Upcoming Reservations */
 }
 
 .notes-header {
@@ -1416,8 +1416,18 @@ main {
 }
 
 .status-confirmed {
-    background: #c6f6d5;
-    color: #276749;
+    background: #eeeeee;
+    color: #333333;
+}
+
+/* Explicit styles for runtime flags on generic status badges */
+.status-arrived {
+    background: #e8f5e8;
+    color: #2e7d32;
+}
+.status-no-show {
+    background: #ffebee;
+    color: #c62828;
 }
 
 .status-pending {
@@ -2734,8 +2744,8 @@ main {
 }
 
 .reservation-status.confirmed {
-    background: #edf2f7; /* neutral */
-    color: #2d3748;
+    background: #eeeeee;
+    color: #333333;
 }
 
 .reservation-status.pending {
@@ -2758,8 +2768,8 @@ main {
     text-transform: uppercase;
 }
 .reservation-status-badge.confirmed {
-    background: #edf2f7; /* neutral */
-    color: #2d3748;
+    background: #eeeeee;
+    color: #333333;
 }
 .reservation-status-badge.cancelled {
     background: #ffebee;
@@ -2781,6 +2791,14 @@ main {
 }
 .reservation-status-badge.no-show {
     background: #ffebee;
+    color: #c62828;
+}
+
+/* Details modal colorization when arrived/no-show */
+.modal-content.details-arrived {
+    color: #2e7d32;
+}
+.modal-content.details-no-show {
     color: #c62828;
 }
 
