@@ -8,6 +8,7 @@ from app.schemas.reservation import ReservationUpdate, ReservationWithTables
 from app.schemas.user import UserCreate, UserResponse
 from app.services.reservation_service import ReservationService
 from app.services.pdf_service import PDFService
+from app.models.availability_block import AvailabilityBlock, BlockScope, BlockType, Recurrence
 from app.models.room import Room
 from app.models.table import Table
 from app.models.user import User
@@ -24,6 +25,86 @@ from app.models.table_layout import TableLayout, RoomLayout, TableShape
 from app.services.email_service_zoho import ZohoEmailService
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+# Availability Blocks Management
+@router.post("/blocks")
+def create_block(
+    data: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user)
+):
+    block = AvailabilityBlock(
+        scope=BlockScope(data.get('scope')),
+        target_id=data.get('target_id'),
+        block_type=BlockType(data.get('block_type')),
+        start_datetime=data.get('start_datetime'),
+        end_datetime=data.get('end_datetime'),
+        recurrence=Recurrence(data.get('recurrence', 'none')),
+        weekdays=data.get('weekdays'),
+        release_time=data.get('release_time'),
+        timezone=data.get('timezone') or 'Europe/Berlin',
+        reason=data.get('reason'),
+        active=bool(data.get('active', True))
+    )
+    db.add(block)
+    db.commit()
+    db.refresh(block)
+    return {"id": block.id}
+
+
+@router.get("/blocks")
+def list_blocks(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user)
+):
+    blocks = db.query(AvailabilityBlock).order_by(AvailabilityBlock.created_at.desc()).all()
+    return [
+        {
+            "id": b.id,
+            "scope": b.scope.value,
+            "target_id": b.target_id,
+            "block_type": b.block_type.value,
+            "start_datetime": b.start_datetime,
+            "end_datetime": b.end_datetime,
+            "recurrence": b.recurrence.value,
+            "weekdays": b.weekdays,
+            "release_time": b.release_time,
+            "timezone": b.timezone,
+            "reason": b.reason,
+            "active": b.active,
+        }
+        for b in blocks
+    ]
+
+
+@router.put("/blocks/{block_id}")
+def update_block(
+    block_id: str,
+    data: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user)
+):
+    block = db.query(AvailabilityBlock).filter(AvailabilityBlock.id == block_id).first()
+    if not block:
+        raise HTTPException(status_code=404, detail="Block not found")
+    for k, v in data.items():
+        if hasattr(block, k):
+            setattr(block, k, v)
+    db.commit()
+    return {"message": "updated"}
+
+
+@router.delete("/blocks/{block_id}")
+def delete_block(
+    block_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user)
+):
+    block = db.query(AvailabilityBlock).filter(AvailabilityBlock.id == block_id).first()
+    if not block:
+        raise HTTPException(status_code=404, detail="Block not found")
+    db.delete(block)
+    db.commit()
+    return {"message": "deleted"}
 
 
 @router.post("/migrate-database")

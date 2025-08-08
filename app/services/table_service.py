@@ -8,6 +8,7 @@ from app.models.reservation import Reservation, ReservationTable
 from app.schemas.reservation import TableAssignment, TimeSlot
 from sqlalchemy import func
 from app.models.table_layout import TableLayout
+from app.models.availability_block import AvailabilityBlock, BlockScope, BlockType, Recurrence
 
 
 class TableService:
@@ -29,6 +30,10 @@ class TableService:
         print(f"DEBUG: Getting available tables for room {room_id} with proper conflict checking")
         print(f"DEBUG: Date: {date}, Time: {time}, Party size: {party_size}")
         
+        # Apply availability blocks (room/global) for blackout and release rules
+        if self._is_room_blocked(room_id, date, time):
+            return []
+
         # Get all tables in the room
         query = self.db.query(Table).filter(
             and_(
@@ -43,11 +48,12 @@ class TableService:
         # Get reserved table IDs for this time slot (with duration overlap checking)
         reserved_table_ids = self.get_reserved_table_ids_with_duration(date, time, duration_hours, exclude_reservation_id)
         
-        # Filter out reserved tables
+        # Filter out reserved tables and table-level blocks
         exclude_table_ids = set(exclude_table_ids or [])
         available_tables = [
             table for table in all_tables
             if str(table.id) not in reserved_table_ids and str(table.id) not in exclude_table_ids
+            and not self._is_table_blocked(str(table.id), date, time)
         ]
         
         print(f"DEBUG: Found {len(all_tables)} total tables, {len(reserved_table_ids)} reserved, {len(available_tables)} available")
@@ -410,3 +416,56 @@ class TableService:
         ).with_entities(func.sum(Table.capacity)).scalar()
         
         return total_capacity or 0 
+
+    # --- Availability Blocks Helpers ---
+    def _is_within_blackout(self, start_dt, end_dt, date, time) -> bool:
+        if not start_dt or not end_dt:
+            return False
+        from datetime import datetime
+        target = datetime.combine(date, time)
+        return start_dt <= target < end_dt
+
+    def _is_under_release(self, block: AvailabilityBlock, date, time) -> bool:
+        if block.block_type != BlockType.RELEASE:
+            return False
+        # Weekly release: hide same-day until release_time
+        if block.recurrence == Recurrence.WEEKLY and block.weekdays and block.release_time:
+            try:
+                weekday = date.weekday()  # 0=Mon
+                weekdays = [int(x) for x in block.weekdays.split(',') if x.strip().isdigit()]
+                if weekday in weekdays:
+                    # If current date equals target date and now < release_time in TZ -> block
+                    import pytz
+                    from datetime import datetime
+                    tz = pytz.timezone(block.timezone or 'Europe/Berlin')
+                    now_local = datetime.now(tz)
+                    # compare only if now is same day as target in that TZ
+                    target_local_date = now_local.date()
+                    if target_local_date == date:
+                        # Build today release datetime
+                        release_dt = tz.localize(datetime(now_local.year, now_local.month, now_local.day, block.release_time.hour, block.release_time.minute))
+                        if now_local < release_dt:
+                            return True
+            except Exception:
+                return False
+        return False
+
+    def _active_blocks(self):
+        return self.db.query(AvailabilityBlock).filter(AvailabilityBlock.active == True).all()
+
+    def _is_room_blocked(self, room_id: str, date, time) -> bool:
+        for b in self._active_blocks():
+            if b.scope == BlockScope.GLOBAL:
+                if (b.block_type == BlockType.BLACKOUT and self._is_within_blackout(b.start_datetime, b.end_datetime, date, time)) or self._is_under_release(b, date, time):
+                    return True
+            if b.scope == BlockScope.ROOM and b.target_id == str(room_id):
+                if (b.block_type == BlockType.BLACKOUT and self._is_within_blackout(b.start_datetime, b.end_datetime, date, time)) or self._is_under_release(b, date, time):
+                    return True
+        return False
+
+    def _is_table_blocked(self, table_id: str, date, time) -> bool:
+        for b in self._active_blocks():
+            if b.scope == BlockScope.TABLE and b.target_id == str(table_id):
+                if (b.block_type == BlockType.BLACKOUT and self._is_within_blackout(b.start_datetime, b.end_datetime, date, time)) or self._is_under_release(b, date, time):
+                    return True
+        return False
