@@ -635,8 +635,8 @@ main {
 
 .dashboard-content {
     display: grid;
-    grid-template-columns: 1.2fr 1.2fr; /* make right side larger by adding another column for notes */
-    grid-template-areas: 
+    grid-template-columns: 1.5fr 1fr; /* chart left, larger notes right */
+    grid-template-areas:
         "chart notes"
         "upcoming notes";
     gap: 1.5rem;
@@ -665,13 +665,13 @@ main {
 
 /* Make the first notes panel (Team Notes) occupy the right column full height */
 .notes-section:first-of-type {
-    grid-area: notes;
+    grid-area: notes; /* Team Notes */
     min-height: 540px;
 }
 
 /* Place Upcoming Reservations under chart on the left */
 .notes-section:nth-of-type(2) {
-    grid-area: upcoming;
+    grid-area: upcoming; /* Upcoming Reservations */
 }
 
 .notes-header {
@@ -2762,6 +2762,24 @@ main {
     color: #2e7d32;
 }
 .reservation-status-badge.cancelled {
+    background: #ffebee;
+    color: #c62828;
+}
+
+/* Arrived / No-Show explicit colors */
+.reservation-status.arrived {
+    background: #e8f5e8;
+    color: #2e7d32;
+}
+.reservation-status.no-show {
+    background: #ffebee;
+    color: #c62828;
+}
+.reservation-status-badge.arrived {
+    background: #e8f5e8;
+    color: #2e7d32;
+}
+.reservation-status-badge.no-show {
     background: #ffebee;
     color: #c62828;
 }

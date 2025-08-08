@@ -3410,6 +3410,30 @@ function showTableDetails(tableId) {
 async function assignSelectedReservationToTable(tableId) {
     if (!selectedReservationId) return;
     try {
+        // Fetch reservation details to know party size
+        const resResp = await fetch(`${API_BASE_URL}/admin/reservations/${selectedReservationId}`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        const reservation = resResp.ok ? await resResp.json() : null;
+
+        // Fetch available tables for this reservation (backend enforces conflicts and returns capacities)
+        const availResp = await fetch(`${API_BASE_URL}/admin/reservations/${selectedReservationId}/available-tables`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        const availData = availResp.ok ? await availResp.json() : null;
+
+        // If we have availability data, validate capacity of the chosen table
+        if (availData && Array.isArray(availData.available_tables)) {
+            const chosen = availData.available_tables.find(t => t.id === tableId);
+            if (!chosen) {
+                throw new Error('This table is not available at the selected time');
+            }
+            const needed = reservation && reservation.party_size ? reservation.party_size : 0;
+            if (chosen.capacity < needed) {
+                throw new Error(`Table capacity (${chosen.capacity}) is insufficient for party size (${needed})`);
+            }
+        }
+
         const response = await fetch(`${API_BASE_URL}/admin/reservations/${selectedReservationId}/tables`, {
             method: 'PUT',
             headers: {
