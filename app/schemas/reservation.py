@@ -124,6 +124,7 @@ class CustomerResponse(BaseModel):
 class TodayReservation(BaseModel):
     id: str
     customer_name: str
+    date: Optional[date] = None
     time: time
     party_size: int
     table_names: List[str]
@@ -134,3 +135,20 @@ class TodayReservation(BaseModel):
 
     class Config:
         from_attributes = True 
+
+
+class UpcomingReservation(BaseModel):
+    id: str
+    customer_name: str
+    date: date
+    time: time
+    party_size: int
+    table_names: List[str]
+    reservation_type: ReservationType
+    status: ReservationStatus
+    room_name: Optional[str] = None
+    notes: Optional[str] = None
+    admin_notes: Optional[str] = None
+
+    class Config:
+        from_attributes = True

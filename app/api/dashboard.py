@@ -10,7 +10,7 @@ from app.models.user import User
 from app.models.reservation import Reservation, ReservationStatus, ReservationType, DashboardNote
 from app.schemas.reservation import (
     DashboardStats, DashboardNote as DashboardNoteSchema, 
-    CustomerResponse, TodayReservation
+    CustomerResponse, TodayReservation, UpcomingReservation
 )
 from app.api.deps import get_current_user
 
@@ -277,3 +277,64 @@ def get_today_reservations(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error loading today's reservations: {str(e)}"
         ) 
+
+
+@router.get("/upcoming", response_model=List[UpcomingReservation])
+def get_upcoming_reservations(
+    days_ahead: int = 7,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get reservations for the next N days (default 7)"""
+    try:
+        today = date.today()
+        end_date = today + timedelta(days=max(1, min(days_ahead, 30)))
+
+        # Fetch upcoming confirmed reservations
+        reservations = db.query(Reservation).filter(
+            and_(
+                Reservation.date >= today,
+                Reservation.date <= end_date,
+                Reservation.status == ReservationStatus.CONFIRMED
+            )
+        ).order_by(Reservation.date, Reservation.time).all()
+
+        # Build response including table names and room name
+        from app.models.reservation import ReservationTable
+        from app.models.table import Table
+        from app.models.room import Room
+
+        result: List[UpcomingReservation] = []
+        for r in reservations:
+            # tables
+            reservation_tables = db.query(ReservationTable).filter(
+                ReservationTable.reservation_id == r.id
+            ).all()
+            table_names: List[str] = []
+            for rt in reservation_tables:
+                t = db.query(Table).filter(Table.id == rt.table_id).first()
+                if t:
+                    table_names.append(t.name)
+            room = db.query(Room).filter(Room.id == r.room_id).first()
+
+            result.append(UpcomingReservation(
+                id=r.id,
+                customer_name=r.customer_name,
+                date=r.date,
+                time=r.time,
+                party_size=r.party_size,
+                table_names=table_names or ["TBD"],
+                reservation_type=r.reservation_type,
+                status=r.status,
+                room_name=room.name if room else None,
+                notes=r.notes,
+                admin_notes=r.admin_notes
+            ))
+
+        return result
+    except Exception as e:
+        logging.error(f"Upcoming reservations error: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error loading upcoming reservations: {str(e)}"
+        )

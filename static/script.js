@@ -239,7 +239,8 @@ async function loadDashboardData() {
             loadDashboardStats(),
             loadDashboardNotes(),
             loadCustomers(),
-            loadTodayReservations()
+            loadTodayReservations(),
+            loadUpcomingReservations()
         ]);
     } catch (error) {
         console.error('Error loading dashboard data:', error);
@@ -401,6 +402,59 @@ function updateWeeklyChart() {
             tooltip.style.display = 'none';
         }
     };
+}
+
+async function loadUpcomingReservations() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/dashboard/upcoming?days_ahead=7`, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        if (!response.ok) return;
+        const items = await response.json();
+        renderUpcomingReservations(items);
+    } catch (e) {
+        console.warn('Upcoming reservations failed to load:', e);
+    }
+}
+
+function renderUpcomingReservations(items) {
+    const container = document.getElementById('upcomingReservations');
+    if (!container) return;
+    if (!items || items.length === 0) {
+        container.innerHTML = '<p class="text-center text-gray-500">No upcoming reservations</p>';
+        return;
+    }
+    // Group by date
+    const byDate = items.reduce((acc, r) => {
+        const key = r.date;
+        if (!acc[key]) acc[key] = [];
+        acc[key].push(r);
+        return acc;
+    }, {});
+
+    const html = Object.keys(byDate).sort().map(d => {
+        const dayItems = byDate[d];
+        const totalGuests = dayItems.reduce((sum, r) => sum + (r.party_size || 0), 0);
+        return `
+        <div class="note-item">
+            <div class="note-header">
+                <span class="note-title">${formatDate(d)} • ${dayItems.length} reservations • ${totalGuests} guests</span>
+            </div>
+            <div class="note-content">
+                ${dayItems.map(r => `
+                    <div class="flex-between" style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed #eee;">
+                        <span><strong>${r.time.substring(0,5)}</strong> • ${r.customer_name} (${r.party_size}) ${r.room_name ? '• ' + r.room_name : ''}</span>
+                        <span>${(r.table_names||[]).join(', ')}</span>
+                    </div>
+                `).join('')}
+            </div>
+        </div>`;
+    }).join('');
+
+    container.innerHTML = html;
 }
 
 function updateGuestNotes() {
@@ -2490,6 +2544,52 @@ async function cancelReservation(reservationId) {
     }
 }
 
+async function markArrived(reservationId) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/admin/reservations/${reservationId}`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ status: 'confirmed' })
+        });
+        if (response.ok) {
+            showMessage('Marked as arrived', 'success');
+            document.querySelectorAll('.modal').forEach(m => m.remove());
+            loadTodayReservations();
+            if (typeof loadDailyView === 'function') loadDailyView();
+        } else {
+            throw new Error('Failed to mark arrived');
+        }
+    } catch (e) {
+        showMessage(e.message, 'error');
+    }
+}
+
+async function markNoShow(reservationId) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/admin/reservations/${reservationId}`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ status: 'cancelled' })
+        });
+        if (response.ok) {
+            showMessage('Marked as no-show', 'success');
+            document.querySelectorAll('.modal').forEach(m => m.remove());
+            loadTodayReservations();
+            if (typeof loadDailyView === 'function') loadDailyView();
+        } else {
+            throw new Error('Failed to mark no-show');
+        }
+    } catch (e) {
+        showMessage(e.message, 'error');
+    }
+}
+
 function editReservation(reservationId) {
     // Load the reservation data and show edit modal
     showEditReservationForm(reservationId);
@@ -4336,6 +4436,11 @@ function showReservationDetails(reservation) {
                 <p><strong>Type:</strong> ${reservation.reservation_type}</p>
                 <p><strong>Status:</strong> ${reservation.status}</p>
                 ${reservation.notes ? `<p><strong>Notes:</strong> ${reservation.notes}</p>` : ''}
+                <div class="modal-actions">
+                    <button class="btn btn-secondary" onclick="markArrived('${reservation.id}')">Arrived</button>
+                    <button class="btn btn-secondary" onclick="markNoShow('${reservation.id}')">No-Show</button>
+                    <button class="btn btn-secondary" onclick="cancelReservation('${reservation.id}')">Cancel</button>
+                </div>
             </div>
         </div>
     `;
