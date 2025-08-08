@@ -21,19 +21,23 @@ class TableService:
         time: time,
         party_size: int,
         duration_hours: int = 2,
-        exclude_reservation_id: str = None
+        exclude_reservation_id: str = None,
+        include_non_public: bool = False
     ) -> List[Table]:
         """Get all available tables for a given room, date, and time slot"""
         print(f"DEBUG: Getting available tables for room {room_id} with proper conflict checking")
         print(f"DEBUG: Date: {date}, Time: {time}, Party size: {party_size}")
         
         # Get all tables in the room
-        all_tables = self.db.query(Table).filter(
+        query = self.db.query(Table).filter(
             and_(
                 Table.room_id == room_id,
                 Table.active == True
             )
-        ).all()
+        )
+        if not include_non_public:
+            query = query.filter(Table.public_bookable == True)
+        all_tables = query.all()
         
         # Get reserved table IDs for this time slot (with duration overlap checking)
         reserved_table_ids = self.get_reserved_table_ids_with_duration(date, time, duration_hours, exclude_reservation_id)
@@ -50,7 +54,8 @@ class TableService:
         time: time,
         party_size: int,
         duration_hours: int = 2,
-        exclude_reservation_id: str = None
+        exclude_reservation_id: str = None,
+        include_non_public: bool = False
     ) -> List[Table]:
         """Get all available tables across all active rooms for a given date and time slot"""
         print(f"DEBUG: Getting available tables from all rooms with proper conflict checking")
@@ -58,12 +63,15 @@ class TableService:
         
         # Get all tables across all active rooms
         from app.models.room import Room
-        all_tables = self.db.query(Table).join(Room).filter(
+        query = self.db.query(Table).join(Room).filter(
             and_(
                 Table.active == True,
                 Room.active == True
             )
-        ).all()
+        )
+        if not include_non_public:
+            query = query.filter(Table.public_bookable == True)
+        all_tables = query.all()
         
         # Get reserved table IDs for this time slot (with duration overlap checking)
         reserved_table_ids = self.get_reserved_table_ids_with_duration(date, time, duration_hours, exclude_reservation_id)
@@ -80,7 +88,8 @@ class TableService:
         date: date, 
         time: time,
         party_size: int,
-        duration_hours: int = 2
+        duration_hours: int = 2,
+        include_non_public: bool = True
     ) -> Optional[List[Table]]:
         """
         Find the best combination of tables for a party size.
@@ -89,11 +98,13 @@ class TableService:
         """
         if room_id:
             # Search in specific room only
-            available_tables = self.get_available_tables(room_id, date, time, party_size, duration_hours)
+            available_tables = self.get_available_tables(
+                room_id, date, time, party_size, duration_hours, include_non_public=include_non_public
+            )
             return self._find_best_combination_in_tables(available_tables, party_size)
         else:
             # Search across all active rooms with room preference
-            return self._find_best_combination_across_rooms(date, time, party_size, duration_hours)
+            return self._find_best_combination_across_rooms(date, time, party_size, duration_hours, include_non_public)
     
     def _find_best_combination_in_tables(self, available_tables: List[Table], party_size: int) -> Optional[List[Table]]:
         """Find best table combination within a given set of tables"""
@@ -207,7 +218,7 @@ class TableService:
 
         return best_combination
     
-    def _find_best_combination_across_rooms(self, date: date, time: time, party_size: int, duration_hours: int = 2) -> Optional[List[Table]]:
+    def _find_best_combination_across_rooms(self, date: date, time: time, party_size: int, duration_hours: int = 2, include_non_public: bool = False) -> Optional[List[Table]]:
         """Find best table combination across all rooms, preferring same-room combinations"""
         from app.models.room import Room
         
@@ -219,7 +230,9 @@ class TableService:
         
         # First, try to find combinations within each room
         for room in active_rooms:
-            room_tables = self.get_available_tables(room.id, date, time, party_size, duration_hours)
+            room_tables = self.get_available_tables(
+                room.id, date, time, party_size, duration_hours, include_non_public=include_non_public
+            )
             room_combo = self._find_best_combination_in_tables(room_tables, party_size)
             
             if room_combo:
@@ -234,7 +247,9 @@ class TableService:
         
         # If no single-room combination found, try cross-room combinations
         if not best_combination:
-            all_tables = self.get_available_tables_all_rooms(date, time, party_size, duration_hours)
+            all_tables = self.get_available_tables_all_rooms(
+                date, time, party_size, duration_hours, include_non_public=include_non_public
+            )
             best_combination = self._find_best_combination_in_tables(all_tables, party_size)
         
         return best_combination
@@ -244,7 +259,8 @@ class TableService:
         room_id: str, 
         date: date, 
         party_size: int,
-        duration_hours: int = 2
+        duration_hours: int = 2,
+        include_non_public: bool = False
     ) -> List[TimeSlot]:
         """Get available time slots for a given date and party size"""
         from app.core.config import settings
@@ -257,11 +273,15 @@ class TableService:
                 time_slot = time(hour, minute)
                 
                 # Check if tables are available for this time slot
-                available_tables = self.get_available_tables(room_id, date, time_slot, party_size, duration_hours)
+                available_tables = self.get_available_tables(
+                    room_id, date, time_slot, party_size, duration_hours, include_non_public=include_non_public
+                )
                 
                 if available_tables:
                     # Find best combination
-                    best_combo = self.find_best_table_combination(room_id, date, time_slot, party_size, duration_hours)
+                    best_combo = self.find_best_table_combination(
+                        room_id, date, time_slot, party_size, duration_hours, include_non_public=include_non_public
+                    )
                     
                     if best_combo:
                         table_assignments = [

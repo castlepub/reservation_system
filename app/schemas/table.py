@@ -8,6 +8,7 @@ class TableCreate(BaseModel):
     name: str
     capacity: int
     combinable: bool = True
+    public_bookable: bool = True
     x: Optional[int] = None
     y: Optional[int] = None
     width: Optional[int] = None
@@ -19,6 +20,7 @@ class TableUpdate(BaseModel):
     capacity: Optional[int] = None
     combinable: Optional[bool] = None
     active: Optional[bool] = None
+    public_bookable: Optional[bool] = None
     x: Optional[int] = None
     y: Optional[int] = None
     width: Optional[int] = None
@@ -31,6 +33,7 @@ class TableResponse(BaseModel):
     name: str
     capacity: int
     combinable: bool
+    public_bookable: bool
     active: bool
     x: Optional[int]
     y: Optional[int]

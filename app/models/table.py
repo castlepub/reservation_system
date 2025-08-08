@@ -13,6 +13,7 @@ class Table(Base):
     name = Column(String, nullable=False)  # e.g., "T1", "Table 1"
     capacity = Column(Integer, nullable=False)
     combinable = Column(Boolean, default=True, nullable=False)
+    public_bookable = Column(Boolean, default=True, nullable=False)
     active = Column(Boolean, default=True, nullable=False)
     
     # Layout coordinates (for future drag/drop interface)

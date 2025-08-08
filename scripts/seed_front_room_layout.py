@@ -79,6 +79,7 @@ def upsert_front_room(db):
                 name=cfg["name"],
                 capacity=cfg["capacity"],
                 combinable=cfg["combinable"],
+                public_bookable=True,
                 active=True,
             )
             db.add(table)

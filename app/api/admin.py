@@ -299,7 +299,8 @@ def create_table(
         room_id=table_data.room_id,
         name=table_data.name,
         capacity=table_data.capacity,
-        combinable=table_data.combinable
+        combinable=table_data.combinable,
+        public_bookable=table_data.public_bookable
     )
     db.add(table)
     db.commit()
@@ -361,6 +362,8 @@ def update_table(
         table.combinable = table_data.combinable
     if table_data.active is not None:
         table.active = table_data.active
+    if table_data.public_bookable is not None:
+        table.public_bookable = table_data.public_bookable
     
     db.commit()
     db.refresh(table)
