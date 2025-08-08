@@ -20,6 +20,7 @@ from sqlalchemy import text
 import uuid
 import random
 import traceback
+from app.models.table_layout import TableLayout, RoomLayout, TableShape
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -337,6 +338,102 @@ def get_table(
             detail="Table not found"
         )
     return table
+
+
+@router.post("/rooms/{room_id}/seed/front-room")
+def seed_front_room_layout(
+    room_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user)
+):
+    """Seed or update the Front Room layout and tables in-place on the live DB (admin only)."""
+    room = db.query(Room).filter(Room.id == room_id).first()
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+
+    # Ensure room layout exists
+    room_layout = db.query(RoomLayout).filter(RoomLayout.room_id == room.id).first()
+    if not room_layout:
+        room_layout = RoomLayout(
+            room_id=room.id,
+            width=950.0,
+            height=620.0,
+            background_color="#f5f5f5",
+        )
+        db.add(room_layout)
+        db.commit()
+
+    def upsert(name, capacity, combinable, shape, x, y, w, h):
+        table = db.query(Table).filter(Table.room_id == room.id, Table.name == name).first()
+        if not table:
+            table = Table(
+                room_id=room.id,
+                name=name,
+                capacity=capacity,
+                combinable=combinable,
+                public_bookable=True,
+                active=True,
+            )
+            db.add(table)
+            db.commit()
+            db.refresh(table)
+        else:
+            table.capacity = capacity
+            table.combinable = combinable
+            table.active = True
+            db.commit()
+
+        layout = db.query(TableLayout).filter(TableLayout.table_id == table.id).first()
+        if not layout:
+            layout = TableLayout(
+                table_id=table.id,
+                room_id=room.id,
+                x_position=x,
+                y_position=y,
+                width=w,
+                height=h,
+                shape=shape,
+                color="#ffffff",
+                border_color="#333333",
+                text_color="#000000",
+                show_capacity=True,
+                show_name=True,
+                font_size=12,
+                custom_capacity=capacity,
+                z_index=1,
+            )
+            db.add(layout)
+        else:
+            layout.x_position = x
+            layout.y_position = y
+            layout.width = w
+            layout.height = h
+            layout.shape = shape
+            layout.custom_capacity = capacity
+        db.commit()
+
+    # Canonical front room config
+    cfg = [
+        ("01", 2, True, TableShape.SQUARE, 40, 20, 60, 60),
+        ("02", 3, True, TableShape.SQUARE, 40, 110, 60, 60),
+        ("03", 4, True, TableShape.SQUARE, 40, 200, 60, 70),
+        ("05", 6, True, TableShape.RECTANGULAR, 60, 300, 80, 110),
+        ("06", 5, True, TableShape.RECTANGULAR, 60, 420, 80, 100),
+        ("BAR", 0, False, TableShape.RECTANGULAR, 580, 180, 380, 200),
+        ("Carsten", 6, True, TableShape.RECTANGULAR, 220, 500, 220, 80),
+        ("Entrance 2", 3, True, TableShape.RECTANGULAR, 440, 20, 80, 60),
+        ("Green wall", 2, True, TableShape.RECTANGULAR, 830, 30, 90, 140),
+        ("high tab1", 12, False, TableShape.RECTANGULAR, 480, 420, 80, 180),
+        ("High Tab2", 2, True, TableShape.SQUARE, 700, 500, 70, 70),
+        ("High Tab3", 3, True, TableShape.SQUARE, 840, 520, 70, 70),
+        ("Politi-x", 3, True, TableShape.SQUARE, 680, 20, 70, 60),
+        ("Ray 04", 4, True, TableShape.ROUND, 320, 210, 70, 70),
+    ]
+
+    for name, cap, comb, shape, x, y, w, h in cfg:
+        upsert(name, cap, comb, shape, x, y, w, h)
+
+    return {"message": "Front Room layout seeded/updated"}
 
 
 @router.put("/tables/{table_id}", response_model=TableResponse)
