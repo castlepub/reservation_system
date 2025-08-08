@@ -488,7 +488,12 @@ function updateTodayReservations(reservations) {
         return;
     }
 
-    container.innerHTML = reservations.map(reservation => `
+    container.innerHTML = reservations.map(reservation => {
+        const tableNames = Array.isArray(reservation.table_names) && reservation.table_names.length > 0
+            ? reservation.table_names
+            : ['TBD'];
+        const timeStr = typeof reservation.time === 'string' ? reservation.time : '';
+        return `
         <div class="today-reservation-card">
             <div class="reservation-header">
                 <div class="customer-info">
@@ -497,7 +502,7 @@ function updateTodayReservations(reservations) {
                         ${reservation.reservation_type}
                     </span>
                 </div>
-                <div class="reservation-time">${formatTime(reservation.time)}</div>
+                <div class="reservation-time">${formatTime(timeStr)}</div>
             </div>
             <div class="reservation-details">
                 <div class="detail-item">
@@ -508,7 +513,7 @@ function updateTodayReservations(reservations) {
                     <div class="detail-label">Tables</div>
                     <div class="detail-value">
                         <div class="table-tags">
-                            ${reservation.table_names.map(table => `<span class="table-tag">${table}</span>`).join('')}
+                            ${tableNames.map(table => `<span class="table-tag">${table}</span>`).join('')}
                         </div>
                     </div>
                 </div>
@@ -519,8 +524,8 @@ function updateTodayReservations(reservations) {
             </div>
             ${reservation.notes ? `<div class="customer-notes"><strong>Notes:</strong> ${reservation.notes}</div>` : ''}
             ${reservation.admin_notes ? `<div class="admin-notes"><strong>Admin Notes:</strong> ${reservation.admin_notes}</div>` : ''}
-        </div>
-    `).join('');
+        </div>`;
+    }).join('');
 }
 
 // Modal Functions
@@ -605,12 +610,19 @@ function filterTodayReservations() {
     loadTodayReservations(); // Reload with filters
 }
 
+function formatDateForApi(dateObj) {
+    const year = dateObj.getFullYear();
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const day = String(dateObj.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
 // PDF Generation Functions
 async function generateDailyPDF() {
     try {
-        const today = new Date().toISOString().split('T')[0];
-        // Updated path to match API (admin router) – using /api/admin/pdf/daily/{date}
-        const response = await fetch(`${API_BASE_URL}/api/admin/pdf/daily/${today}`, {
+        const today = formatDateForApi(new Date());
+        // Use admin router path (mounted without /api prefix)
+        const response = await fetch(`${API_BASE_URL}/admin/pdf/daily/${today}`, {
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${authToken}`
@@ -623,7 +635,7 @@ async function generateDailyPDF() {
             const a = document.createElement('a');
             a.style.display = 'none';
             a.href = url;
-            a.download = `daily_report_${today}.html`;
+            a.download = `daily_report_${today}.pdf`;
             document.body.appendChild(a);
             a.click();
             window.URL.revokeObjectURL(url);
@@ -2865,7 +2877,7 @@ let dailyViewData = null;
 
 async function loadDailyView() {
     try {
-        const dateStr = currentViewDate.toISOString().split('T')[0];
+        const dateStr = formatDateForApi(currentViewDate);
         const response = await fetch(`${API_BASE_URL}/api/layout/daily/${dateStr}`, {
             headers: { 'Authorization': `Bearer ${authToken}` }
         });

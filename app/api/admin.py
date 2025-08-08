@@ -585,20 +585,20 @@ def get_daily_report(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_staff_user)
 ):
-    """Generate daily report HTML (10 per page) with logo."""
+    """Generate daily PDF (10 per page) with logo."""
     try:
         # Get reservations for the date (confirmed only)
         reservation_service = ReservationService(db)
         reservations = reservation_service.get_reservations_for_date(report_date)
 
-        # Generate PDF-like HTML with logo and 10 cards per page
+        # Generate real PDF with logo and 10 cards per page
         pdf_service = PDFService()
-        html_content = pdf_service.generate_daily_pdf(reservations, report_date)
+        pdf_content = pdf_service.generate_daily_pdf(reservations, report_date)
 
         return Response(
-            content=html_content,
-            media_type="text/html",
-            headers={"Content-Disposition": f"attachment; filename=daily_report_{report_date}.html"}
+            content=pdf_content,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename=daily_report_{report_date}.pdf"}
         )
     except Exception as e:
         raise HTTPException(
@@ -625,8 +625,8 @@ def get_reservation_slip(
         
         return Response(
             content=pdf_content, 
-            media_type="text/html",
-            headers={"Content-Disposition": f"attachment; filename=reservation_slip_{reservation_id}.html"}
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename=reservation_slip_{reservation_id}.pdf"}
         )
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error generating reservation slip: {str(e)}")

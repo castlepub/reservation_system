@@ -78,9 +78,18 @@ class PDFService:
                     background-color: #f9f9f9;
                     min-height: 120px;
                 }
+
+                .reserved-banner {
+                    text-align: center;
+                    font-size: 18px;
+                    font-weight: 900;
+                    color: #c0392b;
+                    letter-spacing: 2px;
+                    margin-bottom: 6px;
+                }
                 
                 .customer-name {
-                    font-size: 10px;
+                    font-size: 14px;
                     font-weight: bold;
                     color: #2c3e50;
                     margin-bottom: 3px;
@@ -119,13 +128,18 @@ class PDFService:
                 .detail-value {
                     color: #34495e;
                 }
+
+                .time-strong {
+                    font-weight: 800;
+                    font-size: 12px;
+                }
                 
                 .tables-info {
                     background-color: #e8f4fd;
                     padding: 3px;
                     border-radius: 3px;
                     margin-bottom: 3px;
-                    font-size: 6px;
+                    font-size: 10px;
                 }
                 
                 .notes {
@@ -181,6 +195,7 @@ class PDFService:
             <div class="page-content">
             {% for reservation in reservations %}
             <div class="reservation-slip">
+                <div class="reserved-banner">RESERVED</div>
                 <div class="customer-name">{{ reservation.customer_name }}</div>
                 <div class="contact-info">{{ reservation.email }}</div>
                 <div class="contact-info">{{ reservation.phone }}</div>
@@ -192,25 +207,27 @@ class PDFService:
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">Time:</span>
-                        <span class="detail-value">{{ reservation.time.strftime('%I:%M %p') }}</span>
+                        <span class="detail-value time-strong">{{ reservation.time.strftime('%I:%M %p') }}</span>
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">Size:</span>
                         <span class="detail-value">{{ reservation.party_size }}</span>
                     </div>
+                    {% if reservation.room_name %}
                     <div class="detail-row">
                         <span class="detail-label">Room:</span>
                         <span class="detail-value">{{ reservation.room_name }}</span>
                     </div>
+                    {% endif %}
                 </div>
                 
                 {% if reservation.tables %}
                 <div class="tables-info">
-                    <div class="detail-label">Tables:</div>
+                    <div class="detail-label">Table:</div>
                     {% for table in reservation.tables %}
                     <div class="detail-row">
                         <span>{{ table.table_name }}</span>
-                        <span>({{ table.capacity }})</span>
+                        {% if table.capacity %}<span>({{ table.capacity }})</span>{% endif %}
                     </div>
                     {% endfor %}
                 </div>
@@ -239,6 +256,7 @@ class PDFService:
             from datetime import datetime
             import base64
             import os
+            from weasyprint import HTML
             
             # Load and encode logo
             logo_base64 = ""
@@ -287,10 +305,11 @@ class PDFService:
                 generated_at=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 logo_base64=logo_base64
             )
-            
-            # For now, return HTML content as bytes (PDF generation disabled for Windows)
-            logger.info(f"Generated HTML for {target_date} with {len(reservations)} reservations")
-            return html_content.encode('utf-8')
+
+            # Convert HTML to PDF
+            pdf_bytes = HTML(string=html_content).write_pdf()
+            logger.info(f"Generated PDF for {target_date} with {len(reservations)} reservations")
+            return pdf_bytes
             
         except Exception as e:
             logger.error(f"Error generating daily PDF: {str(e)}")
@@ -302,6 +321,7 @@ class PDFService:
             from datetime import datetime
             import base64
             import os
+            from weasyprint import HTML
             
             # Load and encode logo
             logo_base64 = ""
@@ -338,10 +358,11 @@ class PDFService:
                 generated_at=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 logo_base64=logo_base64
             )
-            
-            # For now, return HTML content as bytes (PDF generation disabled for Windows)
-            logger.info(f"Generated HTML for reservation {reservation.id}")
-            return html_content.encode('utf-8')
+
+            # Convert to PDF
+            pdf_bytes = HTML(string=html_content).write_pdf()
+            logger.info(f"Generated PDF for reservation {reservation.id}")
+            return pdf_bytes
             
         except Exception as e:
             logger.error(f"Error generating reservation slip PDF: {str(e)}")
