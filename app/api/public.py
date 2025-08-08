@@ -25,6 +25,12 @@ def create_reservation(
 ):
     """Create a new reservation (public endpoint)"""
     try:
+        # Public bookings must include an email so we can send confirmation and manage changes
+        if not getattr(reservation_data, 'email', None):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email is required for public reservations"
+            )
         reservation_service = ReservationService(db)
         reservation = reservation_service.create_reservation(reservation_data)
         
