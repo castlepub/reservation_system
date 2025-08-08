@@ -6,6 +6,7 @@ from datetime import date
 from app.core.database import get_db
 from app.api.deps import require_chatbot_api_key
 from app.services.reservation_service import ReservationService
+from app.services.email_service import EmailService
 from app.services.table_service import TableService
 from app.models.room import Room
 
@@ -104,6 +105,14 @@ def create_reservation(payload: dict, idempotency_key: Optional[str] = Header(de
 
         reservation_service = ReservationService(db)
         created = reservation_service.create_reservation(reservation)
+
+        # Send confirmation email if email is present
+        try:
+            EmailService().send_reservation_confirmation(created)
+        except Exception:
+            # Do not fail booking on email issues
+            pass
+
         return created
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
