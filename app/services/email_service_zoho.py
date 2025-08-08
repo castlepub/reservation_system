@@ -13,8 +13,9 @@ logger = logging.getLogger(__name__)
 
 class ZohoEmailService:
     def __init__(self):
-        self.smtp_server = "smtp.zoho.com"
-        self.smtp_port = 587
+        # Allow region override (e.g., smtp.zoho.eu)
+        self.smtp_server = os.getenv("ZOHO_SMTP_HOST", "smtp.zoho.com")
+        self.smtp_port = int(os.getenv("ZOHO_SMTP_PORT", "587"))
         self.username = os.getenv("ZOHO_EMAIL")
         self.password = os.getenv("ZOHO_PASSWORD")
         self.from_email = os.getenv("ZOHO_EMAIL")
