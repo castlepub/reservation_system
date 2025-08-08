@@ -18,11 +18,11 @@ class EmailService:
         self.zoho_password = os.getenv("ZOHO_PASSWORD")
 
     def _try_send_via_zoho(self, to_email: str, subject: str, html_content: str) -> bool:
-        if not (self.zoho_email and self.zoho_password):
-            return False
         try:
             from app.services.email_service_zoho import ZohoEmailService
             zoho = ZohoEmailService()
+            if not getattr(zoho, 'enabled', False):
+                return False
             return zoho.send_email(to_email, subject, html_content)
         except Exception as e:
             logger.warning(f"Zoho send failed, falling back to SendGrid: {e}")
