@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
-from datetime import datetime, date
+from datetime import datetime, date, time
 from enum import Enum
 
 
@@ -116,7 +116,7 @@ class RoomLayoutResponse(RoomLayoutBase):
 class ReservationSummary(BaseModel):
     id: str
     customer_name: str
-    time: str
+    time: time
     duration_hours: int
     party_size: int
     reservation_type: str
