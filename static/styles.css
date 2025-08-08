@@ -664,14 +664,14 @@ main {
 }
 
 /* Make the first notes panel (Team Notes) occupy the right column full height */
-.notes-section:first-of-type {
+.dashboard-content > .notes-section:first-of-type {
     grid-area: notes; /* Team Notes */
     min-height: 540px;
 }
 
 /* Place Upcoming Reservations under chart on the left */
-.notes-section:nth-of-type(2) {
-    grid-area: upcoming; /* Upcoming Reservations */
+.dashboard-content > .notes-section:last-of-type {
+    grid-area: upcoming; /* Upcoming Reservations spans full width below */
 }
 
 .notes-header {
