@@ -131,8 +131,17 @@ def check_availability(
                 )
             # Check for active public room block for that slot
             from datetime import datetime, timedelta, time as time_cls
-            start_dt = datetime.combine(availability_request.date, availability_request.time)
-            end_dt = start_dt + timedelta(hours=duration)
+            if availability_request.time:
+                start_dt = datetime.combine(availability_request.date, availability_request.time)
+                if duration == "until-end":
+                    # For "until-end", use the end of day
+                    end_dt = datetime.combine(availability_request.date, time_cls(23, 59, 59))
+                else:
+                    end_dt = start_dt + timedelta(hours=duration)
+            else:
+                # If no specific time, check for blocks that affect the whole day
+                start_dt = datetime.combine(availability_request.date, time_cls(0, 0))
+                end_dt = datetime.combine(availability_request.date, time_cls(23, 59, 59))
             room_block = None
             try:
                 room_block = db.query(RoomBlock).filter(
@@ -156,8 +165,13 @@ def check_availability(
                 availability_request.room_id, 
                 availability_request.date, 
                 availability_request.party_size,
-                duration
+                duration if duration != "until-end" else 2
             )
+            
+            # If a specific time was requested, filter results to that time
+            if availability_request.time:
+                time_str = availability_request.time.strftime("%H:%M")
+                time_slots = [slot for slot in time_slots if slot.time.strftime("%H:%M") == time_str]
             
             return AvailabilityResponse(
                 date=availability_request.date,
@@ -175,7 +189,7 @@ def check_availability(
                     str(room.id), 
                     availability_request.date, 
                     availability_request.party_size,
-                    duration
+                    duration if duration != "until-end" else 2
                 )
                 all_time_slots.extend(room_slots)
             
