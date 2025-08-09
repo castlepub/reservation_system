@@ -51,7 +51,7 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 def _ensure_block_tables():
     """Ensure room_blocks and table_blocks tables exist (for environments without migrations)."""
     try:
-        from sqlalchemy import inspect
+        from sqlalchemy import inspect, text as _sql_text
         from app.core.database import engine, Base
         # Import models to register with metadata
         from app.models.block import RoomBlock as _RB, TableBlock as _TB  # noqa: F401
@@ -61,6 +61,15 @@ def _ensure_block_tables():
         if 'room_blocks' not in existing_tables or 'table_blocks' not in existing_tables or \
            'room_block_rules' not in existing_tables or 'table_block_rules' not in existing_tables:
             Base.metadata.create_all(bind=engine)
+        # Ensure unlock_at columns exist (compatibility for older deployments)
+        with engine.connect() as conn:
+            for tbl in ('room_blocks', 'table_blocks'):
+                cols = {c['name'] for c in inspector.get_columns(tbl)}
+                if 'unlock_at' not in cols:
+                    try:
+                        conn.execute(_sql_text(f"ALTER TABLE {tbl} ADD COLUMN unlock_at TIMESTAMP NULL"))
+                    except Exception:
+                        pass
     except Exception as e:
         # Soft-fail; endpoint will raise a clearer DB error if creation truly fails
         print(f"WARN: ensuring block tables failed: {e}")
