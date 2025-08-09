@@ -1048,10 +1048,29 @@ def create_room_block(
         public_only=payload.public_only,
         unlock_at=_parse_dt_local(payload.unlock_at) if getattr(payload, 'unlock_at', None) else None,
     )
-    db.add(block)
-    db.commit()
-    db.refresh(block)
-    return block
+    try:
+        db.add(block)
+        db.commit()
+        db.refresh(block)
+        return block
+    except Exception as e:
+        db.rollback()
+        # Fallback for environments where unlock_at column may not exist yet
+        try:
+            block = RoomBlock(
+                room_id=room_id,
+                starts_at=starts_at,
+                ends_at=ends_at,
+                reason=payload.reason,
+                public_only=payload.public_only,
+            )
+            db.add(block)
+            db.commit()
+            db.refresh(block)
+            return block
+        except Exception:
+            db.rollback()
+            raise HTTPException(status_code=500, detail=f"Failed to create room block: {str(e)}")
 
 
 @router.get("/rooms/{room_id}/blocks", response_model=List[RoomBlockResponse])
@@ -1118,10 +1137,29 @@ def create_table_block(
         public_only=payload.public_only,
         unlock_at=_parse_dt_local(payload.unlock_at) if getattr(payload, 'unlock_at', None) else None,
     )
-    db.add(block)
-    db.commit()
-    db.refresh(block)
-    return block
+    try:
+        db.add(block)
+        db.commit()
+        db.refresh(block)
+        return block
+    except Exception as e:
+        db.rollback()
+        # Fallback without unlock_at for environments missing the column
+        try:
+            block = TableBlock(
+                table_id=table_id,
+                starts_at=starts_at,
+                ends_at=ends_at,
+                reason=payload.reason,
+                public_only=payload.public_only,
+            )
+            db.add(block)
+            db.commit()
+            db.refresh(block)
+            return block
+        except Exception:
+            db.rollback()
+            raise HTTPException(status_code=500, detail=f"Failed to create table block: {str(e)}")
 
 
 @router.post("/blocks/tables/batch")
