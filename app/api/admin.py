@@ -21,6 +21,11 @@ import uuid
 import random
 import traceback
 from app.models.table_layout import TableLayout, RoomLayout, TableShape
+from app.models.block import RoomBlock, TableBlock
+from app.schemas.block import (
+    RoomBlockCreate, RoomBlockResponse,
+    TableBlockCreate, TableBlockResponse,
+)
 from app.services.email_service_zoho import ZohoEmailService
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -976,3 +981,96 @@ def get_users(
             created_at=user.created_at
         ) for user in users
     ] 
+
+
+# Blocks Management
+@router.post("/rooms/{room_id}/blocks", response_model=RoomBlockResponse)
+def create_room_block(
+    room_id: str,
+    payload: RoomBlockCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_staff_user)
+):
+    if payload.room_id and payload.room_id != room_id:
+        raise HTTPException(status_code=400, detail="room_id mismatch")
+    block = RoomBlock(
+        room_id=room_id,
+        starts_at=payload.starts_at,
+        ends_at=payload.ends_at,
+        reason=payload.reason,
+        public_only=payload.public_only,
+    )
+    db.add(block)
+    db.commit()
+    db.refresh(block)
+    return block
+
+
+@router.get("/rooms/{room_id}/blocks", response_model=List[RoomBlockResponse])
+def list_room_blocks(
+    room_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_staff_user)
+):
+    blocks = db.query(RoomBlock).filter(RoomBlock.room_id == room_id).order_by(RoomBlock.starts_at.desc()).all()
+    return blocks
+
+
+@router.delete("/room-blocks/{block_id}")
+def delete_room_block(
+    block_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_staff_user)
+):
+    block = db.query(RoomBlock).filter(RoomBlock.id == block_id).first()
+    if not block:
+        raise HTTPException(status_code=404, detail="Block not found")
+    db.delete(block)
+    db.commit()
+    return {"message": "Room block deleted"}
+
+
+@router.post("/tables/{table_id}/blocks", response_model=TableBlockResponse)
+def create_table_block(
+    table_id: str,
+    payload: TableBlockCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_staff_user)
+):
+    if payload.table_id and payload.table_id != table_id:
+        raise HTTPException(status_code=400, detail="table_id mismatch")
+    block = TableBlock(
+        table_id=table_id,
+        starts_at=payload.starts_at,
+        ends_at=payload.ends_at,
+        reason=payload.reason,
+        public_only=payload.public_only,
+    )
+    db.add(block)
+    db.commit()
+    db.refresh(block)
+    return block
+
+
+@router.get("/tables/{table_id}/blocks", response_model=List[TableBlockResponse])
+def list_table_blocks(
+    table_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_staff_user)
+):
+    blocks = db.query(TableBlock).filter(TableBlock.table_id == table_id).order_by(TableBlock.starts_at.desc()).all()
+    return blocks
+
+
+@router.delete("/table-blocks/{block_id}")
+def delete_table_block(
+    block_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_staff_user)
+):
+    block = db.query(TableBlock).filter(TableBlock.id == block_id).first()
+    if not block:
+        raise HTTPException(status_code=404, detail="Block not found")
+    db.delete(block)
+    db.commit()
+    return {"message": "Table block deleted"}

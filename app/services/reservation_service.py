@@ -12,6 +12,7 @@ from app.services.working_hours_service import WorkingHoursService
 # from app.services.area_service import AreaService  # Temporarily disabled
 from app.core.security import create_reservation_token
 from app.core.config import settings
+from app.models.block import RoomBlock, TableBlock
 
 
 class ReservationService:
@@ -283,6 +284,19 @@ class ReservationService:
         
         if not is_valid_time:
             raise ValueError(error_message)
+
+        # Check for active public room block for that slot if room specified
+        if reservation_data.room_id:
+            start_dt = datetime.combine(reservation_data.date, reservation_data.time)
+            end_dt = start_dt + timedelta(hours=reservation_data.duration_hours or 2)
+            room_block = self.db.query(RoomBlock).filter(
+                RoomBlock.room_id == reservation_data.room_id,
+                RoomBlock.starts_at < end_dt,
+                RoomBlock.ends_at > start_dt,
+                RoomBlock.public_only == True,
+            ).first()
+            if room_block:
+                raise ValueError("Room is not available for public booking at the selected time")
         
         # Check if room exists and is active (only if room_id is specified)
         if reservation_data.room_id:

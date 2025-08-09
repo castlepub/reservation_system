@@ -1160,6 +1160,84 @@
         </div>
     </div>
 
+    <!-- Block Room Modal -->
+    <div id="blockRoomModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4>Block Room</h4>
+                <button class="close-btn" onclick="hideBlockRoomModal()">&times;</button>
+            </div>
+            <form id="blockRoomForm" onsubmit="handleBlockRoom(event)">
+                <input type="hidden" id="blockRoomId">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="blockRoomStartsAt">Starts at</label>
+                        <input type="datetime-local" id="blockRoomStartsAt" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="blockRoomEndsAt">Ends at</label>
+                        <input type="datetime-local" id="blockRoomEndsAt" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="blockRoomPublicOnly" checked>
+                        Public only (staff can still assign)
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label for="blockRoomReason">Reason (optional)</label>
+                    <input type="text" id="blockRoomReason" placeholder="e.g., Private event">
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="hideBlockRoomModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-lock"></i> Block Room
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Block Table Modal -->
+    <div id="blockTableModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4>Block Table</h4>
+                <button class="close-btn" onclick="hideBlockTableModal()">&times;</button>
+            </div>
+            <form id="blockTableForm" onsubmit="handleBlockTable(event)">
+                <input type="hidden" id="blockTableId">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="blockTableStartsAt">Starts at</label>
+                        <input type="datetime-local" id="blockTableStartsAt" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="blockTableEndsAt">Ends at</label>
+                        <input type="datetime-local" id="blockTableEndsAt" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="blockTablePublicOnly" checked>
+                        Public only (staff can still assign)
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label for="blockTableReason">Reason (optional)</label>
+                    <input type="text" id="blockTableReason" placeholder="e.g., Owner hold">
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="hideBlockTableModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-lock"></i> Block Table
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
             <script src="/static/script.js?v=2.13"></script>
 </body>
 </html> 

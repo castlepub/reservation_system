@@ -11,6 +11,7 @@ from app.schemas.room import RoomResponse
 from app.services.reservation_service import ReservationService
 from app.services.table_service import TableService
 from app.services.working_hours_service import WorkingHoursService
+from app.models.block import RoomBlock
 from app.services.email_service import EmailService
 from app.models.room import Room
 # from app.models.room import AreaType  # Temporarily disabled
@@ -77,6 +78,23 @@ def check_availability(
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Room not found"
+                )
+            # Check for active public room block for that slot
+            from datetime import datetime, timedelta, time as time_cls
+            start_dt = datetime.combine(availability_request.date, availability_request.time)
+            end_dt = start_dt + timedelta(hours=duration)
+            room_block = db.query(RoomBlock).filter(
+                RoomBlock.room_id == availability_request.room_id,
+                RoomBlock.starts_at < end_dt,
+                RoomBlock.ends_at > start_dt,
+                RoomBlock.public_only == True,
+            ).first()
+            if room_block:
+                return AvailabilityResponse(
+                    date=availability_request.date,
+                    party_size=availability_request.party_size,
+                    room_id=availability_request.room_id,
+                    available_slots=[],
                 )
             
             time_slots = table_service.get_availability_for_date(

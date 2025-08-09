@@ -1969,6 +1969,9 @@ function updateRoomsSettingsDisplay(rooms) {
                 <button class="btn btn-sm btn-secondary" onclick="editRoom('${room.id}')">
                     <i class="fas fa-edit"></i> Edit
                 </button>
+                <button class="btn btn-sm btn-warning" onclick="showBlockRoomModal('${room.id}', '${room.name}')">
+                    <i class="fas fa-lock"></i> Block
+                </button>
                 <button class="btn btn-sm btn-danger" onclick="deleteRoom('${room.id}', '${room.name}')">
                     <i class="fas fa-trash"></i> Delete
                 </button>
@@ -2278,6 +2281,9 @@ function displayTables(tables, rooms) {
                     <button class="btn-small btn-secondary" onclick="editTable('${table.id}')">
                         <i class="fas fa-edit"></i> Edit
                     </button>
+                    <button class="btn-small btn-warning" onclick="showBlockTableModal('${table.id}', '${table.name}')">
+                        <i class="fas fa-lock"></i> Block
+                    </button>
                     <button class="btn-small btn-danger" onclick="deleteTable('${table.id}')">
                         <i class="fas fa-trash"></i> Delete
                     </button>
@@ -2296,6 +2302,66 @@ function showAddTableForm() {
 function hideAddTableForm() {
     document.getElementById('addTableModal').classList.add('hidden');
     document.getElementById('addTableForm').reset();
+}
+
+// Block modals and handlers
+function showBlockRoomModal(roomId, roomName) {
+    const modal = document.getElementById('blockRoomModal');
+    document.getElementById('blockRoomId').value = roomId;
+    document.getElementById('blockRoomStartsAt').value = new Date().toISOString().slice(0,16);
+    const end = new Date(Date.now() + 2*60*60*1000).toISOString().slice(0,16);
+    document.getElementById('blockRoomEndsAt').value = end;
+    modal.classList.remove('hidden');
+}
+
+function hideBlockRoomModal() {
+    document.getElementById('blockRoomModal').classList.add('hidden');
+}
+
+async function handleBlockRoom(e) {
+    e.preventDefault();
+    const roomId = document.getElementById('blockRoomId').value;
+    const startsAt = document.getElementById('blockRoomStartsAt').value;
+    const endsAt = document.getElementById('blockRoomEndsAt').value;
+    const publicOnly = document.getElementById('blockRoomPublicOnly').checked;
+    const reason = document.getElementById('blockRoomReason').value || null;
+    try {
+        await createRoomBlock(roomId, new Date(startsAt).toISOString(), new Date(endsAt).toISOString(), publicOnly, reason);
+        showMessage('Room blocked successfully', 'success');
+        hideBlockRoomModal();
+    } catch (err) {
+        showMessage(err.message || 'Failed to block room', 'error');
+    }
+}
+
+function showBlockTableModal(tableId, tableName) {
+    const modal = document.getElementById('blockTableModal');
+    document.getElementById('blockTableId').value = tableId;
+    document.getElementById('blockTableStartsAt').value = new Date().toISOString().slice(0,16);
+    const end = new Date(Date.now() + 2*60*60*1000).toISOString().slice(0,16);
+    document.getElementById('blockTableEndsAt').value = end;
+    modal.classList.remove('hidden');
+}
+
+function hideBlockTableModal() {
+    document.getElementById('blockTableModal').classList.add('hidden');
+}
+
+async function handleBlockTable(e) {
+    e.preventDefault();
+    const tableId = document.getElementById('blockTableId').value;
+    const startsAt = document.getElementById('blockTableStartsAt').value;
+    const endsAt = document.getElementById('blockTableEndsAt').value;
+    const publicOnly = document.getElementById('blockTablePublicOnly').checked;
+    const reason = document.getElementById('blockTableReason').value || null;
+    try {
+        await createTableBlock(tableId, new Date(startsAt).toISOString(), new Date(endsAt).toISOString(), publicOnly, reason);
+        showMessage('Table blocked successfully', 'success');
+        hideBlockTableModal();
+        loadTablesData();
+    } catch (err) {
+        showMessage(err.message || 'Failed to block table', 'error');
+    }
 }
 
 async function handleAddTable(event) {
@@ -3682,6 +3748,45 @@ function addHours(timeStr, hours) {
     date.setHours(parseInt(hours_str), parseInt(minutes), 0);
     date.setHours(date.getHours() + hours);
     return date.toTimeString().slice(0, 5);
+}
+
+// Quick helpers to create/delete blocks from admin UI
+async function createRoomBlock(roomId, startsAtIso, endsAtIso, publicOnly = true, reason = null) {
+    if (!authToken) { showMessage('Please login', 'error'); return; }
+    const payload = { room_id: roomId, starts_at: startsAtIso, ends_at: endsAtIso, public_only: publicOnly, reason };
+    const res = await fetch(`${API_BASE_URL}/api/admin/rooms/${roomId}/blocks`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    if (!res.ok) { const e = await res.json().catch(()=>({detail:'error'})); throw new Error(e.detail||'Failed to create room block'); }
+    return res.json();
+}
+
+async function createTableBlock(tableId, startsAtIso, endsAtIso, publicOnly = true, reason = null) {
+    if (!authToken) { showMessage('Please login', 'error'); return; }
+    const payload = { table_id: tableId, starts_at: startsAtIso, ends_at: endsAtIso, public_only: publicOnly, reason };
+    const res = await fetch(`${API_BASE_URL}/api/admin/tables/${tableId}/blocks`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    if (!res.ok) { const e = await res.json().catch(()=>({detail:'error'})); throw new Error(e.detail||'Failed to create table block'); }
+    return res.json();
+}
+
+async function deleteRoomBlock(blockId) {
+    if (!authToken) { showMessage('Please login', 'error'); return; }
+    const res = await fetch(`${API_BASE_URL}/api/admin/room-blocks/${blockId}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${authToken}` } });
+    if (!res.ok) { const e = await res.json().catch(()=>({detail:'error'})); throw new Error(e.detail||'Failed to delete room block'); }
+    return res.json();
+}
+
+async function deleteTableBlock(blockId) {
+    if (!authToken) { showMessage('Please login', 'error'); return; }
+    const res = await fetch(`${API_BASE_URL}/api/admin/table-blocks/${blockId}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${authToken}` } });
+    if (!res.ok) { const e = await res.json().catch(()=>({detail:'error'})); throw new Error(e.detail||'Failed to delete table block'); }
+    return res.json();
 }
 
 async function editTable(tableId) {

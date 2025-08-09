@@ -8,6 +8,7 @@ from app.models.reservation import Reservation, ReservationTable
 from app.schemas.reservation import TableAssignment, TimeSlot
 from sqlalchemy import func
 from app.models.table_layout import TableLayout
+from app.models.block import RoomBlock, TableBlock
 
 
 class TableService:
@@ -39,6 +40,37 @@ class TableService:
         if not include_non_public:
             query = query.filter(Table.public_bookable == True)
         all_tables = query.all()
+
+        # Exclude tables blocked at the requested datetime window
+        start_dt = datetime.combine(date, time)
+        end_dt = start_dt + timedelta(hours=duration_hours)
+
+        # If room is blocked for this window and it's a public search (include_non_public == False), treat as no tables
+        room_block_exists = (
+            self.db.query(RoomBlock)
+            .filter(
+                RoomBlock.room_id == room_id,
+                RoomBlock.starts_at < end_dt,
+                RoomBlock.ends_at > start_dt,
+                RoomBlock.public_only == (not include_non_public),
+            )
+            .first()
+        )
+        if room_block_exists:
+            return []
+
+        # Filter out individually blocked tables
+        blocked_table_ids = {
+            str(b.table_id)
+            for b in self.db.query(TableBlock)
+            .filter(
+                TableBlock.table_id.in_([str(t.id) for t in all_tables]),
+                TableBlock.starts_at < end_dt,
+                TableBlock.ends_at > start_dt,
+                TableBlock.public_only == (not include_non_public),
+            )
+            .all()
+        }
         
         # Get reserved table IDs for this time slot (with duration overlap checking)
         reserved_table_ids = self.get_reserved_table_ids_with_duration(date, time, duration_hours, exclude_reservation_id)
@@ -47,7 +79,9 @@ class TableService:
         exclude_table_ids = set(exclude_table_ids or [])
         available_tables = [
             table for table in all_tables
-            if str(table.id) not in reserved_table_ids and str(table.id) not in exclude_table_ids
+            if str(table.id) not in reserved_table_ids
+            and str(table.id) not in exclude_table_ids
+            and str(table.id) not in blocked_table_ids
         ]
         
         print(f"DEBUG: Found {len(all_tables)} total tables, {len(reserved_table_ids)} reserved, {len(available_tables)} available")
