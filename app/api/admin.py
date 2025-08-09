@@ -16,6 +16,20 @@ from app.models.settings import WorkingHours, DayOfWeek, RestaurantSettings
 from app.api.deps import get_current_staff_user, get_current_admin_user
 from app.core.database import Base, engine
 from datetime import date, time, datetime, timedelta
+def _parse_dt_local(dt_in):
+    """Accept either ISO with timezone or naive 'YYYY-MM-DDTHH:MM' as local; store as naive in DB.
+    Browsers submit datetime-local as 'YYYY-MM-DDTHH:MM'. We'll parse to naive datetime.
+    """
+    if isinstance(dt_in, datetime):
+        return dt_in
+    try:
+        # Handle 'YYYY-MM-DDTHH:MM' (datetime-local)
+        if isinstance(dt_in, str) and len(dt_in) == 16 and dt_in[10] == 'T':
+            return datetime.strptime(dt_in, '%Y-%m-%dT%H:%M')
+        # Fallback to fromisoformat
+        return datetime.fromisoformat(dt_in)
+    except Exception:
+        return datetime.fromisoformat(str(dt_in))
 from sqlalchemy import text
 import uuid
 import random
@@ -1012,8 +1026,8 @@ def create_room_block(
         raise HTTPException(status_code=400, detail="room_id mismatch")
     block = RoomBlock(
         room_id=room_id,
-        starts_at=payload.starts_at,
-        ends_at=payload.ends_at,
+        starts_at=_parse_dt_local(payload.starts_at),
+        ends_at=_parse_dt_local(payload.ends_at),
         reason=payload.reason,
         public_only=payload.public_only,
     )
@@ -1070,8 +1084,8 @@ def create_table_block(
         raise HTTPException(status_code=400, detail="table_id mismatch")
     block = TableBlock(
         table_id=table_id,
-        starts_at=payload.starts_at,
-        ends_at=payload.ends_at,
+        starts_at=_parse_dt_local(payload.starts_at),
+        ends_at=_parse_dt_local(payload.ends_at),
         reason=payload.reason,
         public_only=payload.public_only,
     )

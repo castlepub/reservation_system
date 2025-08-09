@@ -2415,9 +2415,15 @@ async function handleBlockRoom(e) {
     const publicOnly = document.getElementById('blockRoomPublicOnly').checked;
     const reason = document.getElementById('blockRoomReason').value || null;
     try {
-        await createRoomBlock(roomId, new Date(startsAt).toISOString(), new Date(endsAt).toISOString(), publicOnly, reason);
+        // Send local time as provided by input without converting to UTC
+        await createRoomBlock(roomId, startsAt, endsAt, publicOnly, reason);
         showMessage('Room blocked successfully', 'success');
         hideBlockRoomModal();
+        // Immediately refresh the room's block list if visible
+        const containerId = `roomBlocks-${roomId}`;
+        if (document.getElementById(containerId)) {
+            renderRoomBlocks(containerId, roomId);
+        }
     } catch (err) {
         showMessage(err.message || 'Failed to block room', 'error');
     }
@@ -2444,10 +2450,17 @@ async function handleBlockTable(e) {
     const publicOnly = document.getElementById('blockTablePublicOnly').checked;
     const reason = document.getElementById('blockTableReason').value || null;
     try {
-        await createTableBlock(tableId, new Date(startsAt).toISOString(), new Date(endsAt).toISOString(), publicOnly, reason);
+        // Send local time as provided by input without converting to UTC
+        await createTableBlock(tableId, startsAt, endsAt, publicOnly, reason);
         showMessage('Table blocked successfully', 'success');
         hideBlockTableModal();
-        loadTablesData();
+        // Refresh current view
+        if (window.tablesViewMode === 'list') {
+            // Re-render blocks for that table row
+            renderTableBlocks(`tableBlocks-${tableId}`, tableId);
+        } else {
+            loadTablesData();
+        }
     } catch (err) {
         showMessage(err.message || 'Failed to block table', 'error');
     }
