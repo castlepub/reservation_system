@@ -1349,3 +1349,108 @@ def delete_table_block_rule(
     db.delete(rule)
     db.commit()
     return {"message": "Table block rule deleted"}
+
+
+# Batch create recurring table block rules (weekly) for many tables at once
+@router.post("/block-rules/tables/batch")
+def create_table_block_rules_batch(
+    payload: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_staff_user)
+):
+    """
+    Create weekly recurring table block rules for multiple tables in one request.
+
+    Expected payload:
+    {
+        "table_ids": ["id1", "id2", ...],
+        "day_of_week": "monday" | ...,
+        "start_time": "HH:MM",
+        "end_time": "HH:MM",
+        "public_only": true,
+        "reason": "optional text",
+        "valid_from": "YYYY-MM-DD" (optional),
+        "valid_until": "YYYY-MM-DD" (optional)
+    }
+    If you want all-day blocks, pass start_time="00:00" and end_time="23:59".
+    """
+    _ensure_block_tables()
+    try:
+        table_ids = payload.get("table_ids") or []
+        if not table_ids:
+            return {"created": 0}
+
+        # Parse inputs
+        from datetime import datetime as _dt_, time as _time_
+        day_raw = payload.get("day_of_week")
+        if not day_raw:
+            raise HTTPException(status_code=400, detail="day_of_week is required")
+
+        # DayOfWeek enum from DB model
+        from app.models.settings import DayOfWeek as _DOW
+        try:
+            day_enum = _DOW(day_raw.upper()) if isinstance(day_raw, str) else _DOW(day_raw)
+        except Exception:
+            # Accept lowercase names used by public schema as well
+            mapping = {
+                "monday": _DOW.MONDAY,
+                "tuesday": _DOW.TUESDAY,
+                "wednesday": _DOW.WEDNESDAY,
+                "thursday": _DOW.THURSDAY,
+                "friday": _DOW.FRIDAY,
+                "saturday": _DOW.SATURDAY,
+                "sunday": _DOW.SUNDAY,
+            }
+            day_enum = mapping.get(str(day_raw).lower())
+            if not day_enum:
+                raise HTTPException(status_code=400, detail="Invalid day_of_week")
+
+        def _parse_time(val: str) -> _time_:
+            if isinstance(val, _time_):
+                return val
+            return _dt_.strptime(val, "%H:%M").time()
+
+        start_time = _parse_time(payload.get("start_time", "00:00"))
+        end_time = _parse_time(payload.get("end_time", "23:59"))
+        public_only = bool(payload.get("public_only", True))
+        reason = payload.get("reason")
+
+        def _parse_date_opt(v):
+            if not v:
+                return None
+            if isinstance(v, _dt_):
+                return v
+            try:
+                return _dt_.fromisoformat(v)
+            except Exception:
+                return None
+
+        valid_from = _parse_date_opt(payload.get("valid_from"))
+        valid_until = _parse_date_opt(payload.get("valid_until"))
+
+        created = 0
+        for tid in table_ids:
+            # Verify table exists
+            exists = db.query(Table).filter(Table.id == tid).first()
+            if not exists:
+                continue
+            rule = TableBlockRule(
+                table_id=tid,
+                day_of_week=day_enum,
+                start_time=start_time,
+                end_time=end_time,
+                public_only=public_only,
+                reason=reason,
+                valid_from=valid_from,
+                valid_until=valid_until,
+            )
+            db.add(rule)
+            created += 1
+
+        db.commit()
+        return {"created": created}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Batch rule creation failed: {str(e)}")
