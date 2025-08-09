@@ -41,11 +41,21 @@ def get_widget_config(db: Session = Depends(get_db)):
         def get(key: str, default: str):
             return settings_map.get(key, default)
 
+        # Parse helpers
+        def parse_csv_list(value: str) -> list:
+            try:
+                parts = [p.strip() for p in (value or "").split(",") if p and p.strip()]
+                return parts
+            except Exception:
+                return []
+
         return {
             "title": get("widget_title", "Booking"),
             "subtitle": get("widget_subtitle", "Reserve a Space at The Castle Pub"),
             "intro_text": get("widget_intro_text", "Reservations are free. Please order all food & drinks at the bar. No outside food/drinks allowed (birthday cakes okay)."),
             "default_language": get("widget_default_language", "en"),
+            "enabled_durations": parse_csv_list(get("widget_enabled_durations", "2,3,4,until-end")),
+            "reasons": parse_csv_list(get("widget_reasons", "dining,birthday,party,team")),
             "colors": {
                 "primary": get("widget_primary_color", "#22c55e"),
                 "accent": get("widget_accent_color", "#16a34a"),

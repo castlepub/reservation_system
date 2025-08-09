@@ -1073,6 +1073,21 @@
                                 </div>
                                 <div class="form-row">
                                     <div class="form-group">
+                                        <label>Enabled Durations</label>
+                                        <div class="checkbox-group">
+                                            <label><input type="checkbox" id="dur2" checked> 2 hours</label>
+                                            <label><input type="checkbox" id="dur3" checked> 3 hours</label>
+                                            <label><input type="checkbox" id="dur4" checked> 4 hours</label>
+                                            <label><input type="checkbox" id="durEnd" checked> until end of day</label>
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="widgetReasons">Reasons (comma-separated keys)</label>
+                                        <input type="text" id="widgetReasons" class="form-control" placeholder="dining,birthday,party,team">
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
                                         <label for="widgetPrimaryColor">Primary Color</label>
                                         <input type="color" id="widgetPrimaryColor" class="form-control" value="#22c55e">
                                     </div>
@@ -1094,7 +1109,11 @@
                             <div class="setting-group">
                                 <h4>Embed Code</h4>
                                 <p>Copy and paste this code into your Wix page.</p>
-                                <pre id="widgetEmbedSnippet" class="code-block" style="white-space: pre-wrap;"></pre>
+                                    <pre id="widgetEmbedSnippet" class="code-block" style="white-space: pre-wrap;"></pre>
+                                    <div style="margin-top:12px;">
+                                        <h5>Live Preview</h5>
+                                        <iframe id="widgetPreview" src="/widget" style="width:100%;height:600px;border:1px solid #222;border-radius:8px;"></iframe>
+                                    </div>
                                 <button class="btn btn-secondary" onclick="copyWidgetEmbed()"><i class="fas fa-copy"></i> Copy</button>
                             </div>
 

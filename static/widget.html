@@ -59,12 +59,7 @@ No outside food/drinks allowed (birthday cakes okay).
         </div>
         <div>
           <label id="tStay">Your Stay</label>
-          <select id="wDuration">
-            <option value="2">2 hours</option>
-            <option value="3">3 hours</option>
-            <option value="4">4 hours</option>
-            <option value="until-end">until end of day</option>
-          </select>
+          <select id="wDuration"></select>
         </div>
       </div>
 
@@ -128,6 +123,7 @@ No outside food/drinks allowed (birthday cakes okay).
 
   <script>
     const API = window.location.origin;
+    let cfgCache = null;
     const i18n = {
       en: {
         start: 'OK', people: 'People', date: 'Date', stay: 'Your Stay', times: 'Available times',
@@ -189,6 +185,13 @@ No outside food/drinks allowed (birthday cakes okay).
       party.innerHTML = '<option value="">Select size</option>';
       const max = cfg.limits?.max_party_size || 20;
       for (let i=1;i<=max;i++){ const o=document.createElement('option'); o.value=i; o.textContent=i===1?'1 person':`${i} people`; party.appendChild(o) }
+
+      // Build durations from settings
+      const durations = document.getElementById('wDuration');
+      durations.innerHTML = '';
+      const enabled = (cfg.enabled_durations && cfg.enabled_durations.length) ? cfg.enabled_durations : ['2','3','4','until-end'];
+      const labelMap = { '2':'2 hours', '3':'3 hours', '4':'4 hours', 'until-end':'until end of day' };
+      enabled.forEach(v=>{ const o=document.createElement('option'); o.value=v; o.textContent=labelMap[v]||v; durations.appendChild(o); });
       const d = document.getElementById('wDate');
       const today = new Date();
       const minHours = cfg.limits?.min_advance_hours || 0;
@@ -266,27 +269,22 @@ No outside food/drinks allowed (birthday cakes okay).
           <div style="margin-top:8px;display:flex;justify-content:flex-end;">
             <button ${available? '':'disabled'} data-room="${room.id}" style="background:var(--primary);color:#08110a;border:0;padding:8px 10px;border-radius:8px;cursor:pointer;font-weight:700;">Select</button>
           </div>`;
-          div.querySelector('button')?.addEventListener('click', ()=>{ selected.room_id = room.id; showStep('reason'); loadReasons(); });
+          div.querySelector('button')?.addEventListener('click', ()=>{ selected.room_id = room.id; showStep('reason'); loadReasons(cfgCache); });
           roomsEl.appendChild(div);
         });
         if (!results.length) roomsEl.innerHTML = `<div class="muted">${tr('noRooms')}</div>`;
       } catch(e){ roomsEl.innerHTML = `<div class="muted">${tr('failedRooms')}</div>`; }
     }
-    function loadReasons(){
-      const reasons = [
-        {key:'dining', label:'Dining'},
-        {key:'birthday', label:'Birthday'},
-        {key:'party', label:'Party'},
-        {key:'team_event', label:'Team Event'},
-        {key:'fun', label:'Fun'},
-        {key:'special_event', label:'Special Event'}
-      ];
+    function loadReasons(cfg){
+      const keys = (cfg && cfg.reasons && cfg.reasons.length) ? cfg.reasons : ['dining','birthday','party','team'];
+      const defaultLabels = { dining:'Dining', birthday:'Birthday', party:'Party', team:'Team Event' };
+      const reasons = keys.map(k=>({ key:k, label: defaultLabels[k] || k }));
       const el = document.getElementById('wReasons');
       el.innerHTML = '';
       reasons.forEach(r=>{
         const div=document.createElement('div'); div.className='slot';
         div.innerHTML = `<div>${r.label}</div><button data-reason="${r.key}">Select</button>`;
-        div.querySelector('button').onclick = ()=>{ selected.reason = r.key; showStep('details'); };
+          div.querySelector('button').onclick = ()=>{ selected.reason = r.key; showStep('details'); };
         el.appendChild(div);
       });
     }
@@ -294,6 +292,7 @@ No outside food/drinks allowed (birthday cakes okay).
     document.addEventListener('DOMContentLoaded', async () => {
       try {
         const cfg = await loadConfig();
+        cfgCache = cfg;
         setTheme(cfg); lang = (cfg.default_language||'en'); fillBasics(cfg);
         document.getElementById('langEN').onclick = ()=>{ lang='en'; fillBasics(cfg); };
         document.getElementById('langDE').onclick = ()=>{ lang='de'; fillBasics(cfg); };
@@ -339,6 +338,8 @@ No outside food/drinks allowed (birthday cakes okay).
             window.location.reload();
           } catch(e){ alert('Reservation failed'); }
         };
+        // Preload reasons to show on first navigation to reason step
+        loadReasons(cfg);
       } catch(e) {
         console.error('Widget failed to load', e);
       }

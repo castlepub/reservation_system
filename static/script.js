@@ -1820,6 +1820,11 @@ function populateSettingsForm(settings) {
     const widgetBgColor = document.getElementById('widgetBgColor');
     const widgetTextColor = document.getElementById('widgetTextColor');
     const widgetBorderRadius = document.getElementById('widgetBorderRadius');
+    const dur2 = document.getElementById('dur2');
+    const dur3 = document.getElementById('dur3');
+    const dur4 = document.getElementById('dur4');
+    const durEnd = document.getElementById('durEnd');
+    const widgetReasons = document.getElementById('widgetReasons');
 
     if (widgetTitle) widgetTitle.value = settings.widget_title || 'Booking';
     if (widgetSubtitle) widgetSubtitle.value = settings.widget_subtitle || 'Reserve a Space at The Castle Pub';
@@ -1831,7 +1836,16 @@ function populateSettingsForm(settings) {
     if (widgetTextColor) widgetTextColor.value = settings.widget_text_color || '#f9fafb';
     if (widgetBorderRadius) widgetBorderRadius.value = settings.widget_border_radius || '12';
 
+    // Durations and reasons
+    const enabledDurations = (settings.widget_enabled_durations || '2,3,4,until-end').split(',').map(s=>s.trim());
+    if (dur2) dur2.checked = enabledDurations.includes('2');
+    if (dur3) dur3.checked = enabledDurations.includes('3');
+    if (dur4) dur4.checked = enabledDurations.includes('4');
+    if (durEnd) durEnd.checked = enabledDurations.includes('until-end');
+    if (widgetReasons) widgetReasons.value = settings.widget_reasons || 'dining,birthday,party,team';
+
     refreshWidgetEmbed();
+    refreshWidgetPreview();
 }
 
 async function saveAllSettings() {
@@ -1853,6 +1867,14 @@ async function saveAllSettings() {
             { setting_key: 'widget_background_color', setting_value: document.getElementById('widgetBgColor')?.value || '#111827' },
             { setting_key: 'widget_text_color', setting_value: document.getElementById('widgetTextColor')?.value || '#f9fafb' },
             { setting_key: 'widget_border_radius', setting_value: document.getElementById('widgetBorderRadius')?.value || '12' },
+            // New behavior settings
+            { setting_key: 'widget_enabled_durations', setting_value: [
+                document.getElementById('dur2')?.checked ? '2' : null,
+                document.getElementById('dur3')?.checked ? '3' : null,
+                document.getElementById('dur4')?.checked ? '4' : null,
+                document.getElementById('durEnd')?.checked ? 'until-end' : null,
+            ].filter(Boolean).join(',') || '2,3,4' },
+            { setting_key: 'widget_reasons', setting_value: document.getElementById('widgetReasons')?.value || 'dining,birthday,party,team' },
         ];
 
         for (const setting of settingsData) {
@@ -1891,6 +1913,15 @@ function refreshWidgetEmbed() {
     const embed = `<!-- Castle Widget Embed -->\n<div id="castle-widget" style="max-width:900px;margin:auto;">\n  <iframe src="${src}" style="width:100%;height:800px;border:0;" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>\n</div>`;
     const pre = document.getElementById('widgetEmbedSnippet');
     if (pre) pre.textContent = embed;
+}
+
+function refreshWidgetPreview() {
+    const iframe = document.getElementById('widgetPreview');
+    if (iframe) {
+        // Bust cache to reflect latest settings
+        const base = `${window.location.origin}/widget`;
+        iframe.src = `${base}?t=${Date.now()}`;
+    }
 }
 
 function copyWidgetEmbed() {
