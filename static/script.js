@@ -2432,6 +2432,7 @@ async function handleBlockRoom(e) {
     const reason = document.getElementById('blockRoomReason').value || null;
     try {
         // Send local time as provided by input without converting to UTC
+        // If creating quiz-style block, allow setting unlock_at via an optional field later
         await createRoomBlock(roomId, startsAt, endsAt, publicOnly, reason);
         showMessage('Room blocked successfully', 'success');
         hideBlockRoomModal();

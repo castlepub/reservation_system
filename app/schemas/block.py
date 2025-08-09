@@ -10,6 +10,7 @@ class RoomBlockCreate(BaseModel):
     ends_at: datetime
     reason: Optional[str] = None
     public_only: bool = True
+    unlock_at: Optional[datetime] = None
 
 
 class RoomBlockResponse(BaseModel):
@@ -19,6 +20,7 @@ class RoomBlockResponse(BaseModel):
     ends_at: datetime
     reason: Optional[str]
     public_only: bool
+    unlock_at: Optional[datetime]
     created_at: datetime
     updated_at: Optional[datetime]
 
@@ -32,6 +34,7 @@ class TableBlockCreate(BaseModel):
     ends_at: datetime
     reason: Optional[str] = None
     public_only: bool = True
+    unlock_at: Optional[datetime] = None
 
 
 class TableBlockResponse(BaseModel):
@@ -41,6 +44,7 @@ class TableBlockResponse(BaseModel):
     ends_at: datetime
     reason: Optional[str]
     public_only: bool
+    unlock_at: Optional[datetime]
     created_at: datetime
     updated_at: Optional[datetime]
 

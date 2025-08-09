@@ -295,6 +295,7 @@ class ReservationService:
                     RoomBlock.starts_at < end_dt,
                     RoomBlock.ends_at > start_dt,
                     RoomBlock.public_only == True,
+                    or_(RoomBlock.unlock_at == None, RoomBlock.unlock_at > datetime.utcnow()),
                 ).first()
             except Exception:
                 room_block = None

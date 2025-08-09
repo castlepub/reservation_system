@@ -55,6 +55,8 @@ class TableService:
                     RoomBlock.starts_at < end_dt,
                     RoomBlock.ends_at > start_dt,
                     RoomBlock.public_only == (not include_non_public),
+                    # If unlock_at is set and already passed, ignore the block
+                    or_(RoomBlock.unlock_at == None, RoomBlock.unlock_at > datetime.utcnow()),
                 )
                 .first()
             )
@@ -75,6 +77,7 @@ class TableService:
                     TableBlock.starts_at < end_dt,
                     TableBlock.ends_at > start_dt,
                     TableBlock.public_only == (not include_non_public),
+                    or_(TableBlock.unlock_at == None, TableBlock.unlock_at > datetime.utcnow()),
                 )
                 .all()
             }

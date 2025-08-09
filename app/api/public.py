@@ -11,6 +11,7 @@ from app.schemas.room import RoomResponse
 from app.services.reservation_service import ReservationService
 from app.services.table_service import TableService
 from app.services.working_hours_service import WorkingHoursService
+from sqlalchemy import or_
 from app.models.block import RoomBlock
 from app.services.email_service import EmailService
 from app.models.room import Room
@@ -90,6 +91,7 @@ def check_availability(
                     RoomBlock.starts_at < end_dt,
                     RoomBlock.ends_at > start_dt,
                     RoomBlock.public_only == True,
+                    or_(RoomBlock.unlock_at == None, RoomBlock.unlock_at > datetime.utcnow()),
                 ).first()
             except Exception:
                 room_block = None

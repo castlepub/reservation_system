@@ -1046,6 +1046,7 @@ def create_room_block(
         ends_at=ends_at,
         reason=payload.reason,
         public_only=payload.public_only,
+        unlock_at=_parse_dt_local(payload.unlock_at) if getattr(payload, 'unlock_at', None) else None,
     )
     db.add(block)
     db.commit()
@@ -1115,6 +1116,7 @@ def create_table_block(
         ends_at=ends_at,
         reason=payload.reason,
         public_only=payload.public_only,
+        unlock_at=_parse_dt_local(payload.unlock_at) if getattr(payload, 'unlock_at', None) else None,
     )
     db.add(block)
     db.commit()
