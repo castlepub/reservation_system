@@ -327,11 +327,20 @@ class ReservationService:
                     f"Reservations must be made at least {min_hours} hour(s) in advance"
                 )
         
-        # Validate working hours
-        is_valid_time, error_message = self.working_hours_service.validate_reservation_time(
-            reservation_data.date, reservation_data.time
-        )
-        
+        # Validate working hours; if a previous DB error dirtied the transaction, rollback and retry once
+        try:
+            is_valid_time, error_message = self.working_hours_service.validate_reservation_time(
+                reservation_data.date, reservation_data.time
+            )
+        except Exception:
+            try:
+                self.db.rollback()
+            except Exception:
+                pass
+            is_valid_time, error_message = self.working_hours_service.validate_reservation_time(
+                reservation_data.date, reservation_data.time
+            )
+
         if not is_valid_time:
             raise ValueError(error_message)
 

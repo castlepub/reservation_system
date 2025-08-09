@@ -327,44 +327,55 @@ class TableService:
         duration_hours: int = 2,
         include_non_public: bool = False
     ) -> List[TimeSlot]:
-        """Get available time slots for a given date and party size"""
-        from app.core.config import settings
-        
-        time_slots = []
-        
-        # Generate time slots from opening to closing hour
-        for hour in range(settings.OPENING_HOUR, settings.CLOSING_HOUR):
-            for minute in [0, 30]:  # 30-minute intervals
-                time_slot = time(hour, minute)
-                
-                # Check if tables are available for this time slot
-                available_tables = self.get_available_tables(
-                    room_id, date, time_slot, party_size, duration_hours, include_non_public=include_non_public
-                )
-                
-                if available_tables:
-                    # Find best combination
-                    best_combo = self.find_best_table_combination(
-                        room_id, date, time_slot, party_size, duration_hours, include_non_public=include_non_public
-                    )
-                    
-                    if best_combo:
-                        table_assignments = [
-                            TableAssignment(
-                                table_id=str(table.id),
-                                table_name=table.name,
-                                capacity=table.capacity
-                            ) for table in best_combo
-                        ]
-                        
-                        total_capacity = sum(table.capacity for table in best_combo)
-                        
-                        time_slots.append(TimeSlot(
-                            time=time_slot,
-                            available_tables=table_assignments,
-                            total_capacity=total_capacity
-                        ))
-        
+        """Get available time slots for a given date and party size respecting working hours"""
+        from app.services.working_hours_service import WorkingHoursService
+        from datetime import datetime as _dt
+
+        time_slots: List[TimeSlot] = []
+
+        # Build slot list from configured working hours for that date
+        wh_service = WorkingHoursService(self.db)
+        slot_strs = wh_service.get_available_time_slots(date)
+        if not slot_strs:
+            return []
+
+        for slot_str in slot_strs:
+            try:
+                hh, mm = map(int, slot_str.split(":"))
+                time_slot = time(hh, mm)
+            except Exception:
+                continue
+
+            # Check if tables are available for this time slot
+            available_tables = self.get_available_tables(
+                room_id, date, time_slot, party_size, duration_hours, include_non_public=include_non_public
+            )
+
+            if not available_tables:
+                continue
+
+            # Find best combination
+            best_combo = self.find_best_table_combination(
+                room_id, date, time_slot, party_size, duration_hours, include_non_public=include_non_public
+            )
+            if not best_combo:
+                continue
+
+            table_assignments = [
+                TableAssignment(
+                    table_id=str(table.id),
+                    table_name=table.name,
+                    capacity=table.capacity
+                ) for table in best_combo
+            ]
+            total_capacity = sum(table.capacity for table in best_combo)
+
+            time_slots.append(TimeSlot(
+                time=time_slot,
+                available_tables=table_assignments,
+                total_capacity=total_capacity
+            ))
+
         return time_slots
 
     def assign_tables_to_reservation(

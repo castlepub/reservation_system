@@ -2484,10 +2484,20 @@ async function handleBlockRoom(e) {
 
 function showBlockTableModal(tableId, tableName) {
     const modal = document.getElementById('blockTableModal');
-    document.getElementById('blockTableId').value = tableId;
-    document.getElementById('blockTableStartsAt').value = new Date().toISOString().slice(0,16);
+    const idEl = document.getElementById('blockTableId');
+    const startEl = document.getElementById('blockTableStartsAt');
+    const endEl = document.getElementById('blockTableEndsAt');
+    if (!modal || !idEl || !startEl || !endEl) {
+        console.warn('Block table modal elements missing');
+        if (typeof showMessage === 'function') {
+            showMessage('Block modal not found on this page. Please open Admin → Tables to block a table.', 'warning');
+        }
+        return;
+    }
+    idEl.value = tableId;
+    startEl.value = new Date().toISOString().slice(0,16);
     const end = new Date(Date.now() + 2*60*60*1000).toISOString().slice(0,16);
-    document.getElementById('blockTableEndsAt').value = end;
+    endEl.value = end;
     modal.classList.remove('hidden');
 }
 
