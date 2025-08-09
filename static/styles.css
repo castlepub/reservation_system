@@ -1195,15 +1195,15 @@ main {
 
 .tables-row {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 1rem;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 1.25rem;
 }
 
 .table-card {
     background: white;
     border: 2px solid #e2e8f0;
     border-radius: 8px;
-    padding: 1rem;
+    padding: 1.25rem;
     transition: all 0.3s ease;
 }
 

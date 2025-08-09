@@ -2647,8 +2647,19 @@ function renderTablesList(tables, rooms) {
             </tbody>
         </table>`;
 
-    // populate blocks per table
-    tables.forEach(t => renderTableBlocks(`tableBlocks-${t.id}`, t.id));
+    // populate blocks per table and show 'None' when empty
+    tables.forEach(t => {
+        const containerId = `tableBlocks-${t.id}`;
+        renderTableBlocks(containerId, t.id).then(() => {
+            const el = document.getElementById(containerId);
+            if (el && !el.innerHTML.trim()) {
+                el.innerHTML = '<span style="color:#718096;font-size:12px;">None</span>';
+            }
+        }).catch(() => {
+            const el = document.getElementById(containerId);
+            if (el) el.innerHTML = '<span style="color:#718096;font-size:12px;">None</span>';
+        });
+    });
 }
 
 function filterTablesByRoom(roomId) {
