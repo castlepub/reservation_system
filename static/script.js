@@ -2460,9 +2460,12 @@ function hideAddTableForm() {
 function showBlockRoomModal(roomId, roomName) {
     const modal = document.getElementById('blockRoomModal');
     document.getElementById('blockRoomId').value = roomId;
-    document.getElementById('blockRoomStartsAt').value = new Date().toISOString().slice(0,16);
-    const end = new Date(Date.now() + 2*60*60*1000).toISOString().slice(0,16);
-    document.getElementById('blockRoomEndsAt').value = end;
+    const now = new Date();
+    const pad = n => String(n).padStart(2,'0');
+    const toLocalDT = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    document.getElementById('blockRoomStartsAt').value = toLocalDT(now);
+    const endD = new Date(now.getTime() + 2*60*60*1000);
+    document.getElementById('blockRoomEndsAt').value = toLocalDT(endD);
     modal.classList.remove('hidden');
 }
 
@@ -2478,10 +2481,18 @@ async function handleBlockRoom(e) {
     const publicOnly = document.getElementById('blockRoomPublicOnly').checked;
     const reason = document.getElementById('blockRoomReason').value || null;
     try {
-        // Compose unlock_at from DD-MM-YYYY + HH:MM (Berlin local)
-        const unlockDateStr = (document.getElementById('blockRoomUnlockDate')?.value || '').trim();
-        const unlockTimeStr = (document.getElementById('blockRoomUnlockTime')?.value || '').trim();
-        const unlockIso = toBerlinIso(unlockDateStr, unlockTimeStr);
+        // Compose unlock_at from date + 12h time with AM/PM
+        const uDate = (document.getElementById('blockRoomUnlockDate')?.value || '').trim();
+        const uHour = (document.getElementById('blockRoomUnlockHour')?.value || '').trim();
+        const uMin = (document.getElementById('blockRoomUnlockMinute')?.value || '00').trim();
+        const uAmPm = (document.getElementById('blockRoomUnlockAmPm')?.value || '').trim();
+        let unlockIso = null;
+        if (uDate && uHour && uAmPm) {
+            let h = parseInt(uHour, 10);
+            if (uAmPm === 'PM' && h < 12) h += 12;
+            if (uAmPm === 'AM' && h === 12) h = 0;
+            unlockIso = `${uDate}T${String(h).padStart(2,'0')}:${uMin}`;
+        }
         await createRoomBlock(roomId, startsAt, endsAt, publicOnly, reason, unlockIso);
         showMessage('Room blocked successfully', 'success');
         hideBlockRoomModal();
@@ -2508,9 +2519,12 @@ function showBlockTableModal(tableId, tableName) {
         return;
     }
     idEl.value = tableId;
-    startEl.value = new Date().toISOString().slice(0,16);
-    const end = new Date(Date.now() + 2*60*60*1000).toISOString().slice(0,16);
-    endEl.value = end;
+    const now = new Date();
+    const pad = n => String(n).padStart(2,'0');
+    const toLocalDT = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    startEl.value = toLocalDT(now);
+    const endD = new Date(now.getTime() + 2*60*60*1000);
+    endEl.value = toLocalDT(endD);
     modal.classList.remove('hidden');
 }
 
@@ -2526,9 +2540,17 @@ async function handleBlockTable(e) {
     const publicOnly = document.getElementById('blockTablePublicOnly').checked;
     const reason = document.getElementById('blockTableReason').value || null;
     try {
-        const unlockDateStr = (document.getElementById('blockTableUnlockDate')?.value || '').trim();
-        const unlockTimeStr = (document.getElementById('blockTableUnlockTime')?.value || '').trim();
-        const unlockIso = toBerlinIso(unlockDateStr, unlockTimeStr);
+        const uDate = (document.getElementById('blockTableUnlockDate')?.value || '').trim();
+        const uHour = (document.getElementById('blockTableUnlockHour')?.value || '').trim();
+        const uMin = (document.getElementById('blockTableUnlockMinute')?.value || '00').trim();
+        const uAmPm = (document.getElementById('blockTableUnlockAmPm')?.value || '').trim();
+        let unlockIso = null;
+        if (uDate && uHour && uAmPm) {
+            let h = parseInt(uHour, 10);
+            if (uAmPm === 'PM' && h < 12) h += 12;
+            if (uAmPm === 'AM' && h === 12) h = 0;
+            unlockIso = `${uDate}T${String(h).padStart(2,'0')}:${uMin}`;
+        }
         await createTableBlock(tableId, startsAt, endsAt, publicOnly, reason, unlockIso);
         showMessage('Table blocked successfully', 'success');
         hideBlockTableModal();

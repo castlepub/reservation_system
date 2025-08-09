@@ -672,6 +672,125 @@
                     </div>
                 </div>
 
+                <!-- Block Room Modal -->
+                <div id="blockRoomModal" class="modal hidden">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h4>Block Room</h4>
+                            <button class="close-btn" onclick="hideBlockRoomModal()">&times;</button>
+                        </div>
+                        <form id="blockRoomForm" onsubmit="handleBlockRoom(event)">
+                            <input type="hidden" id="blockRoomId">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Start *</label>
+                                    <input type="datetime-local" id="blockRoomStartsAt" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>End *</label>
+                                    <input type="datetime-local" id="blockRoomEndsAt" required>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" id="blockRoomPublicOnly" checked>
+                                    Public-only (hide from widget only)
+                                </label>
+                            </div>
+                            <div class="form-group">
+                                <label>Reason</label>
+                                <input type="text" id="blockRoomReason" placeholder="Optional">
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Unlock Date</label>
+                                    <input type="date" id="blockRoomUnlockDate">
+                                </div>
+                                <div class="form-group">
+                                    <label>Unlock Time</label>
+                                    <div style="display:flex;gap:6px;align-items:center;">
+                                        <select id="blockRoomUnlockHour">
+                                            <option value="">--</option>
+                                            <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option>
+                                            <option>7</option><option>8</option><option>9</option><option>10</option><option>11</option><option>12</option>
+                                        </select>
+                                        :
+                                        <select id="blockRoomUnlockMinute">
+                                            <option>00</option><option>15</option><option>30</option><option>45</option>
+                                        </select>
+                                        <select id="blockRoomUnlockAmPm">
+                                            <option>AM</option><option>PM</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-actions">
+                                <button type="button" class="btn btn-secondary" onclick="hideBlockRoomModal()">Cancel</button>
+                                <button type="submit" class="btn btn-primary">Block</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Block Table Modal -->
+                <div id="blockTableModal" class="modal hidden">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h4>Block Table</h4>
+                            <button class="close-btn" onclick="hideBlockTableModal()">&times;</button>
+                        </div>
+                        <form id="blockTableForm" onsubmit="handleBlockTable(event)">
+                            <input type="hidden" id="blockTableId">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Start *</label>
+                                    <input type="datetime-local" id="blockTableStartsAt" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>End *</label>
+                                    <input type="datetime-local" id="blockTableEndsAt" required>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" id="blockTablePublicOnly" checked>
+                                    Public-only (hide from widget only)
+                                </label>
+                            </div>
+                            <div class="form-group">
+                                <label>Reason</label>
+                                <input type="text" id="blockTableReason" placeholder="Optional">
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Unlock Date</label>
+                                    <input type="date" id="blockTableUnlockDate">
+                                </div>
+                                <div class="form-group">
+                                    <label>Unlock Time</label>
+                                    <div style="display:flex;gap:6px;align-items:center;">
+                                        <select id="blockTableUnlockHour">
+                                            <option value="">--</option>
+                                            <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option>
+                                            <option>7</option><option>8</option><option>9</option><option>10</option><option>11</option><option>12</option>
+                                        </select>
+                                        :
+                                        <select id="blockTableUnlockMinute">
+                                            <option>00</option><option>15</option><option>30</option><option>45</option>
+                                        </select>
+                                        <select id="blockTableUnlockAmPm">
+                                            <option>AM</option><option>PM</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-actions">
+                                <button type="button" class="btn btn-secondary" onclick="hideBlockTableModal()">Cancel</button>
+                                <button type="submit" class="btn btn-primary">Block</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
                 <!-- Settings Tab -->
                 <div id="settingsTab" class="tab-content">
                     <div class="tab-header">
