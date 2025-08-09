@@ -1107,14 +1107,26 @@ async function handleReservationSubmit(e) {
     e.preventDefault();
     
     const formData = new FormData(e.target);
+    // Validate and coerce fields to expected types to avoid 422s
+    const partySizeRaw = formData.get('partySize');
+    const party_size = parseInt(partySizeRaw);
+    const date = formData.get('date');
+    const time = formData.get('time');
+    const durationRaw = formData.get('duration');
+    const duration_hours = [2,3,4].includes(parseInt(durationRaw)) ? parseInt(durationRaw) : 2;
+
+    if (!date) { showMessage('Please select a date', 'error'); return; }
+    if (!time || !/^\d{2}:\d{2}$/.test(time)) { showMessage('Please select a valid time', 'error'); return; }
+    if (!Number.isInteger(party_size) || party_size < 1) { showMessage('Please select a valid party size', 'error'); return; }
+
     const reservationData = {
         customer_name: formData.get('customerName'),
         email: formData.get('email'),
         phone: formData.get('phone'),
-        party_size: parseInt(formData.get('partySize')),
-        date: formData.get('date'),
-        time: formData.get('time'),
-        duration_hours: parseInt(formData.get('duration')),
+        party_size,
+        date,
+        time,
+        duration_hours,
         room_id: formData.get('room') || null,
         reservation_type: formData.get('reservationType') || 'dining',
         notes: formData.get('notes') || null
@@ -1319,6 +1331,8 @@ function populateTimeSlots(selectId = 'time') {
         }
     }
     
+    // Ensure dropdown is enabled after populating
+    timeSelect.disabled = false;
     console.log('Added time slots, total options:', timeSelect.options.length);
     console.log('=== populateTimeSlots END ===');
 }
@@ -1348,6 +1362,7 @@ async function updateTimeSlotsForDate(dateInput, timeSelectId) {
                     option.textContent = timeSlot;
                     timeSelect.appendChild(option);
                 });
+                timeSelect.disabled = false;
             } else {
                 // Restaurant is closed
                 const option = document.createElement('option');
@@ -1355,6 +1370,7 @@ async function updateTimeSlotsForDate(dateInput, timeSelectId) {
                 option.textContent = data.summary.message || 'Restaurant is closed';
                 option.disabled = true;
                 timeSelect.appendChild(option);
+                timeSelect.disabled = true;
             }
         } else {
             // Fallback to default time slots
