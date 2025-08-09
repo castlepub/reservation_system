@@ -422,19 +422,37 @@ class TableService:
         end_datetime = start_datetime + timedelta(hours=duration_hours)
         
         # Get all reservations that overlap with this time slot
-        overlapping_reservations = self.db.query(Reservation).filter(
-            and_(
-                Reservation.date == date,
-                Reservation.status.in_(['confirmed']),  # Only confirmed reservations
-                Reservation.id != exclude_reservation_id if exclude_reservation_id else True
-            )
-        ).all()
+        try:
+            overlapping_reservations = self.db.query(Reservation).filter(
+                and_(
+                    Reservation.date == date,
+                    Reservation.status.in_(['confirmed']),  # Only confirmed reservations
+                    Reservation.id != exclude_reservation_id if exclude_reservation_id else True
+                )
+            ).all()
+        except Exception:
+            # If a previous DB error left the transaction in failed state, rollback and retry once
+            try:
+                self.db.rollback()
+            except Exception:
+                pass
+            overlapping_reservations = self.db.query(Reservation).filter(
+                and_(
+                    Reservation.date == date,
+                    Reservation.status.in_(['confirmed']),
+                    Reservation.id != exclude_reservation_id if exclude_reservation_id else True
+                )
+            ).all()
         
         # Check for time overlap
         reserved_table_ids = []
         for reservation in overlapping_reservations:
             reservation_start = datetime.combine(reservation.date, reservation.time)
-            reservation_end = reservation_start + timedelta(hours=reservation.duration_hours)
+            try:
+                dur = int(getattr(reservation, 'duration_hours_safe', None) or getattr(reservation, 'duration_hours', 2) or 2)
+            except Exception:
+                dur = 2
+            reservation_end = reservation_start + timedelta(hours=dur)
             
             # Check if there's any overlap
             if (start_datetime < reservation_end and end_datetime > reservation_start):

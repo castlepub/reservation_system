@@ -110,6 +110,26 @@ def force_database_migration(
             except Exception as e:
                 db.rollback()
                 print(f"Warning: Could not add admin_notes column: {e}")
+
+        # Check and add duration_hours column
+        try:
+            duration_exists = db.execute(text(
+                """
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name='reservations' AND column_name='duration_hours'
+                """
+            )).fetchone()
+            if not duration_exists:
+                try:
+                    db.execute(text("ALTER TABLE reservations ADD COLUMN duration_hours INTEGER DEFAULT 2 NOT NULL"))
+                    db.commit()
+                    print("✓ Added duration_hours column to reservations")
+                except Exception as e:
+                    db.rollback()
+                    print(f"Warning: Could not add duration_hours: {e}")
+        except Exception as e:
+            print(f"Warning: duration_hours existence check failed: {e}")
         
         # Update existing reservations to have default reservation_type
         try:
