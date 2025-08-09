@@ -2635,7 +2635,12 @@ async function renderTablesList(tables, rooms) {
                 <td>${roomName}</td>
                 <td>${t.capacity}</td>
                 <td>${combinable}</td>
-                <td>${status}</td>
+                <td>
+                    <label class="toggle-switch" title="Active">
+                        <input type="checkbox" ${t.active ? 'checked' : ''} onchange="toggleTableActive('${t.id}', this.checked)">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </td>
                 <td>
                     <div id="tableBlocks-${t.id}"></div>
                 </td>
@@ -2702,6 +2707,28 @@ async function renderTablesList(tables, rooms) {
             const el = document.getElementById(`tableBlocks-${t.id}`);
             if (el) el.innerHTML = '<span style="color:#718096;font-size:12px;">None</span>';
         });
+    }
+}
+
+async function toggleTableActive(tableId, isActive) {
+    try {
+        const res = await fetch(`${API_BASE_URL}/admin/tables/${tableId}`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ active: isActive })
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(()=>({detail:'Failed to update'}));
+            throw new Error(err.detail || 'Failed to update');
+        }
+        showMessage(`Table ${isActive ? 'activated' : 'deactivated'}`, 'success');
+    } catch (e) {
+        showMessage(e.message || 'Failed to update table', 'error');
+        // reload to reflect actual state
+        loadTablesData();
     }
 }
 
