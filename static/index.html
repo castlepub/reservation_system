@@ -564,10 +564,14 @@
                 <div id="tablesTab" class="tab-content">
                     <div class="tab-header">
                         <h3>Table Management</h3>
-                        <div class="table-controls">
+                        <div class="table-controls" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
                             <select id="roomFilter" class="form-control">
                                 <option value="">All Rooms</option>
                             </select>
+                            <div class="btn-group" role="group" aria-label="View mode">
+                                <button id="tablesViewGridBtn" class="btn btn-secondary" onclick="setTablesViewMode('grid')"><i class="fas fa-th-large"></i> Grid</button>
+                                <button id="tablesViewListBtn" class="btn btn-secondary" onclick="setTablesViewMode('list')"><i class="fas fa-list"></i> List</button>
+                            </div>
                             <button class="btn btn-primary" onclick="showAddTableForm()">
                                 <i class="fas fa-plus"></i> Add Table
                             </button>
@@ -576,6 +580,11 @@
                     
                     <div id="tablesGrid" class="tables-grid">
                         <!-- Tables will be loaded here -->
+                        <div class="loading-text">Loading tables...</div>
+                    </div>
+
+                    <div id="tablesList" class="tables-list" style="display:none;margin-top:10px;">
+                        <!-- Tables list will be rendered here -->
                         <div class="loading-text">Loading tables...</div>
                     </div>
 

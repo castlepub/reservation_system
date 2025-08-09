@@ -2186,8 +2186,13 @@ async function loadTablesData() {
         // Populate room dropdown for add table form
         populateAddTableRoomDropdown(rooms);
         
-        // Display tables
-        displayTables(tables, rooms);
+        // Display tables based on current view mode
+        const viewMode = window.tablesViewMode || 'grid';
+        if (viewMode === 'list') {
+            renderTablesList(tables, rooms);
+        } else {
+            displayTables(tables, rooms);
+        }
     } catch (error) {
         console.error('Error loading tables data:', error);
         showMessage('Error loading tables data', 'error');
@@ -2542,6 +2547,79 @@ function populateAddTableRoomDropdown(rooms) {
             tableRoom.appendChild(option);
         });
     }
+}
+
+// View mode toggle for tables
+function setTablesViewMode(mode) {
+    window.tablesViewMode = mode;
+    const grid = document.getElementById('tablesGrid');
+    const list = document.getElementById('tablesList');
+    const gridBtn = document.getElementById('tablesViewGridBtn');
+    const listBtn = document.getElementById('tablesViewListBtn');
+    if (mode === 'list') {
+        if (grid) grid.style.display = 'none';
+        if (list) list.style.display = 'block';
+        if (gridBtn) gridBtn.classList.remove('active');
+        if (listBtn) listBtn.classList.add('active');
+    } else {
+        if (grid) grid.style.display = 'grid';
+        if (list) list.style.display = 'none';
+        if (gridBtn) gridBtn.classList.add('active');
+        if (listBtn) listBtn.classList.remove('active');
+    }
+    // Reload the data to render in the chosen mode
+    loadTablesData();
+}
+
+function renderTablesList(tables, rooms) {
+    const list = document.getElementById('tablesList');
+    if (!list) return;
+    if (!tables || tables.length === 0) {
+        list.innerHTML = '<div class="empty-text">No tables found</div>';
+        return;
+    }
+    const roomMap = new Map(rooms.map(r => [r.id, r.name]));
+    const rows = tables.map(t => {
+        const roomName = roomMap.get(t.room_id) || 'Unknown';
+        const combinable = t.combinable ? 'Yes' : 'No';
+        const status = t.active ? 'Active' : 'Inactive';
+        return `
+            <tr>
+                <td>${t.name}</td>
+                <td>${roomName}</td>
+                <td>${t.capacity}</td>
+                <td>${combinable}</td>
+                <td>${status}</td>
+                <td>
+                    <div id="tableBlocks-${t.id}"></div>
+                </td>
+                <td style="white-space:nowrap;display:flex;gap:6px;">
+                    <button class="btn btn-xs btn-secondary" onclick="editTable('${t.id}')">Edit</button>
+                    <button class="btn btn-xs btn-warning" onclick="showBlockTableModal('${t.id}', '${t.name}')">Block</button>
+                    <button class="btn btn-xs btn-danger" onclick="deleteTable('${t.id}', '${t.name || ''}')">Delete</button>
+                </td>
+            </tr>`;
+    }).join('');
+    list.innerHTML = `
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Room</th>
+                    <th>Capacity</th>
+                    <th>Combinable</th>
+                    <th>Status</th>
+                    <th>Active Blocks</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${rows}
+            </tbody>
+        </table>`;
+
+    // populate blocks per table
+    tables.forEach(t => renderTableBlocks(`tableBlocks-${t.id}`, t.id));
 }
 
 function filterTablesByRoom(roomId) {

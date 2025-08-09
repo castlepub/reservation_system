@@ -1163,6 +1163,25 @@ main {
     margin-top: 1.5rem;
 }
 
+/* Tables list view */
+.tables-list table {
+    width: 100%;
+    border-collapse: collapse;
+}
+.tables-list th, .tables-list td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #e5e7eb;
+    text-align: left;
+}
+.tables-list th {
+    background: #f9fafb;
+    font-weight: 600;
+}
+.btn-xs {
+    padding: 2px 6px;
+    font-size: 12px;
+}
+
 .room-section {
     margin-bottom: 2rem;
 }
