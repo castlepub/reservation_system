@@ -584,8 +584,10 @@
                     </div>
 
                     <div id="tablesList" class="tables-list" style="display:none;margin-top:10px;">
-                        <!-- Tables list will be rendered here -->
                         <div class="loading-text">Loading tables...</div>
+                        <div style="margin:10px 0;">
+                            <button class="btn btn-secondary btn-sm" onclick="showCreateRoomRuleModal()"><i class="fas fa-redo"></i> Add Recurring Room Block</button>
+                        </div>
                     </div>
 
                     <!-- Add Table Form Modal -->
@@ -1242,6 +1244,70 @@
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-lock"></i> Block Table
                     </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Recurring Room Block Modal -->
+    <div id="roomRuleModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4>Create Recurring Room Block</h4>
+                <button class="close-btn" onclick="hideCreateRoomRuleModal()">&times;</button>
+            </div>
+            <form id="roomRuleForm" onsubmit="handleCreateRoomRule(event)">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="roomRuleRoom">Room</label>
+                        <select id="roomRuleRoom" required></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="roomRuleDay">Day of week</label>
+                        <select id="roomRuleDay" required>
+                            <option value="monday">Monday</option>
+                            <option value="tuesday">Tuesday</option>
+                            <option value="wednesday">Wednesday</option>
+                            <option value="thursday">Thursday</option>
+                            <option value="friday">Friday</option>
+                            <option value="saturday">Saturday</option>
+                            <option value="sunday">Sunday</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="roomRuleStart">Start time</label>
+                        <input id="roomRuleStart" type="time" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="roomRuleEnd">End time</label>
+                        <input id="roomRuleEnd" type="time" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="roomRulePublicOnly" checked>
+                        Public only (staff can still assign)
+                    </label>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="roomRuleValidFrom">Valid from (optional)</label>
+                        <input id="roomRuleValidFrom" type="date">
+                    </div>
+                    <div class="form-group">
+                        <label for="roomRuleValidUntil">Valid until (optional)</label>
+                        <input id="roomRuleValidUntil" type="date">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="roomRuleReason">Reason (optional)</label>
+                    <input id="roomRuleReason" type="text" placeholder="Quiz night">
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="hideCreateRoomRuleModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save Rule</button>
                 </div>
             </form>
         </div>

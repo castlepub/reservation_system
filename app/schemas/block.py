@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, time
+from app.models.settings import DayOfWeek
 
 
 class RoomBlockCreate(BaseModel):
@@ -43,6 +44,58 @@ class TableBlockResponse(BaseModel):
     created_at: datetime
     updated_at: Optional[datetime]
 
+    class Config:
+        from_attributes = True
+
+
+class RoomBlockRuleCreate(BaseModel):
+    room_id: str
+    day_of_week: DayOfWeek
+    start_time: time
+    end_time: time
+    public_only: bool = True
+    reason: Optional[str] = None
+    valid_from: Optional[datetime] = None
+    valid_until: Optional[datetime] = None
+
+
+class RoomBlockRuleResponse(BaseModel):
+    id: str
+    room_id: str
+    day_of_week: DayOfWeek
+    start_time: time
+    end_time: time
+    public_only: bool
+    reason: Optional[str]
+    valid_from: Optional[datetime]
+    valid_until: Optional[datetime]
+    
+    class Config:
+        from_attributes = True
+
+
+class TableBlockRuleCreate(BaseModel):
+    table_id: str
+    day_of_week: DayOfWeek
+    start_time: time
+    end_time: time
+    public_only: bool = True
+    reason: Optional[str] = None
+    valid_from: Optional[datetime] = None
+    valid_until: Optional[datetime] = None
+
+
+class TableBlockRuleResponse(BaseModel):
+    id: str
+    table_id: str
+    day_of_week: DayOfWeek
+    start_time: time
+    end_time: time
+    public_only: bool
+    reason: Optional[str]
+    valid_from: Optional[datetime]
+    valid_until: Optional[datetime]
+    
     class Config:
         from_attributes = True
 

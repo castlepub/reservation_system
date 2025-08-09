@@ -2558,7 +2558,18 @@ function populateRoomFilter(rooms) {
         
         // Add change event listener
         roomFilter.addEventListener('change', function() {
-            filterTablesByRoom(this.value);
+            const mode = window.tablesViewMode || 'list';
+            if (mode === 'list') {
+                // Re-render list filtered by room
+                const selected = this.value;
+                const rooms = window.loadedRooms || [];
+                loadTables().then(tables => {
+                    const filtered = selected ? tables.filter(t => t.room_id === selected) : tables;
+                    renderTablesList(filtered, rooms);
+                });
+            } else {
+                filterTablesByRoom(this.value);
+            }
         });
     }
 }
@@ -2660,6 +2671,63 @@ function renderTablesList(tables, rooms) {
             if (el) el.innerHTML = '<span style="color:#718096;font-size:12px;">None</span>';
         });
     });
+}
+
+// Recurring room block modal helpers
+function showCreateRoomRuleModal() {
+    const modal = document.getElementById('roomRuleModal');
+    const select = document.getElementById('roomRuleRoom');
+    if (select) {
+        select.innerHTML = '';
+        (window.loadedRooms || []).forEach(r => {
+            const opt = document.createElement('option');
+            opt.value = r.id; opt.textContent = r.name;
+            select.appendChild(opt);
+        });
+    }
+    modal.classList.remove('hidden');
+}
+
+function hideCreateRoomRuleModal() {
+    document.getElementById('roomRuleModal').classList.add('hidden');
+}
+
+async function handleCreateRoomRule(e) {
+    e.preventDefault();
+    if (!authToken) { showMessage('Please login', 'error'); return; }
+    const roomId = document.getElementById('roomRuleRoom').value;
+    const day = document.getElementById('roomRuleDay').value;
+    const start = document.getElementById('roomRuleStart').value;
+    const end = document.getElementById('roomRuleEnd').value;
+    const publicOnly = document.getElementById('roomRulePublicOnly').checked;
+    const validFrom = document.getElementById('roomRuleValidFrom').value || null;
+    const validUntil = document.getElementById('roomRuleValidUntil').value || null;
+    const reason = document.getElementById('roomRuleReason').value || null;
+    try {
+        const payload = {
+            room_id: roomId,
+            day_of_week: day,
+            start_time: start,
+            end_time: end,
+            public_only: publicOnly,
+            reason,
+            valid_from: validFrom ? `${validFrom}T00:00` : null,
+            valid_until: validUntil ? `${validUntil}T23:59` : null,
+        };
+        const res = await fetch(`${API_BASE_URL}/admin/rooms/${roomId}/block-rules`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(()=>({detail:'Failed to create rule'}));
+            throw new Error(err.detail || 'Failed to create rule');
+        }
+        showMessage('Recurring room block rule created', 'success');
+        hideCreateRoomRuleModal();
+    } catch (err) {
+        showMessage(err.message || 'Failed to create rule', 'error');
+    }
 }
 
 function filterTablesByRoom(roomId) {

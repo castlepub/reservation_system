@@ -36,9 +36,12 @@ import random
 import traceback
 from app.models.table_layout import TableLayout, RoomLayout, TableShape
 from app.models.block import RoomBlock, TableBlock
+from app.models.block_rule import RoomBlockRule, TableBlockRule
 from app.schemas.block import (
     RoomBlockCreate, RoomBlockResponse,
     TableBlockCreate, TableBlockResponse,
+    RoomBlockRuleCreate, RoomBlockRuleResponse,
+    TableBlockRuleCreate, TableBlockRuleResponse,
 )
 from app.services.email_service_zoho import ZohoEmailService
 
@@ -52,9 +55,11 @@ def _ensure_block_tables():
         from app.core.database import engine, Base
         # Import models to register with metadata
         from app.models.block import RoomBlock as _RB, TableBlock as _TB  # noqa: F401
+        from app.models.block_rule import RoomBlockRule as _RBR, TableBlockRule as _TBR  # noqa: F401
         inspector = inspect(engine)
         existing_tables = set(inspector.get_table_names())
-        if 'room_blocks' not in existing_tables or 'table_blocks' not in existing_tables:
+        if 'room_blocks' not in existing_tables or 'table_blocks' not in existing_tables or \
+           'room_block_rules' not in existing_tables or 'table_block_rules' not in existing_tables:
             Base.metadata.create_all(bind=engine)
     except Exception as e:
         # Soft-fail; endpoint will raise a clearer DB error if creation truly fails
@@ -1132,3 +1137,112 @@ def delete_table_block(
     db.delete(block)
     db.commit()
     return {"message": "Table block deleted"}
+
+
+# Recurring Block Rules
+@router.post("/rooms/{room_id}/block-rules", response_model=RoomBlockRuleResponse)
+def create_room_block_rule(
+    room_id: str,
+    payload: RoomBlockRuleCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_staff_user)
+):
+    _ensure_block_tables()
+    if payload.room_id and payload.room_id != room_id:
+        raise HTTPException(status_code=400, detail="room_id mismatch")
+    rule = RoomBlockRule(
+        room_id=room_id,
+        day_of_week=payload.day_of_week,
+        start_time=payload.start_time,
+        end_time=payload.end_time,
+        public_only=payload.public_only,
+        reason=payload.reason,
+        valid_from=payload.valid_from,
+        valid_until=payload.valid_until,
+    )
+    db.add(rule)
+    db.commit()
+    db.refresh(rule)
+    return rule
+
+
+@router.get("/rooms/{room_id}/block-rules", response_model=List[RoomBlockRuleResponse])
+def list_room_block_rules(
+    room_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_staff_user)
+):
+    _ensure_block_tables()
+    try:
+        return db.query(RoomBlockRule).filter(RoomBlockRule.room_id == room_id).all()
+    except Exception:
+        return []
+
+
+@router.delete("/room-block-rules/{rule_id}")
+def delete_room_block_rule(
+    rule_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_staff_user)
+):
+    _ensure_block_tables()
+    rule = db.query(RoomBlockRule).filter(RoomBlockRule.id == rule_id).first()
+    if not rule:
+        raise HTTPException(status_code=404, detail="Rule not found")
+    db.delete(rule)
+    db.commit()
+    return {"message": "Room block rule deleted"}
+
+
+@router.post("/tables/{table_id}/block-rules", response_model=TableBlockRuleResponse)
+def create_table_block_rule(
+    table_id: str,
+    payload: TableBlockRuleCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_staff_user)
+):
+    _ensure_block_tables()
+    if payload.table_id and payload.table_id != table_id:
+        raise HTTPException(status_code=400, detail="table_id mismatch")
+    rule = TableBlockRule(
+        table_id=table_id,
+        day_of_week=payload.day_of_week,
+        start_time=payload.start_time,
+        end_time=payload.end_time,
+        public_only=payload.public_only,
+        reason=payload.reason,
+        valid_from=payload.valid_from,
+        valid_until=payload.valid_until,
+    )
+    db.add(rule)
+    db.commit()
+    db.refresh(rule)
+    return rule
+
+
+@router.get("/tables/{table_id}/block-rules", response_model=List[TableBlockRuleResponse])
+def list_table_block_rules(
+    table_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_staff_user)
+):
+    _ensure_block_tables()
+    try:
+        return db.query(TableBlockRule).filter(TableBlockRule.table_id == table_id).all()
+    except Exception:
+        return []
+
+
+@router.delete("/table-block-rules/{rule_id}")
+def delete_table_block_rule(
+    rule_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_staff_user)
+):
+    _ensure_block_tables()
+    rule = db.query(TableBlockRule).filter(TableBlockRule.id == rule_id).first()
+    if not rule:
+        raise HTTPException(status_code=404, detail="Rule not found")
+    db.delete(rule)
+    db.commit()
+    return {"message": "Table block rule deleted"}
