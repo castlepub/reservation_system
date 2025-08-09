@@ -75,6 +75,32 @@ def _ensure_block_tables():
         print(f"WARN: ensuring block tables failed: {e}")
 
 
+@router.post("/fix-blocks-schema")
+def fix_blocks_schema(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user)
+):
+    """One-time helper to add missing unlock_at columns on Railway if needed."""
+    try:
+        from sqlalchemy import inspect, text as _sql_text
+        insp = inspect(engine)
+        results = {}
+        with engine.connect() as conn:
+            for tbl in ('room_blocks', 'table_blocks'):
+                try:
+                    cols = {c['name'] for c in insp.get_columns(tbl)}
+                    if 'unlock_at' not in cols:
+                        conn.execute(_sql_text(f"ALTER TABLE {tbl} ADD COLUMN unlock_at TIMESTAMP NULL"))
+                        results[tbl] = 'added'
+                    else:
+                        results[tbl] = 'exists'
+                except Exception as e:
+                    results[tbl] = f'error: {e}'
+        return {"status": "ok", "results": results}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fix schema: {str(e)}")
+
+
 @router.post("/migrate-database")
 @router.get("/migrate-database") 
 def force_database_migration(
