@@ -15,6 +15,7 @@ class RoomBlock(Base):
     ends_at = Column(DateTime, nullable=False)
     reason = Column(Text, nullable=True)
     public_only = Column(Boolean, default=True, nullable=False)
+    unlock_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, onupdate=func.now())
 
@@ -30,6 +31,7 @@ class TableBlock(Base):
     ends_at = Column(DateTime, nullable=False)
     reason = Column(Text, nullable=True)
     public_only = Column(Boolean, default=True, nullable=False)
+    unlock_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, onupdate=func.now())
 

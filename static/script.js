@@ -1369,17 +1369,14 @@ async function updateTimeSlotsForDate(dateInput, timeSelectId) {
 
 function setMinDate() {
     const dateInputs = ['date', 'adminDate'];
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const minDate = tomorrow.toISOString().split('T')[0];
+    const today = new Date();
+    const minDate = today.toISOString().split('T')[0];
     
     dateInputs.forEach(inputId => {
         const input = document.getElementById(inputId);
         if (input) {
             input.min = minDate;
-            if (!input.value) {
-                input.value = minDate;
-            }
+            // Do not auto-fill value; let the user pick today if desired
         }
     });
 }
