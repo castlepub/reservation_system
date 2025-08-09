@@ -1030,8 +1030,17 @@ def list_room_blocks(
     current_user: User = Depends(get_current_staff_user)
 ):
     _ensure_block_tables()
-    blocks = db.query(RoomBlock).filter(RoomBlock.room_id == room_id).order_by(RoomBlock.starts_at.desc()).all()
-    return blocks
+    try:
+        blocks = (
+            db.query(RoomBlock)
+            .filter(RoomBlock.room_id == room_id)
+            .order_by(RoomBlock.starts_at.desc())
+            .all()
+        )
+        return blocks
+    except Exception as e:
+        print(f"WARN: list_room_blocks failed: {e}")
+        return []
 
 
 @router.delete("/room-blocks/{block_id}")
@@ -1079,8 +1088,17 @@ def list_table_blocks(
     current_user: User = Depends(get_current_staff_user)
 ):
     _ensure_block_tables()
-    blocks = db.query(TableBlock).filter(TableBlock.table_id == table_id).order_by(TableBlock.starts_at.desc()).all()
-    return blocks
+    try:
+        blocks = (
+            db.query(TableBlock)
+            .filter(TableBlock.table_id == table_id)
+            .order_by(TableBlock.starts_at.desc())
+            .all()
+        )
+        return blocks
+    except Exception as e:
+        print(f"WARN: list_table_blocks failed: {e}")
+        return []
 
 
 @router.delete("/table-blocks/{block_id}")
