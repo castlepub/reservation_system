@@ -92,7 +92,7 @@ function populatePartySizeDropdown(selectElement, maxSize = 20) {
 // Public settings fetcher: updates party size options without requiring admin auth
 async function loadPublicRestaurantSettingsAndApply() {
     try {
-        const resp = await fetch(`${API_BASE_URL}/api/settings/restaurant`);
+        const resp = await fetch(`${API_BASE_URL}/api/public-settings`);
         if (!resp.ok) return;
         const settings = await resp.json();
         const map = {};

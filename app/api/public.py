@@ -19,7 +19,7 @@ from app.models.room import Room
 from app.models.settings import RestaurantSettings
 
 router = APIRouter(tags=["public"])
-@router.get("/settings/restaurant")
+@router.get("/public-settings")
 def get_public_restaurant_settings(db: Session = Depends(get_db)):
     """Public endpoint to read non-sensitive restaurant settings (e.g., max_party_size)."""
     try:
