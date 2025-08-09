@@ -213,6 +213,10 @@ function setupEventListeners() {
     if (saveWorkingHoursBtn) {
         saveWorkingHoursBtn.addEventListener('click', saveWorkingHours);
     }
+    const saveWidgetBtn = document.getElementById('saveWidgetSettings');
+    if (saveWidgetBtn) {
+        saveWidgetBtn.addEventListener('click', saveAllSettings);
+    }
     
     const addSpecialDayBtn = document.getElementById('addSpecialDay');
     if (addSpecialDayBtn) {
@@ -1099,6 +1103,8 @@ function showSettingsTab(tabName) {
         loadWorkingHours();
     } else if (tabName === 'layout') {
         initializeLayoutEditor();
+    } else if (tabName === 'widget') {
+        refreshWidgetEmbed();
     }
 }
 
@@ -1803,6 +1809,29 @@ function populateSettingsForm(settings) {
     if (minAdvanceHours) minAdvanceHours.value = settings.min_advance_hours || '0';
     if (maxReservationDays) maxReservationDays.value = settings.max_reservation_days || '90';
     if (timeSlotDuration) timeSlotDuration.value = settings.time_slot_duration || '30';
+
+    // Widget settings fields
+    const widgetTitle = document.getElementById('widgetTitle');
+    const widgetSubtitle = document.getElementById('widgetSubtitle');
+    const widgetIntro = document.getElementById('widgetIntro');
+    const widgetDefaultLanguage = document.getElementById('widgetDefaultLanguage');
+    const widgetPrimaryColor = document.getElementById('widgetPrimaryColor');
+    const widgetAccentColor = document.getElementById('widgetAccentColor');
+    const widgetBgColor = document.getElementById('widgetBgColor');
+    const widgetTextColor = document.getElementById('widgetTextColor');
+    const widgetBorderRadius = document.getElementById('widgetBorderRadius');
+
+    if (widgetTitle) widgetTitle.value = settings.widget_title || 'Booking';
+    if (widgetSubtitle) widgetSubtitle.value = settings.widget_subtitle || 'Reserve a Space at The Castle Pub';
+    if (widgetIntro) widgetIntro.value = settings.widget_intro_text || 'Reservations are free. Please order all food & drinks at the bar.\nNo outside food/drinks allowed (birthday cakes okay).';
+    if (widgetDefaultLanguage) widgetDefaultLanguage.value = settings.widget_default_language || 'en';
+    if (widgetPrimaryColor) widgetPrimaryColor.value = settings.widget_primary_color || '#22c55e';
+    if (widgetAccentColor) widgetAccentColor.value = settings.widget_accent_color || '#16a34a';
+    if (widgetBgColor) widgetBgColor.value = settings.widget_background_color || '#111827';
+    if (widgetTextColor) widgetTextColor.value = settings.widget_text_color || '#f9fafb';
+    if (widgetBorderRadius) widgetBorderRadius.value = settings.widget_border_radius || '12';
+
+    refreshWidgetEmbed();
 }
 
 async function saveAllSettings() {
@@ -1813,7 +1842,17 @@ async function saveAllSettings() {
             { setting_key: 'restaurant_address', setting_value: document.getElementById('restaurantAddress').value },
             { setting_key: 'max_party_size', setting_value: document.getElementById('maxPartySize').value },
             { setting_key: 'min_advance_hours', setting_value: document.getElementById('minAdvanceHours').value },
-            { setting_key: 'max_advance_days', setting_value: document.getElementById('maxAdvanceDays').value }
+            { setting_key: 'max_reservation_days', setting_value: document.getElementById('maxAdvanceDays').value },
+            // Widget settings
+            { setting_key: 'widget_title', setting_value: document.getElementById('widgetTitle')?.value || 'Booking' },
+            { setting_key: 'widget_subtitle', setting_value: document.getElementById('widgetSubtitle')?.value || 'Reserve a Space at The Castle Pub' },
+            { setting_key: 'widget_intro_text', setting_value: document.getElementById('widgetIntro')?.value || '' },
+            { setting_key: 'widget_default_language', setting_value: document.getElementById('widgetDefaultLanguage')?.value || 'en' },
+            { setting_key: 'widget_primary_color', setting_value: document.getElementById('widgetPrimaryColor')?.value || '#22c55e' },
+            { setting_key: 'widget_accent_color', setting_value: document.getElementById('widgetAccentColor')?.value || '#16a34a' },
+            { setting_key: 'widget_background_color', setting_value: document.getElementById('widgetBgColor')?.value || '#111827' },
+            { setting_key: 'widget_text_color', setting_value: document.getElementById('widgetTextColor')?.value || '#f9fafb' },
+            { setting_key: 'widget_border_radius', setting_value: document.getElementById('widgetBorderRadius')?.value || '12' },
         ];
 
         for (const setting of settingsData) {
@@ -1843,6 +1882,26 @@ async function saveAllSettings() {
         console.error('Error saving settings:', error);
         showMessage('Error saving settings', 'error');
     }
+}
+
+// Widget embed utilities
+function refreshWidgetEmbed() {
+    const origin = window.location.origin;
+    const src = `${origin}/widget`;
+    const embed = `<!-- Castle Widget Embed -->\n<div id="castle-widget" style="max-width:900px;margin:auto;">\n  <iframe src="${src}" style="width:100%;height:800px;border:0;" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>\n</div>`;
+    const pre = document.getElementById('widgetEmbedSnippet');
+    if (pre) pre.textContent = embed;
+}
+
+function copyWidgetEmbed() {
+    const pre = document.getElementById('widgetEmbedSnippet');
+    if (!pre) return;
+    const text = pre.textContent;
+    navigator.clipboard.writeText(text).then(() => {
+        showMessage('Embed code copied to clipboard', 'success');
+    }).catch(() => {
+        showMessage('Failed to copy embed code', 'error');
+    });
 }
 
 async function loadSpecialDays() {

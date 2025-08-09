@@ -158,7 +158,17 @@ def get_restaurant_settings(
                 "setting_key": "time_slot_duration",
                 "setting_value": "30",
                 "description": "Duration of each time slot in minutes"
-            }
+            },
+            # Widget defaults for embed
+            {"setting_key": "widget_title", "setting_value": "Booking", "description": "Widget title heading"},
+            {"setting_key": "widget_subtitle", "setting_value": "Reserve a Space at The Castle Pub", "description": "Widget subtitle text"},
+            {"setting_key": "widget_intro_text", "setting_value": "Reservations are free. Please order all food & drinks at the bar. No outside food/drinks allowed (birthday cakes okay).", "description": "Intro text shown on the widget landing step"},
+            {"setting_key": "widget_default_language", "setting_value": "en", "description": "Default language for the widget (en/de)"},
+            {"setting_key": "widget_primary_color", "setting_value": "#22c55e", "description": "Primary color for buttons and highlights"},
+            {"setting_key": "widget_accent_color", "setting_value": "#16a34a", "description": "Accent color for secondary highlights"},
+            {"setting_key": "widget_background_color", "setting_value": "#111827", "description": "Background color for the widget"},
+            {"setting_key": "widget_text_color", "setting_value": "#f9fafb", "description": "Text color for the widget"},
+            {"setting_key": "widget_border_radius", "setting_value": "12", "description": "Corner radius in pixels"}
         ]
         
         for setting_data in default_settings:

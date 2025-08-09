@@ -29,6 +29,41 @@ def get_public_restaurant_settings(db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Failed to load settings: {str(e)}")
 
 
+@router.get("/widget/config")
+def get_widget_config(db: Session = Depends(get_db)):
+    """Public endpoint to return safe widget theming and limits for embed usage."""
+    try:
+        settings_rows = db.query(RestaurantSettings).all()
+        settings_map = {row.setting_key: row.setting_value for row in settings_rows}
+
+        from app.core.config import settings as env_settings
+
+        def get(key: str, default: str):
+            return settings_map.get(key, default)
+
+        return {
+            "title": get("widget_title", "Booking"),
+            "subtitle": get("widget_subtitle", "Reserve a Space at The Castle Pub"),
+            "intro_text": get("widget_intro_text", "Reservations are free. Please order all food & drinks at the bar. No outside food/drinks allowed (birthday cakes okay)."),
+            "default_language": get("widget_default_language", "en"),
+            "colors": {
+                "primary": get("widget_primary_color", "#22c55e"),
+                "accent": get("widget_accent_color", "#16a34a"),
+                "background": get("widget_background_color", "#111827"),
+                "text": get("widget_text_color", "#f9fafb"),
+            },
+            "border_radius": int(get("widget_border_radius", "12") or 12),
+            "limits": {
+                "max_party_size": int(get("max_party_size", str(env_settings.MAX_PARTY_SIZE)) or env_settings.MAX_PARTY_SIZE),
+                "min_advance_hours": int(get("min_advance_hours", str(env_settings.MIN_RESERVATION_HOURS)) or env_settings.MIN_RESERVATION_HOURS),
+                "max_reservation_days": int(get("max_reservation_days", str(env_settings.MAX_RESERVATION_DAYS)) or env_settings.MAX_RESERVATION_DAYS),
+                "time_slot_duration": int(get("time_slot_duration", "30") or 30),
+            },
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to load widget config: {str(e)}")
+
+
 @router.post("/reservations", response_model=ReservationWithTables)
 def create_reservation(
     reservation_data: ReservationCreate,

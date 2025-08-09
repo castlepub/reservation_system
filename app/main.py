@@ -116,6 +116,18 @@ async def root():
     return {"message": "The Castle Pub Reservation System", "status": "running"}
 
 
+@app.get("/widget")
+async def widget_page():
+    """Serve the embeddable widget page (for iframe or direct preview)."""
+    try:
+        html_file = os.path.join(static_dir, "widget.html")
+        if os.path.exists(html_file):
+            return FileResponse(html_file)
+    except Exception:
+        pass
+    return {"message": "Widget page not available"}
+
+
 # Simple dynamic routes to serve token pages for edit/cancel from static assets
 @app.get("/edit/{token}")
 async def edit_page(token: str):

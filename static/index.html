@@ -811,6 +811,9 @@
                         <button class="settings-tab-btn" onclick="showSettingsTab('layout')">
                             <i class="fas fa-map"></i> Table Layout
                         </button>
+                        <button class="settings-tab-btn" onclick="showSettingsTab('widget')">
+                            <i class="fas fa-code"></i> Widget
+                        </button>
                     </div>
                     
                     <!-- General Settings Tab -->
@@ -1032,6 +1035,72 @@
                                         <!-- Reservations sidebar intentionally removed from layout editor in settings -->
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Widget Settings Tab -->
+                    <div id="widgetSettingsTab" class="settings-tab-content">
+                        <div class="settings-content">
+                            <div class="setting-group">
+                                <h4>Embeddable Widget Configuration</h4>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="widgetTitle">Title</label>
+                                        <input type="text" id="widgetTitle" class="form-control" placeholder="Booking">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="widgetSubtitle">Subtitle</label>
+                                        <input type="text" id="widgetSubtitle" class="form-control" placeholder="Reserve a Space at The Castle Pub">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="widgetIntro">Intro Text</label>
+                                    <textarea id="widgetIntro" class="form-control" rows="3" placeholder="Reservations are free...\nNo outside food/drinks allowed (birthday cakes okay)."></textarea>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="widgetDefaultLanguage">Default Language</label>
+                                        <select id="widgetDefaultLanguage" class="form-control">
+                                            <option value="en">English</option>
+                                            <option value="de">Deutsch</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="widgetBorderRadius">Border Radius (px)</label>
+                                        <input type="number" id="widgetBorderRadius" class="form-control" min="0" max="24" value="12">
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="widgetPrimaryColor">Primary Color</label>
+                                        <input type="color" id="widgetPrimaryColor" class="form-control" value="#22c55e">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="widgetAccentColor">Accent Color</label>
+                                        <input type="color" id="widgetAccentColor" class="form-control" value="#16a34a">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="widgetBgColor">Background Color</label>
+                                        <input type="color" id="widgetBgColor" class="form-control" value="#111827">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="widgetTextColor">Text Color</label>
+                                        <input type="color" id="widgetTextColor" class="form-control" value="#f9fafb">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="setting-group">
+                                <h4>Embed Code</h4>
+                                <p>Copy and paste this code into your Wix page.</p>
+                                <pre id="widgetEmbedSnippet" class="code-block" style="white-space: pre-wrap;"></pre>
+                                <button class="btn btn-secondary" onclick="copyWidgetEmbed()"><i class="fas fa-copy"></i> Copy</button>
+                            </div>
+
+                            <div class="setting-actions">
+                                <button id="saveWidgetSettings" class="btn btn-primary"><i class="fas fa-save"></i> Save Widget Settings</button>
+                                <button class="btn" onclick="refreshWidgetEmbed()"><i class="fas fa-sync"></i> Refresh Embed</button>
                             </div>
                         </div>
                     </div>

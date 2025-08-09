@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reservation Widget</title>
+  <style>
+    :root {
+      --primary: #22c55e;
+      --accent: #16a34a;
+      --bg: #111827;
+      --text: #f9fafb;
+      --radius: 12px;
+    }
+    body { margin: 0; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background: var(--bg); color: var(--text); }
+    .wrap { max-width: 900px; margin: 0 auto; padding: 20px; }
+    .card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: var(--radius); padding: 16px; }
+    h1 { margin: 0 0 8px; font-size: 26px; }
+    p.sub { margin: 0 0 16px; opacity: .85; }
+    .intro { margin: 16px 0; white-space: pre-wrap; opacity: .9; }
+    .controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin: 12px 0 16px; }
+    label { display: block; font-weight: 600; margin-bottom: 6px; opacity: .9; }
+    select, input[type="date"] { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12); background: rgba(0,0,0,0.2); color: var(--text); }
+    .slots { display: grid; gap: 8px; margin: 10px 0; max-height: 360px; overflow: auto; }
+    .slot { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-radius: 8px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08); }
+    .slot button { background: var(--primary); color: #08110a; border: 0; padding: 8px 10px; border-radius: 8px; cursor: pointer; font-weight: 600; }
+    .rooms { display: grid; gap: 10px; margin-top: 14px; }
+    .room { padding: 12px; border-radius: 8px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); }
+    .muted { opacity: .8; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1 id="wTitle">Booking</h1>
+      <p id="wSubtitle" class="sub">Reserve a Space at The Castle Pub</p>
+      <div id="wIntro" class="intro">Reservations are free. Please order all food & drinks at the bar.
+No outside food/drinks allowed (birthday cakes okay).
+      </div>
+
+      <div class="controls">
+        <div>
+          <label>People</label>
+          <select id="wParty"></select>
+        </div>
+        <div>
+          <label>Date</label>
+          <input id="wDate" type="date" />
+        </div>
+        <div>
+          <label>Your Stay</label>
+          <select id="wDuration">
+            <option value="2">2 hours</option>
+            <option value="3">3 hours</option>
+            <option value="4">4 hours</option>
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <div class="muted" style="margin:8px 0 6px;">Available times</div>
+        <div id="wSlots" class="slots"></div>
+      </div>
+
+      <div>
+        <div class="muted" style="margin:12px 0 6px;">Available areas</div>
+        <div id="wRooms" class="rooms"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API = window.location.origin;
+    async function loadConfig() {
+      const r = await fetch(`${API}/api/widget/config`);
+      if (!r.ok) throw new Error('config');
+      return r.json();
+    }
+    function setTheme(cfg) {
+      document.documentElement.style.setProperty('--primary', cfg.colors.primary);
+      document.documentElement.style.setProperty('--accent', cfg.colors.accent);
+      document.documentElement.style.setProperty('--bg', cfg.colors.background);
+      document.documentElement.style.setProperty('--text', cfg.colors.text);
+      document.documentElement.style.setProperty('--radius', (cfg.border_radius||12) + 'px');
+    }
+    function fillBasics(cfg) {
+      document.getElementById('wTitle').textContent = cfg.title || 'Booking';
+      document.getElementById('wSubtitle').textContent = cfg.subtitle || '';
+      document.getElementById('wIntro').textContent = cfg.intro_text || '';
+      const party = document.getElementById('wParty');
+      party.innerHTML = '<option value="">Select size</option>';
+      const max = cfg.limits?.max_party_size || 20;
+      for (let i=1;i<=max;i++){ const o=document.createElement('option'); o.value=i; o.textContent=i===1?'1 person':`${i} people`; party.appendChild(o) }
+      const d = document.getElementById('wDate');
+      const today = new Date();
+      const minHours = cfg.limits?.min_advance_hours || 0;
+      const minDate = new Date(today.getTime() + minHours*3600*1000);
+      d.min = minDate.toISOString().split('T')[0];
+      const maxDays = cfg.limits?.max_reservation_days || 90;
+      const maxDate = new Date(); maxDate.setDate(maxDate.getDate()+maxDays);
+      d.max = maxDate.toISOString().split('T')[0];
+      d.value = d.min;
+    }
+    function timeStr(date){ return date.toTimeString().slice(0,5) }
+    async function loadSlots() {
+      const date = document.getElementById('wDate').value;
+      const party = parseInt(document.getElementById('wParty').value||'0');
+      const duration = parseInt(document.getElementById('wDuration').value||'2');
+      const el = document.getElementById('wSlots');
+      el.innerHTML = '<div class="muted">Loading…</div>';
+      if (!date || !party) { el.innerHTML = '<div class="muted">Select people and date</div>'; return; }
+      try {
+        const r = await fetch(`${API}/api/availability`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ date, party_size: party, duration_hours: duration }) });
+        if (!r.ok) throw new Error('availability');
+        const data = await r.json();
+        el.innerHTML = '';
+        const times = [...new Set(data.available_slots.map(s=>s.time.slice(0,5)))];
+        times.forEach(t => {
+          const div=document.createElement('div'); div.className='slot';
+          div.innerHTML = `<div>${t}</div><button data-time="${t}">Select</button>`;
+          div.querySelector('button').onclick = ()=> loadRooms(t);
+          el.appendChild(div);
+        });
+        if (!times.length) el.innerHTML = '<div class="muted">No times available for this selection</div>';
+      } catch(e) { el.innerHTML = '<div class="muted">Failed to load times</div>'; }
+    }
+    async function loadRooms(timeStrVal){
+      const date = document.getElementById('wDate').value;
+      const party = parseInt(document.getElementById('wParty').value||'0');
+      const duration = parseInt(document.getElementById('wDuration').value||'2');
+      const roomsEl = document.getElementById('wRooms');
+      roomsEl.innerHTML = '<div class="muted">Loading rooms…</div>';
+      try {
+        const r = await fetch(`${API}/api/rooms`);
+        const rooms = r.ok ? await r.json() : [];
+        roomsEl.innerHTML = '';
+        rooms.forEach(room=>{
+          const div=document.createElement('div'); div.className='room';
+          div.innerHTML = `<div style="font-weight:700;margin-bottom:4px;">${room.name}</div><div class="muted">${room.description||''}</div>`;
+          roomsEl.appendChild(div);
+        });
+        if (!rooms.length) roomsEl.innerHTML = '<div class="muted">No areas available</div>';
+      } catch(e){ roomsEl.innerHTML = '<div class="muted">Failed to load rooms</div>'; }
+    }
+    document.addEventListener('DOMContentLoaded', async () => {
+      try {
+        const cfg = await loadConfig();
+        setTheme(cfg); fillBasics(cfg);
+        document.getElementById('wParty').addEventListener('change', loadSlots);
+        document.getElementById('wDate').addEventListener('change', loadSlots);
+        document.getElementById('wDuration').addEventListener('change', loadSlots);
+        loadSlots();
+      } catch(e) {
+        console.error('Widget failed to load', e);
+      }
+    });
+  </script>
+</body>
+</html>
+
+
