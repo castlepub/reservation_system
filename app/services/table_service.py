@@ -46,31 +46,40 @@ class TableService:
         end_dt = start_dt + timedelta(hours=duration_hours)
 
         # If room is blocked for this window and it's a public search (include_non_public == False), treat as no tables
-        room_block_exists = (
-            self.db.query(RoomBlock)
-            .filter(
-                RoomBlock.room_id == room_id,
-                RoomBlock.starts_at < end_dt,
-                RoomBlock.ends_at > start_dt,
-                RoomBlock.public_only == (not include_non_public),
+        room_block_exists = None
+        try:
+            room_block_exists = (
+                self.db.query(RoomBlock)
+                .filter(
+                    RoomBlock.room_id == room_id,
+                    RoomBlock.starts_at < end_dt,
+                    RoomBlock.ends_at > start_dt,
+                    RoomBlock.public_only == (not include_non_public),
+                )
+                .first()
             )
-            .first()
-        )
+        except Exception:
+            # Blocks table may not exist yet; treat as no blocks
+            room_block_exists = None
         if room_block_exists:
             return []
 
         # Filter out individually blocked tables
-        blocked_table_ids = {
-            str(b.table_id)
-            for b in self.db.query(TableBlock)
-            .filter(
-                TableBlock.table_id.in_([str(t.id) for t in all_tables]),
-                TableBlock.starts_at < end_dt,
-                TableBlock.ends_at > start_dt,
-                TableBlock.public_only == (not include_non_public),
-            )
-            .all()
-        }
+        blocked_table_ids = set()
+        try:
+            blocked_table_ids = {
+                str(b.table_id)
+                for b in self.db.query(TableBlock)
+                .filter(
+                    TableBlock.table_id.in_([str(t.id) for t in all_tables]),
+                    TableBlock.starts_at < end_dt,
+                    TableBlock.ends_at > start_dt,
+                    TableBlock.public_only == (not include_non_public),
+                )
+                .all()
+            }
+        except Exception:
+            blocked_table_ids = set()
         
         # Get reserved table IDs for this time slot (with duration overlap checking)
         reserved_table_ids = self.get_reserved_table_ids_with_duration(date, time, duration_hours, exclude_reservation_id)

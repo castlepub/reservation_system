@@ -83,12 +83,16 @@ def check_availability(
             from datetime import datetime, timedelta, time as time_cls
             start_dt = datetime.combine(availability_request.date, availability_request.time)
             end_dt = start_dt + timedelta(hours=duration)
-            room_block = db.query(RoomBlock).filter(
-                RoomBlock.room_id == availability_request.room_id,
-                RoomBlock.starts_at < end_dt,
-                RoomBlock.ends_at > start_dt,
-                RoomBlock.public_only == True,
-            ).first()
+            room_block = None
+            try:
+                room_block = db.query(RoomBlock).filter(
+                    RoomBlock.room_id == availability_request.room_id,
+                    RoomBlock.starts_at < end_dt,
+                    RoomBlock.ends_at > start_dt,
+                    RoomBlock.public_only == True,
+                ).first()
+            except Exception:
+                room_block = None
             if room_block:
                 return AvailabilityResponse(
                     date=availability_request.date,

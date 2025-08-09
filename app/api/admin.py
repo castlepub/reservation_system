@@ -31,6 +31,22 @@ from app.services.email_service_zoho import ZohoEmailService
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 
+def _ensure_block_tables():
+    """Ensure room_blocks and table_blocks tables exist (for environments without migrations)."""
+    try:
+        from sqlalchemy import inspect
+        from app.core.database import engine, Base
+        # Import models to register with metadata
+        from app.models.block import RoomBlock as _RB, TableBlock as _TB  # noqa: F401
+        inspector = inspect(engine)
+        existing_tables = set(inspector.get_table_names())
+        if 'room_blocks' not in existing_tables or 'table_blocks' not in existing_tables:
+            Base.metadata.create_all(bind=engine)
+    except Exception as e:
+        # Soft-fail; endpoint will raise a clearer DB error if creation truly fails
+        print(f"WARN: ensuring block tables failed: {e}")
+
+
 @router.post("/migrate-database")
 @router.get("/migrate-database") 
 def force_database_migration(
@@ -991,6 +1007,7 @@ def create_room_block(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_staff_user)
 ):
+    _ensure_block_tables()
     if payload.room_id and payload.room_id != room_id:
         raise HTTPException(status_code=400, detail="room_id mismatch")
     block = RoomBlock(
@@ -1012,6 +1029,7 @@ def list_room_blocks(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_staff_user)
 ):
+    _ensure_block_tables()
     blocks = db.query(RoomBlock).filter(RoomBlock.room_id == room_id).order_by(RoomBlock.starts_at.desc()).all()
     return blocks
 
@@ -1022,6 +1040,7 @@ def delete_room_block(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_staff_user)
 ):
+    _ensure_block_tables()
     block = db.query(RoomBlock).filter(RoomBlock.id == block_id).first()
     if not block:
         raise HTTPException(status_code=404, detail="Block not found")
@@ -1037,6 +1056,7 @@ def create_table_block(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_staff_user)
 ):
+    _ensure_block_tables()
     if payload.table_id and payload.table_id != table_id:
         raise HTTPException(status_code=400, detail="table_id mismatch")
     block = TableBlock(
@@ -1058,6 +1078,7 @@ def list_table_blocks(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_staff_user)
 ):
+    _ensure_block_tables()
     blocks = db.query(TableBlock).filter(TableBlock.table_id == table_id).order_by(TableBlock.starts_at.desc()).all()
     return blocks
 
@@ -1068,6 +1089,7 @@ def delete_table_block(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_staff_user)
 ):
+    _ensure_block_tables()
     block = db.query(TableBlock).filter(TableBlock.id == block_id).first()
     if not block:
         raise HTTPException(status_code=404, detail="Block not found")
