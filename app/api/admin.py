@@ -1103,6 +1103,10 @@ def list_table_blocks(
 ):
     _ensure_block_tables()
     try:
+        # If table does not exist, return empty
+        exists = db.query(Table).filter(Table.id == table_id).first()
+        if not exists:
+            return []
         blocks = (
             db.query(TableBlock)
             .filter(TableBlock.table_id == table_id)

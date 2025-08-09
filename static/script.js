@@ -2186,8 +2186,24 @@ async function loadTablesData() {
         // Populate room dropdown for add table form
         populateAddTableRoomDropdown(rooms);
         
-        // Display tables based on current view mode
-        const viewMode = window.tablesViewMode || 'grid';
+        // Display tables based on current view mode (default to list)
+        const viewMode = window.tablesViewMode || 'list';
+        // Ensure containers and buttons reflect current mode
+        const gridEl = document.getElementById('tablesGrid');
+        const listEl = document.getElementById('tablesList');
+        const gridBtn = document.getElementById('tablesViewGridBtn');
+        const listBtn = document.getElementById('tablesViewListBtn');
+        if (viewMode === 'list') {
+            if (gridEl) gridEl.style.display = 'none';
+            if (listEl) listEl.style.display = 'block';
+            if (gridBtn) gridBtn.classList.remove('active');
+            if (listBtn) listBtn.classList.add('active');
+        } else {
+            if (gridEl) gridEl.style.display = 'grid';
+            if (listEl) listEl.style.display = 'none';
+            if (gridBtn) gridBtn.classList.add('active');
+            if (listBtn) listBtn.classList.remove('active');
+        }
         if (viewMode === 'list') {
             renderTablesList(tables, rooms);
         } else {
