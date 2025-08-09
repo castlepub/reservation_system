@@ -2611,7 +2611,7 @@ function setTablesViewMode(mode) {
     loadTablesData();
 }
 
-function renderTablesList(tables, rooms) {
+async function renderTablesList(tables, rooms) {
     const list = document.getElementById('tablesList');
     if (!list) return;
     if (!tables || tables.length === 0) {
