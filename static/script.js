@@ -70,13 +70,23 @@ function initializePublicDropdowns() {
     // Populate time slots based on working hours for the selected date (fallback to defaults if fails)
     const dateEl = document.getElementById('date');
     if (dateEl && dateEl.value) {
+        showTimeSlotsLoading('time');
         updateTimeSlotsForDate(dateEl, 'time');
     } else {
+        showTimeSlotsLoading('time');
         populateTimeSlots();
     }
 
     // Fetch public restaurant settings (no auth) and update party size options if available
     loadPublicRestaurantSettingsAndApply();
+}
+
+// Show a friendly loading message while checking availability/time slots
+function showTimeSlotsLoading(selectId) {
+    const sel = document.getElementById(selectId);
+    if (!sel) return;
+    sel.innerHTML = '<option value="">Looking for space…</option>';
+    sel.disabled = true;
 }
 
 function populatePartySizeDropdown(selectElement, maxSize = 20) {
@@ -184,7 +194,11 @@ async function checkAuth() {
 
 function setupEventListeners() {
     // Forms
-    document.getElementById('reservationForm').addEventListener('submit', handleReservationSubmit);
+    const publicForm = document.getElementById('reservationForm');
+    if (publicForm) {
+        publicForm.setAttribute('novalidate', 'true');
+        publicForm.addEventListener('submit', handleReservationSubmit);
+    }
     document.getElementById('adminLoginForm').addEventListener('submit', handleAdminLogin);
     // Removed adminReservationForm - it's now handled by the modal
     document.getElementById('addNoteForm').addEventListener('submit', handleAddNote);
@@ -1123,7 +1137,8 @@ async function handleReservationSubmit(e) {
             e.target.reset();
             hideReservationForm();
         } else {
-            const error = await response.json();
+            let error = {};
+            try { error = await response.json(); } catch { error = { detail: await response.text() }; }
             console.error('Reservation creation failed:', error);
             
             // Show detailed validation errors for 422
@@ -1135,7 +1150,8 @@ async function handleReservationSubmit(e) {
                 throw new Error(`Validation errors:\n${errorMessages}`);
             }
             
-            throw new Error(error.detail || JSON.stringify(error) || 'Failed to create reservation');
+            const detail = typeof error === 'string' ? error : (error.detail || JSON.stringify(error));
+            throw new Error(detail || 'Failed to create reservation');
         }
     } catch (error) {
         console.error('Error creating reservation:', error);
