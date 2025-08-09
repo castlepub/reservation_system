@@ -1029,10 +1029,21 @@ def create_room_block(
     _ensure_block_tables()
     if payload.room_id and payload.room_id != room_id:
         raise HTTPException(status_code=400, detail="room_id mismatch")
+    starts_at = _parse_dt_local(payload.starts_at)
+    ends_at = _parse_dt_local(payload.ends_at)
+    # Prevent exact-duplicate blocks for the same period
+    existing = db.query(RoomBlock).filter(
+        RoomBlock.room_id == room_id,
+        RoomBlock.starts_at == starts_at,
+        RoomBlock.ends_at == ends_at,
+        RoomBlock.public_only == payload.public_only,
+    ).first()
+    if existing:
+        return existing
     block = RoomBlock(
         room_id=room_id,
-        starts_at=_parse_dt_local(payload.starts_at),
-        ends_at=_parse_dt_local(payload.ends_at),
+        starts_at=starts_at,
+        ends_at=ends_at,
         reason=payload.reason,
         public_only=payload.public_only,
     )
@@ -1087,10 +1098,21 @@ def create_table_block(
     _ensure_block_tables()
     if payload.table_id and payload.table_id != table_id:
         raise HTTPException(status_code=400, detail="table_id mismatch")
+    starts_at = _parse_dt_local(payload.starts_at)
+    ends_at = _parse_dt_local(payload.ends_at)
+    # Prevent exact-duplicate blocks for the same period
+    existing = db.query(TableBlock).filter(
+        TableBlock.table_id == table_id,
+        TableBlock.starts_at == starts_at,
+        TableBlock.ends_at == ends_at,
+        TableBlock.public_only == payload.public_only,
+    ).first()
+    if existing:
+        return existing
     block = TableBlock(
         table_id=table_id,
-        starts_at=_parse_dt_local(payload.starts_at),
-        ends_at=_parse_dt_local(payload.ends_at),
+        starts_at=starts_at,
+        ends_at=ends_at,
         reason=payload.reason,
         public_only=payload.public_only,
     )
@@ -1098,6 +1120,42 @@ def create_table_block(
     db.commit()
     db.refresh(block)
     return block
+
+
+@router.post("/blocks/tables/batch")
+def get_table_blocks_batch(
+    payload: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_staff_user)
+):
+    """Return active blocks for many tables at once. Payload: {"table_ids": [..]}"""
+    _ensure_block_tables()
+    try:
+        table_ids = payload.get("table_ids", [])
+        if not table_ids:
+            return {}
+        from datetime import datetime as _dt
+        now = _dt.utcnow()
+        blocks = (
+            db.query(TableBlock)
+            .filter(TableBlock.table_id.in_(table_ids), TableBlock.ends_at > now)
+            .all()
+        )
+        result = {}
+        for b in blocks:
+            tid = str(b.table_id)
+            result.setdefault(tid, []).append({
+                "id": str(b.id),
+                "table_id": tid,
+                "starts_at": b.starts_at,
+                "ends_at": b.ends_at,
+                "reason": b.reason,
+                "public_only": b.public_only,
+            })
+        return result
+    except Exception as e:
+        print(f"WARN: get_table_blocks_batch failed: {e}")
+        return {}
 
 
 @router.get("/tables/{table_id}/blocks", response_model=List[TableBlockResponse])

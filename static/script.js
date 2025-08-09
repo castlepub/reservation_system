@@ -2658,19 +2658,44 @@ function renderTablesList(tables, rooms) {
             </tbody>
         </table>`;
 
-    // populate blocks per table and show 'None' when empty
-    tables.forEach(t => {
-        const containerId = `tableBlocks-${t.id}`;
-        renderTableBlocks(containerId, t.id).then(() => {
+    // populate blocks per table via batch to reduce load
+    try {
+        const ids = tables.map(t => t.id);
+        const resp = await fetch(`${API_BASE_URL}/admin/blocks/tables/batch`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ table_ids: ids }),
+        });
+        let map = {};
+        if (resp.ok) {
+            map = await resp.json();
+        }
+        tables.forEach(t => {
+            const containerId = `tableBlocks-${t.id}`;
             const el = document.getElementById(containerId);
-            if (el && !el.innerHTML.trim()) {
+            if (!el) return;
+            const blocks = map[t.id] || [];
+            if (!blocks.length) {
                 el.innerHTML = '<span style="color:#718096;font-size:12px;">None</span>';
+            } else {
+                el.innerHTML = blocks.map(b => {
+                    const start = new Date(b.starts_at).toLocaleString();
+                    const end = new Date(b.ends_at).toLocaleString();
+                    const pub = b.public_only ? 'Public-only' : 'Full';
+                    return `<div class="badge badge-warning" style="display:inline-flex;gap:6px;align-items:center;margin:2px 6px 0 0;">
+                                <i class="fas fa-lock"></i>
+                                <span>${start} → ${end} (${pub})</span>
+                                <button class="btn btn-xs btn-danger" onclick="confirmDeleteTableBlock('${b.id}', '${containerId}', '${t.id}')">Unblock</button>
+                            </div>`;
+                }).join('');
             }
-        }).catch(() => {
-            const el = document.getElementById(containerId);
+        });
+    } catch (e) {
+        tables.forEach(t => {
+            const el = document.getElementById(`tableBlocks-${t.id}`);
             if (el) el.innerHTML = '<span style="color:#718096;font-size:12px;">None</span>';
         });
-    });
+    }
 }
 
 // Recurring room block modal helpers
