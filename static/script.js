@@ -67,8 +67,13 @@ function initializePublicDropdowns() {
     // Set minimum date
     setMinDate();
     
-    // Populate time slots
-    populateTimeSlots();
+    // Populate time slots based on working hours for the selected date (fallback to defaults if fails)
+    const dateEl = document.getElementById('date');
+    if (dateEl && dateEl.value) {
+        updateTimeSlotsForDate(dateEl, 'time');
+    } else {
+        populateTimeSlots();
+    }
 
     // Fetch public restaurant settings (no auth) and update party size options if available
     loadPublicRestaurantSettingsAndApply();
@@ -1356,6 +1361,9 @@ function setMinDate() {
         const input = document.getElementById(inputId);
         if (input) {
             input.min = minDate;
+            if (!input.value) {
+                input.value = minDate;
+            }
         }
     });
 }
