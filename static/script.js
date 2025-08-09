@@ -2339,12 +2339,13 @@ async function renderRoomBlocks(containerId, roomId) {
         const blocks = await resp.json();
         if (!Array.isArray(blocks) || blocks.length === 0) { el.innerHTML = ''; return; }
         el.innerHTML = blocks.map(b => {
-            const start = new Date(b.starts_at).toLocaleString();
-            const end = new Date(b.ends_at).toLocaleString();
+            const start = new Date(b.starts_at).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' });
+            const end = new Date(b.ends_at).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' });
             const pub = b.public_only ? 'Public-only' : 'Full';
+            const unlock = b.unlock_at ? ` | unlock: ${new Date(b.unlock_at).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' })}` : '';
             return `<div class="badge badge-warning" style="display:inline-flex;gap:6px;align-items:center;margin:2px 6px 0 0;">
                         <i class="fas fa-lock"></i>
-                        <span>${start} → ${end} (${pub})</span>
+                        <span>${start} → ${end} (${pub})${unlock}</span>
                         <button class="btn btn-xs btn-danger" onclick="confirmDeleteRoomBlock('${b.id}', '${containerId}', '${roomId}')">Unblock</button>
                     </div>`;
         }).join('');
@@ -2687,9 +2688,10 @@ async function renderTablesList(tables, rooms) {
                     const start = new Date(b.starts_at).toLocaleString();
                     const end = new Date(b.ends_at).toLocaleString();
                     const pub = b.public_only ? 'Public-only' : 'Full';
+                    const unlock = b.unlock_at ? ` | unlock: ${new Date(b.unlock_at).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' })}` : '';
                     return `<div class="badge badge-warning" style="display:inline-flex;gap:6px;align-items:center;margin:2px 6px 0 0;">
                                 <i class="fas fa-lock"></i>
-                                <span>${start} → ${end} (${pub})</span>
+                                <span>${start} → ${end} (${pub})${unlock}</span>
                                 <button class="btn btn-xs btn-danger" onclick="confirmDeleteTableBlock('${b.id}', '${containerId}', '${t.id}')">Unblock</button>
                             </div>`;
                 }).join('');

@@ -1153,6 +1153,7 @@ def get_table_blocks_batch(
                 "ends_at": b.ends_at,
                 "reason": b.reason,
                 "public_only": b.public_only,
+                "unlock_at": b.unlock_at,
             })
         return result
     except Exception as e:
