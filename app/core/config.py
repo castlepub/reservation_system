@@ -13,9 +13,10 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 hours instead of 30 minutes
     RESERVATION_TOKEN_EXPIRE_DAYS: int = 14  # token used in emails for cancel/edit
     
-    # Email (SendGrid)
-    SENDGRID_API_KEY: Optional[str] = None
-    SENDGRID_FROM_EMAIL: str = "noreply@thecastle.de"
+    # Email
+    SENDGRID_API_KEY: Optional[str] = None  # deprecated/not used
+    SENDGRID_FROM_EMAIL: str = "noreply@thecastle.de"  # deprecated/not used
+    CONTACT_EMAIL: str = "reservations@thecastleberlin.de"
     # Zoho (optional)
     ZOHO_EMAIL: Optional[str] = None
     ZOHO_PASSWORD: Optional[str] = None

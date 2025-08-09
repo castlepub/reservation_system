@@ -33,7 +33,8 @@ class ZohoEmailService:
         subject: str,
         html_content: str,
         text_content: Optional[str] = None,
-        attachments: Optional[List[dict]] = None
+        attachments: Optional[List[dict]] = None,
+        reply_to: Optional[str] = None,
     ) -> bool:
         """Send email via Zoho Mail"""
         if not self.enabled:
@@ -46,6 +47,11 @@ class ZohoEmailService:
             msg['From'] = self.from_email
             msg['To'] = to_email
             msg['Subject'] = subject
+            if reply_to:
+                try:
+                    msg['Reply-To'] = reply_to
+                except Exception:
+                    pass
             
             # Add text and HTML parts
             if text_content:

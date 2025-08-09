@@ -262,8 +262,10 @@ def add_special_day(
     # Add new special day with unique ID
     new_special_day = {
         "id": str(uuid.uuid4()),
-        "date": special_day.get("date"),
-        "reason": special_day.get("reason")
+        "date": special_day.get("date"),  # YYYY-MM-DD
+        "reason": special_day.get("reason"),
+        # If true, applies every year on the same month/day regardless of year
+        "recurring": bool(special_day.get("recurring", False)),
     }
     
     special_days.append(new_special_day)

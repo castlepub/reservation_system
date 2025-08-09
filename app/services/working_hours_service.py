@@ -1,7 +1,8 @@
 from typing import List, Optional, Tuple
 from sqlalchemy.orm import Session
 from datetime import date, time, datetime, timedelta
-from app.models.settings import WorkingHours, DayOfWeek
+from app.models.settings import WorkingHours, DayOfWeek, RestaurantSettings
+import json
 
 
 class WorkingHoursService:
@@ -24,6 +25,33 @@ class WorkingHoursService:
 
     def is_restaurant_open_on_date(self, target_date: date) -> bool:
         """Check if restaurant is open on a specific date"""
+        # First, check explicit special closed days from settings (stored as JSON)
+        try:
+            special_days_setting = (
+                self.db.query(RestaurantSettings)
+                .filter(RestaurantSettings.setting_key == "special_days")
+                .first()
+            )
+            if special_days_setting and special_days_setting.setting_value:
+                try:
+                    special_days = json.loads(special_days_setting.setting_value) or []
+                except Exception:
+                    special_days = []
+                # Expect entries like {"id": "...", "date": "YYYY-MM-DD", "reason": "...", "recurring": bool}
+                target_iso = target_date.isoformat()
+                target_month_day = target_date.strftime("%m-%d")
+                for day in special_days:
+                    day_date = (day or {}).get("date")
+                    recurring = bool((day or {}).get("recurring", False))
+                    if isinstance(day_date, str) and (
+                        day_date == target_iso or (recurring and day_date[5:] == target_month_day)
+                    ):
+                        # Date is explicitly marked as special/closed
+                        return False
+        except Exception:
+            # If settings are unavailable, fall back to working hours
+            pass
+
         working_hours = self.get_working_hours_for_date(target_date)
         
         if not working_hours:
@@ -51,6 +79,10 @@ class WorkingHoursService:
 
     def get_available_time_slots(self, target_date: date, slot_duration_minutes: int = 30) -> List[str]:
         """Get available time slots for a specific date"""
+        # Treat special closed days as having no slots
+        if not self.is_restaurant_open_on_date(target_date):
+            return []
+
         working_hours = self.get_working_hours_for_date(target_date)
         
         if not working_hours or not working_hours.is_open:
