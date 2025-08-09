@@ -2431,9 +2431,11 @@ async function handleBlockRoom(e) {
     const publicOnly = document.getElementById('blockRoomPublicOnly').checked;
     const reason = document.getElementById('blockRoomReason').value || null;
     try {
-        // Send local time as provided by input without converting to UTC
-        // If creating quiz-style block, allow setting unlock_at via an optional field later
-        await createRoomBlock(roomId, startsAt, endsAt, publicOnly, reason);
+        // Compose unlock_at from DD-MM-YYYY + HH:MM (Berlin local)
+        const unlockDateStr = (document.getElementById('blockRoomUnlockDate')?.value || '').trim();
+        const unlockTimeStr = (document.getElementById('blockRoomUnlockTime')?.value || '').trim();
+        const unlockIso = toBerlinIso(unlockDateStr, unlockTimeStr);
+        await createRoomBlock(roomId, startsAt, endsAt, publicOnly, reason, unlockIso);
         showMessage('Room blocked successfully', 'success');
         hideBlockRoomModal();
         // Immediately refresh the room's block list if visible
@@ -2467,8 +2469,10 @@ async function handleBlockTable(e) {
     const publicOnly = document.getElementById('blockTablePublicOnly').checked;
     const reason = document.getElementById('blockTableReason').value || null;
     try {
-        // Send local time as provided by input without converting to UTC
-        await createTableBlock(tableId, startsAt, endsAt, publicOnly, reason);
+        const unlockDateStr = (document.getElementById('blockTableUnlockDate')?.value || '').trim();
+        const unlockTimeStr = (document.getElementById('blockTableUnlockTime')?.value || '').trim();
+        const unlockIso = toBerlinIso(unlockDateStr, unlockTimeStr);
+        await createTableBlock(tableId, startsAt, endsAt, publicOnly, reason, unlockIso);
         showMessage('Table blocked successfully', 'success');
         hideBlockTableModal();
         // Refresh current view
@@ -4047,9 +4051,10 @@ function addHours(timeStr, hours) {
 }
 
 // Quick helpers to create/delete blocks from admin UI
-async function createRoomBlock(roomId, startsAtIso, endsAtIso, publicOnly = true, reason = null) {
+async function createRoomBlock(roomId, startsAtIso, endsAtIso, publicOnly = true, reason = null, unlockAtIso = null) {
     if (!authToken) { showMessage('Please login', 'error'); return; }
     const payload = { room_id: roomId, starts_at: startsAtIso, ends_at: endsAtIso, public_only: publicOnly, reason };
+    if (unlockAtIso) payload.unlock_at = unlockAtIso;
     const res = await fetch(`${API_BASE_URL}/admin/rooms/${roomId}/blocks`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
@@ -4059,9 +4064,10 @@ async function createRoomBlock(roomId, startsAtIso, endsAtIso, publicOnly = true
     return res.json();
 }
 
-async function createTableBlock(tableId, startsAtIso, endsAtIso, publicOnly = true, reason = null) {
+async function createTableBlock(tableId, startsAtIso, endsAtIso, publicOnly = true, reason = null, unlockAtIso = null) {
     if (!authToken) { showMessage('Please login', 'error'); return; }
     const payload = { table_id: tableId, starts_at: startsAtIso, ends_at: endsAtIso, public_only: publicOnly, reason };
+    if (unlockAtIso) payload.unlock_at = unlockAtIso;
     const res = await fetch(`${API_BASE_URL}/admin/tables/${tableId}/blocks`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
@@ -4069,6 +4075,15 @@ async function createTableBlock(tableId, startsAtIso, endsAtIso, publicOnly = tr
     });
     if (!res.ok) { const e = await res.json().catch(()=>({detail:'error'})); throw new Error(e.detail||'Failed to create table block'); }
     return res.json();
+}
+
+// Convert DD-MM-YYYY + HH:MM (Berlin) to naive ISO string yyyy-mm-ddThh:mm
+function toBerlinIso(dateStr, timeStr) {
+    if (!dateStr || !timeStr) return null;
+    const m = dateStr.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+    if (!m) return null;
+    const dd = m[1], mm = m[2], yyyy = m[3];
+    return `${yyyy}-${mm}-${dd}T${timeStr}`;
 }
 
 async function deleteRoomBlock(blockId) {
