@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://localhost:6379"
     
     # Reservation settings
-    MAX_PARTY_SIZE: int = 20
+    MAX_PARTY_SIZE: int = 50
     MIN_RESERVATION_HOURS: int = 0  # Allow same-day bookings
     MAX_RESERVATION_DAYS: int = 90
     

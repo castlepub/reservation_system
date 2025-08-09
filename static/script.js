@@ -3105,10 +3105,7 @@ function showAddReservationForm() {
         populateTimeSlots('newTime');
         
         // Populate party size dropdown
-        const partySizeSelect = document.getElementById('newPartySize');
-        if (partySizeSelect) {
-            populatePartySizeDropdown(partySizeSelect, 20);
-        }
+        // Already handled by updateMaxPartySizeOptions
     });
 }
 
