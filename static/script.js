@@ -2721,8 +2721,10 @@ async function toggleTableActive(tableId, isActive) {
             body: JSON.stringify({ active: isActive })
         });
         if (!res.ok) {
-            const err = await res.json().catch(()=>({detail:'Failed to update'}));
-            throw new Error(err.detail || 'Failed to update');
+            const text = await res.text();
+            let msg = 'Failed to update';
+            try { msg = (JSON.parse(text).detail) || msg; } catch {}
+            throw new Error(msg);
         }
         showMessage(`Table ${isActive ? 'activated' : 'deactivated'}`, 'success');
     } catch (e) {
@@ -4082,6 +4084,10 @@ function addHours(timeStr, hours) {
 // Quick helpers to create/delete blocks from admin UI
 async function createRoomBlock(roomId, startsAtIso, endsAtIso, publicOnly = true, reason = null, unlockAtIso = null) {
     if (!authToken) { showMessage('Please login', 'error'); return; }
+    if (!startsAtIso || !endsAtIso || endsAtIso <= startsAtIso) {
+        showMessage('Invalid period: end must be after start', 'error');
+        return;
+    }
     const payload = { room_id: roomId, starts_at: startsAtIso, ends_at: endsAtIso, public_only: publicOnly, reason };
     if (unlockAtIso) payload.unlock_at = unlockAtIso;
     const res = await fetch(`${API_BASE_URL}/admin/rooms/${roomId}/blocks`, {
@@ -4095,6 +4101,10 @@ async function createRoomBlock(roomId, startsAtIso, endsAtIso, publicOnly = true
 
 async function createTableBlock(tableId, startsAtIso, endsAtIso, publicOnly = true, reason = null, unlockAtIso = null) {
     if (!authToken) { showMessage('Please login', 'error'); return; }
+    if (!startsAtIso || !endsAtIso || endsAtIso <= startsAtIso) {
+        showMessage('Invalid period: end must be after start', 'error');
+        return;
+    }
     const payload = { table_id: tableId, starts_at: startsAtIso, ends_at: endsAtIso, public_only: publicOnly, reason };
     if (unlockAtIso) payload.unlock_at = unlockAtIso;
     const res = await fetch(`${API_BASE_URL}/admin/tables/${tableId}/blocks`, {

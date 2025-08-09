@@ -1031,6 +1031,8 @@ def create_room_block(
         raise HTTPException(status_code=400, detail="room_id mismatch")
     starts_at = _parse_dt_local(payload.starts_at)
     ends_at = _parse_dt_local(payload.ends_at)
+    if not starts_at or not ends_at or ends_at <= starts_at:
+        raise HTTPException(status_code=400, detail="Invalid period: ends_at must be after starts_at")
     # Prevent exact-duplicate blocks for the same period
     existing = db.query(RoomBlock).filter(
         RoomBlock.room_id == room_id,
@@ -1120,6 +1122,8 @@ def create_table_block(
         raise HTTPException(status_code=400, detail="table_id mismatch")
     starts_at = _parse_dt_local(payload.starts_at)
     ends_at = _parse_dt_local(payload.ends_at)
+    if not starts_at or not ends_at or ends_at <= starts_at:
+        raise HTTPException(status_code=400, detail="Invalid period: ends_at must be after starts_at")
     # Prevent exact-duplicate blocks for the same period
     existing = db.query(TableBlock).filter(
         TableBlock.table_id == table_id,
