@@ -16,8 +16,17 @@ from app.models.block import RoomBlock
 from app.services.email_service import EmailService
 from app.models.room import Room
 # from app.models.room import AreaType  # Temporarily disabled
+from app.models.settings import RestaurantSettings
 
 router = APIRouter(tags=["public"])
+@router.get("/settings/restaurant")
+def get_public_restaurant_settings(db: Session = Depends(get_db)):
+    """Public endpoint to read non-sensitive restaurant settings (e.g., max_party_size)."""
+    try:
+        settings = db.query(RestaurantSettings).all()
+        return [{"setting_key": s.setting_key, "setting_value": s.setting_value} for s in settings]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to load settings: {str(e)}")
 
 
 @router.post("/reservations", response_model=ReservationWithTables)
@@ -55,11 +64,16 @@ def check_availability(
 ):
     """Check availability for a specific date, party size, and duration"""
     try:
-        # Validate party size
-        if availability_request.party_size < 1 or availability_request.party_size > 20:
+        # Validate party size (use DB-max if present)
+        try:
+            max_party_setting = db.query(RestaurantSettings).filter(RestaurantSettings.setting_key == "max_party_size").first()
+            max_party_size = int(max_party_setting.setting_value) if max_party_setting and str(max_party_setting.setting_value).isdigit() else 20
+        except Exception:
+            max_party_size = 20
+        if availability_request.party_size < 1 or availability_request.party_size > max_party_size:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Party size must be between 1 and 20"
+                detail=f"Party size must be between 1 and {max_party_size}"
             )
         
         # Validate duration

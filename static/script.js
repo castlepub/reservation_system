@@ -69,6 +69,9 @@ function initializePublicDropdowns() {
     
     // Populate time slots
     populateTimeSlots();
+
+    // Fetch public restaurant settings (no auth) and update party size options if available
+    loadPublicRestaurantSettingsAndApply();
 }
 
 function populatePartySizeDropdown(selectElement, maxSize = 20) {
@@ -83,6 +86,28 @@ function populatePartySizeDropdown(selectElement, maxSize = 20) {
         option.value = i;
         option.textContent = i === 1 ? '1 person' : `${i} people`;
         selectElement.appendChild(option);
+    }
+}
+
+// Public settings fetcher: updates party size options without requiring admin auth
+async function loadPublicRestaurantSettingsAndApply() {
+    try {
+        const resp = await fetch(`${API_BASE_URL}/api/settings/restaurant`);
+        if (!resp.ok) return;
+        const settings = await resp.json();
+        const map = {};
+        settings.forEach(s => { map[s.setting_key] = s.setting_value; });
+        const maxParty = parseInt(map.max_party_size) || 20;
+        // Reuse the same updater to refresh all known selects
+        if (typeof updateMaxPartySizeOptions === 'function') {
+            updateMaxPartySizeOptions(maxParty);
+        } else {
+            const el = document.getElementById('partySize');
+            if (el) populatePartySizeDropdown(el, maxParty);
+        }
+    } catch (e) {
+        // Silent fallback; defaults already applied
+        console.debug('Public settings fetch skipped:', e?.message || e);
     }
 }
 

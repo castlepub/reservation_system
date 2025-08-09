@@ -12,6 +12,7 @@ from app.services.working_hours_service import WorkingHoursService
 # from app.services.area_service import AreaService  # Temporarily disabled
 from app.core.security import create_reservation_token
 from app.core.config import settings
+from app.models.settings import RestaurantSettings
 from app.models.block import RoomBlock, TableBlock
 
 
@@ -270,9 +271,19 @@ class ReservationService:
         print(f"DEBUG: Time: {reservation_data.time}")
         print(f"DEBUG: Time type: {type(reservation_data.time)}")
         
-        # Check party size limits
-        if reservation_data.party_size > settings.MAX_PARTY_SIZE:
-            raise ValueError(f"Party size cannot exceed {settings.MAX_PARTY_SIZE} people")
+        # Check party size limits (DB setting overrides env default)
+        try:
+            max_party_setting = (
+                self.db.query(RestaurantSettings)
+                .filter(RestaurantSettings.setting_key == "max_party_size")
+                .first()
+            )
+            max_party_size = int(max_party_setting.setting_value) if max_party_setting and str(max_party_setting.setting_value).isdigit() else int(settings.MAX_PARTY_SIZE)
+        except Exception:
+            max_party_size = int(settings.MAX_PARTY_SIZE)
+
+        if reservation_data.party_size > max_party_size:
+            raise ValueError(f"Party size cannot exceed {max_party_size} people")
         
         if reservation_data.party_size < 1:
             raise ValueError("Party size must be at least 1")
@@ -300,7 +311,16 @@ class ReservationService:
             if requested_start < now_utc:
                 raise ValueError("Selected time is in the past. Please choose a future time.")
 
-            min_hours = int(getattr(settings, "MIN_RESERVATION_HOURS", 0) or 0)
+            # Min advance hours (DB setting overrides env default)
+            try:
+                min_adv_setting = (
+                    self.db.query(RestaurantSettings)
+                    .filter(RestaurantSettings.setting_key == "min_advance_hours")
+                    .first()
+                )
+                min_hours = int(min_adv_setting.setting_value) if min_adv_setting and str(min_adv_setting.setting_value).isdigit() else int(getattr(settings, "MIN_RESERVATION_HOURS", 0) or 0)
+            except Exception:
+                min_hours = int(getattr(settings, "MIN_RESERVATION_HOURS", 0) or 0)
             earliest_allowed = now_utc + _td_(hours=min_hours)
             if requested_start < earliest_allowed:
                 raise ValueError(
