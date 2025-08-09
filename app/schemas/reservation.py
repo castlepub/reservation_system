@@ -70,6 +70,8 @@ class AvailabilityRequest(BaseModel):
     party_size: int
     duration_hours: Optional[int] = 2
     room_id: Optional[str] = None
+    # Optional time to narrow checks for specific room availability and block rules
+    time: Optional[time] = None
 
 
 class TimeSlot(BaseModel):

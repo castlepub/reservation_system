@@ -128,6 +128,30 @@ async def widget_page():
     return {"message": "Widget page not available"}
 
 
+@app.get("/terms")
+async def terms_page():
+    """Serve Terms page for public widget."""
+    try:
+        html_file = os.path.join(static_dir, "terms.html")
+        if os.path.exists(html_file):
+            return FileResponse(html_file)
+    except Exception:
+        pass
+    return {"message": "Terms page not available"}
+
+
+@app.get("/privacy")
+async def privacy_page():
+    """Serve Privacy page for public widget."""
+    try:
+        html_file = os.path.join(static_dir, "privacy.html")
+        if os.path.exists(html_file):
+            return FileResponse(html_file)
+    except Exception:
+        pass
+    return {"message": "Privacy page not available"}
+
+
 # Simple dynamic routes to serve token pages for edit/cancel from static assets
 @app.get("/edit/{token}")
 async def edit_page(token: str):

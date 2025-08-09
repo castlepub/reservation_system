@@ -111,12 +111,12 @@ def check_availability(
                 detail=f"Party size must be between 1 and {max_party_size}"
             )
         
-        # Validate duration
+        # Validate duration - allow "until-end" as a special case
         duration = getattr(availability_request, 'duration_hours', 2)
-        if duration not in [2, 3, 4]:
+        if duration not in [2, 3, 4] and duration != "until-end":
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Duration must be 2, 3, or 4 hours"
+                detail="Duration must be 2, 3, 4 hours, or 'until-end'"
             )
         
         table_service = TableService(db)

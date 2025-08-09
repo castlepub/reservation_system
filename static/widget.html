@@ -20,7 +20,7 @@
     .intro { margin: 16px 0; white-space: pre-wrap; opacity: .9; }
     .controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin: 12px 0 16px; }
     label { display: block; font-weight: 600; margin-bottom: 6px; opacity: .9; }
-    select, input[type="date"] { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12); background: rgba(0,0,0,0.2); color: var(--text); }
+    select, input[type="date"], input[type="text"], input[type="tel"], input[type="email"] { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12); background: rgba(0,0,0,0.2); color: var(--text); }
     .slots { display: grid; gap: 8px; margin: 10px 0; max-height: 360px; overflow: auto; }
     .slot { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-radius: 8px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08); }
     .slot button { background: var(--primary); color: #08110a; border: 0; padding: 8px 10px; border-radius: 8px; cursor: pointer; font-weight: 600; }
@@ -32,45 +32,127 @@
 <body>
   <div class="wrap">
     <div class="card">
+      <div style="display:flex;justify-content:flex-end;gap:6px;margin-bottom:8px;">
+        <button id="langEN" class="slot"><span>EN</span></button>
+        <button id="langDE" class="slot"><span>DE</span></button>
+      </div>
       <h1 id="wTitle">Booking</h1>
       <p id="wSubtitle" class="sub">Reserve a Space at The Castle Pub</p>
       <div id="wIntro" class="intro">Reservations are free. Please order all food & drinks at the bar.
 No outside food/drinks allowed (birthday cakes okay).
       </div>
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <button id="btnStart" class="slot" style="justify-content:center;">
+          <span id="tStart">OK</span>
+        </button>
+      </div>
 
+      <div id="stepBasics" style="display:none;">
       <div class="controls">
         <div>
-          <label>People</label>
+          <label id="tPeople">People</label>
           <select id="wParty"></select>
         </div>
         <div>
-          <label>Date</label>
+          <label id="tDate">Date</label>
           <input id="wDate" type="date" />
         </div>
         <div>
-          <label>Your Stay</label>
+          <label id="tStay">Your Stay</label>
           <select id="wDuration">
             <option value="2">2 hours</option>
             <option value="3">3 hours</option>
             <option value="4">4 hours</option>
+            <option value="until-end">until end of day</option>
           </select>
         </div>
       </div>
 
       <div>
-        <div class="muted" style="margin:8px 0 6px;">Available times</div>
+        <div id="tTimes" class="muted" style="margin:8px 0 6px;">Available times</div>
         <div id="wSlots" class="slots"></div>
       </div>
+      </div>
 
-      <div>
-        <div class="muted" style="margin:12px 0 6px;">Available areas</div>
+      <div id="stepRooms" style="display:none;">
+        <div id="tAreas" class="muted" style="margin:12px 0 6px;">Available areas</div>
         <div id="wRooms" class="rooms"></div>
+      </div>
+
+      <div id="stepReason" style="display:none;">
+        <div id="tReasonTitle" class="muted" style="margin:12px 0 6px;">What’s the occasion?</div>
+        <div id="wReasons" class="slots"></div>
+      </div>
+
+      <div id="stepDetails" style="display:none;">
+        <div class="controls">
+          <div>
+            <label id="tFirstName">First name</label>
+            <input id="wFirstName" type="text" placeholder="First name" />
+          </div>
+          <div>
+            <label id="tLastName">Last name</label>
+            <input id="wLastName" type="text" placeholder="Last name" />
+          </div>
+          <div>
+            <label id="tPhone">Phone</label>
+            <input id="wPhone" type="tel" placeholder="Your phone" />
+          </div>
+          <div>
+            <label id="tEmail">Email</label>
+            <input id="wEmail" type="email" placeholder="you@example.com" />
+          </div>
+        </div>
+        <div style="margin:8px 0;">
+          <label style="display:flex;gap:8px;align-items:flex-start;">
+            <input type="checkbox" id="wConsentFeedback" />
+            <span id="tConsentFeedback">I agree that a feedback e-mail will be sent to me after my visit.</span>
+          </label>
+          <label style="display:flex;gap:8px;align-items:flex-start;margin-top:8px;">
+            <input type="checkbox" id="wConsentOffers" />
+            <span id="tConsentOffers">I would like to receive special offers and news from The Castle Pub.</span>
+          </label>
+          <div id="tTermsText" class="muted" style="margin-top:8px;">
+            By booking you agree to our <a href="/terms" target="_blank">Terms</a> and <a href="/privacy" target="_blank">Privacy Policy</a>.
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <button id="btnBackToReason" class="slot"><span id="tBack">Back</span></button>
+          <button id="btnSubmit" class="slot" style="background:var(--primary);color:#08110a;font-weight:700;">
+            <span id="tSubmit">Confirm Reservation</span>
+          </button>
+        </div>
       </div>
     </div>
   </div>
 
   <script>
     const API = window.location.origin;
+    const i18n = {
+      en: {
+        start: 'OK', people: 'People', date: 'Date', stay: 'Your Stay', times: 'Available times',
+        areas: 'Available areas', reasonTitle: 'What\'s the occasion?', first: 'First name', last: 'Last name',
+        phone: 'Phone', email: 'Email', back: 'Back', submit: 'Confirm Reservation',
+        consent1: 'I agree that a feedback e-mail will be sent to me after my visit.',
+        consent2: 'I would like to receive special offers and news from The Castle Pub.',
+        terms: 'By booking you agree to our <a href="/terms" target="_blank">Terms</a> and <a href="/privacy" target="_blank">Privacy Policy</a>.',
+        selectPeopleAndDate: 'Select people and date', loading: 'Loading…', failedTimes: 'Failed to load times', noTimes: 'No times available for this selection',
+        loadingRooms: 'Loading areas…', noRooms: 'No areas available', failedRooms: 'Failed to load areas',
+      },
+      de: {
+        start: 'OK', people: 'Personen', date: 'Datum', stay: 'Dauer', times: 'Verfügbare Zeiten',
+        areas: 'Verfügbare Bereiche', reasonTitle: 'Anlass?', first: 'Vorname', last: 'Nachname',
+        phone: 'Telefon', email: 'E-Mail', back: 'Zurück', submit: 'Reservierung bestätigen',
+        consent1: 'Ich stimme zu, dass mir nach meinem Besuch eine Feedback-E-Mail gesendet wird.',
+        consent2: 'Ich möchte Angebote und Neuigkeiten vom The Castle Pub erhalten.',
+        terms: 'Mit der Buchung stimmen Sie unseren <a href="/terms" target="_blank">AGB</a> und der <a href="/privacy" target="_blank">Datenschutzerklärung</a> zu.',
+        selectPeopleAndDate: 'Bitte Personenanzahl und Datum wählen', loading: 'Laden…', failedTimes: 'Zeiten konnten nicht geladen werden', noTimes: 'Keine Zeiten verfügbar',
+        loadingRooms: 'Bereiche werden geladen…', noRooms: 'Keine Bereiche verfügbar', failedRooms: 'Bereiche konnten nicht geladen werden',
+      }
+    };
+    let lang = 'en';
+    function tr(key){ return (i18n[lang] && i18n[lang][key]) || i18n.en[key] || key }
+
     async function loadConfig() {
       const r = await fetch(`${API}/api/widget/config`);
       if (!r.ok) throw new Error('config');
@@ -87,6 +169,22 @@ No outside food/drinks allowed (birthday cakes okay).
       document.getElementById('wTitle').textContent = cfg.title || 'Booking';
       document.getElementById('wSubtitle').textContent = cfg.subtitle || '';
       document.getElementById('wIntro').textContent = cfg.intro_text || '';
+      document.getElementById('tStart').textContent = tr('start');
+      document.getElementById('tPeople').textContent = tr('people');
+      document.getElementById('tDate').textContent = tr('date');
+      document.getElementById('tStay').textContent = tr('stay');
+      document.getElementById('tTimes').textContent = tr('times');
+      document.getElementById('tAreas').textContent = tr('areas');
+      document.getElementById('tReasonTitle').textContent = tr('reasonTitle');
+      document.getElementById('tFirstName').textContent = tr('first');
+      document.getElementById('tLastName').textContent = tr('last');
+      document.getElementById('tPhone').textContent = tr('phone');
+      document.getElementById('tEmail').textContent = tr('email');
+      document.getElementById('tBack').textContent = tr('back');
+      document.getElementById('tSubmit').textContent = tr('submit');
+      document.getElementById('tTermsText').innerHTML = tr('terms');
+      document.getElementById('tConsentFeedback').textContent = tr('consent1');
+      document.getElementById('tConsentOffers').textContent = tr('consent2');
       const party = document.getElementById('wParty');
       party.innerHTML = '<option value="">Select size</option>';
       const max = cfg.limits?.max_party_size || 20;
@@ -101,14 +199,24 @@ No outside food/drinks allowed (birthday cakes okay).
       d.max = maxDate.toISOString().split('T')[0];
       d.value = d.min;
     }
-    function timeStr(date){ return date.toTimeString().slice(0,5) }
+    function showStep(step){
+      const steps = ['stepBasics', 'stepRooms', 'stepReason', 'stepDetails'];
+      steps.forEach(id=> document.getElementById(id).style.display='none');
+      if (step !== 'intro') document.getElementById('stepBasics').style.display = step === 'basics' ? 'block' : 'none';
+      if (step !== 'intro') document.getElementById('stepRooms').style.display = step === 'rooms' ? 'block' : 'none';
+      if (step !== 'intro') document.getElementById('stepReason').style.display = step === 'reason' ? 'block' : 'none';
+      if (step !== 'intro') document.getElementById('stepDetails').style.display = step === 'details' ? 'block' : 'none';
+    }
+    const selected = { time:null, room_id:null, reason:null };
+
     async function loadSlots() {
       const date = document.getElementById('wDate').value;
       const party = parseInt(document.getElementById('wParty').value||'0');
-      const duration = parseInt(document.getElementById('wDuration').value||'2');
+      const durationVal = document.getElementById('wDuration').value||'2';
+      const duration = durationVal === 'until-end' ? 'until-end' : parseInt(durationVal);
       const el = document.getElementById('wSlots');
-      el.innerHTML = '<div class="muted">Loading…</div>';
-      if (!date || !party) { el.innerHTML = '<div class="muted">Select people and date</div>'; return; }
+      el.innerHTML = `<div class="muted">${tr('loading')}</div>`;
+      if (!date || !party) { el.innerHTML = `<div class="muted">${tr('selectPeopleAndDate')}</div>`; return; }
       try {
         const r = await fetch(`${API}/api/availability`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ date, party_size: party, duration_hours: duration }) });
         if (!r.ok) throw new Error('availability');
@@ -118,38 +226,119 @@ No outside food/drinks allowed (birthday cakes okay).
         times.forEach(t => {
           const div=document.createElement('div'); div.className='slot';
           div.innerHTML = `<div>${t}</div><button data-time="${t}">Select</button>`;
-          div.querySelector('button').onclick = ()=> loadRooms(t);
+          div.querySelector('button').onclick = ()=> { selected.time=t; showStep('rooms'); loadRooms(t); };
           el.appendChild(div);
         });
-        if (!times.length) el.innerHTML = '<div class="muted">No times available for this selection</div>';
-      } catch(e) { el.innerHTML = '<div class="muted">Failed to load times</div>'; }
+        if (!times.length) el.innerHTML = `<div class="muted">${tr('noTimes')}</div>`;
+      } catch(e) { el.innerHTML = `<div class="muted">${tr('failedTimes')}</div>`; }
     }
     async function loadRooms(timeStrVal){
       const date = document.getElementById('wDate').value;
       const party = parseInt(document.getElementById('wParty').value||'0');
-      const duration = parseInt(document.getElementById('wDuration').value||'2');
+      const durationVal = document.getElementById('wDuration').value||'2';
+      const duration = durationVal === 'until-end' ? 'until-end' : parseInt(durationVal);
       const roomsEl = document.getElementById('wRooms');
-      roomsEl.innerHTML = '<div class="muted">Loading rooms…</div>';
+      roomsEl.innerHTML = `<div class="muted">${tr('loadingRooms')}</div>`;
       try {
         const r = await fetch(`${API}/api/rooms`);
         const rooms = r.ok ? await r.json() : [];
+        const checks = rooms.map(async (room) => {
+          try {
+            const payload = { date, party_size: party, duration_hours: duration, room_id: room.id, time: `${timeStrVal}:00` };
+            const ar = await fetch(`${API}/api/availability`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+            if (!ar.ok) return { room, available: false };
+            const data = await ar.json();
+            const ok = (data.available_slots||[]).some(s => (s.time||'').slice(0,5) === timeStrVal);
+            return { room, available: ok };
+          } catch { return { room, available: false }; }
+        });
+        const results = await Promise.all(checks);
         roomsEl.innerHTML = '';
-        rooms.forEach(room=>{
+        results.forEach(({room, available}) => {
           const div=document.createElement('div'); div.className='room';
-          div.innerHTML = `<div style="font-weight:700;margin-bottom:4px;">${room.name}</div><div class="muted">${room.description||''}</div>`;
+          const desc = room.description||'';
+          const status = available ? '<span style="color:#22c55e;font-weight:700;">Available</span>' : '<span class="muted">Unavailable</span>';
+          div.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+            <div style="font-weight:700;margin-bottom:4px;">${room.name}</div>
+            <div>${status}</div>
+          </div>
+          <div class="muted" style="margin-top:4px;">${desc}</div>
+          <div style="margin-top:8px;display:flex;justify-content:flex-end;">
+            <button ${available? '':'disabled'} data-room="${room.id}" style="background:var(--primary);color:#08110a;border:0;padding:8px 10px;border-radius:8px;cursor:pointer;font-weight:700;">Select</button>
+          </div>`;
+          div.querySelector('button')?.addEventListener('click', ()=>{ selected.room_id = room.id; showStep('reason'); loadReasons(); });
           roomsEl.appendChild(div);
         });
-        if (!rooms.length) roomsEl.innerHTML = '<div class="muted">No areas available</div>';
-      } catch(e){ roomsEl.innerHTML = '<div class="muted">Failed to load rooms</div>'; }
+        if (!results.length) roomsEl.innerHTML = `<div class="muted">${tr('noRooms')}</div>`;
+      } catch(e){ roomsEl.innerHTML = `<div class="muted">${tr('failedRooms')}</div>`; }
     }
+    function loadReasons(){
+      const reasons = [
+        {key:'dining', label:'Dining'},
+        {key:'birthday', label:'Birthday'},
+        {key:'party', label:'Party'},
+        {key:'team_event', label:'Team Event'},
+        {key:'fun', label:'Fun'},
+        {key:'special_event', label:'Special Event'}
+      ];
+      const el = document.getElementById('wReasons');
+      el.innerHTML = '';
+      reasons.forEach(r=>{
+        const div=document.createElement('div'); div.className='slot';
+        div.innerHTML = `<div>${r.label}</div><button data-reason="${r.key}">Select</button>`;
+        div.querySelector('button').onclick = ()=>{ selected.reason = r.key; showStep('details'); };
+        el.appendChild(div);
+      });
+    }
+
     document.addEventListener('DOMContentLoaded', async () => {
       try {
         const cfg = await loadConfig();
-        setTheme(cfg); fillBasics(cfg);
+        setTheme(cfg); lang = (cfg.default_language||'en'); fillBasics(cfg);
+        document.getElementById('langEN').onclick = ()=>{ lang='en'; fillBasics(cfg); };
+        document.getElementById('langDE').onclick = ()=>{ lang='de'; fillBasics(cfg); };
+        document.getElementById('btnStart').onclick = ()=>{ showStep('basics'); };
         document.getElementById('wParty').addEventListener('change', loadSlots);
         document.getElementById('wDate').addEventListener('change', loadSlots);
         document.getElementById('wDuration').addEventListener('change', loadSlots);
-        loadSlots();
+        document.getElementById('btnBackToReason').onclick = ()=> showStep('reason');
+        document.getElementById('btnSubmit').onclick = async ()=>{
+          const first = document.getElementById('wFirstName').value.trim();
+          const last = document.getElementById('wLastName').value.trim();
+          const phone = document.getElementById('wPhone').value.trim();
+          const email = document.getElementById('wEmail').value.trim();
+          const party = parseInt(document.getElementById('wParty').value||'0');
+          const date = document.getElementById('wDate').value;
+          const durationVal = document.getElementById('wDuration').value||'2';
+          const duration = durationVal === 'until-end' ? 'until-end' : parseInt(durationVal);
+          if (!first || !last || !phone || !email) { alert('Please complete your details.'); return; }
+          if (!selected.time || !selected.room_id) { alert('Please choose a time and area.'); return; }
+          const notes = [];
+          if (document.getElementById('wConsentFeedback').checked) notes.push('[consent_feedback=true]');
+          if (document.getElementById('wConsentOffers').checked) notes.push('[consent_marketing=true]');
+          try {
+            const payload = {
+              customer_name: `${first} ${last}`,
+              email, phone,
+              party_size: party,
+              date,
+              time: `${selected.time}:00`,
+              duration_hours: duration,
+              room_id: selected.room_id,
+              reservation_type: selected.reason || 'dining',
+              notes: notes.join(' ')
+            };
+            const r = await fetch(`${API}/api/reservations`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+            if (!r.ok) {
+              const err = await r.json().catch(()=>({detail:'Failed'}));
+              alert(err.detail || 'Reservation failed');
+              return;
+            }
+            await r.json();
+            alert('Reservation confirmed! Check your email for details.');
+            window.location.reload();
+          } catch(e){ alert('Reservation failed'); }
+        };
       } catch(e) {
         console.error('Widget failed to load', e);
       }
