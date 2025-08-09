@@ -3754,7 +3754,7 @@ function addHours(timeStr, hours) {
 async function createRoomBlock(roomId, startsAtIso, endsAtIso, publicOnly = true, reason = null) {
     if (!authToken) { showMessage('Please login', 'error'); return; }
     const payload = { room_id: roomId, starts_at: startsAtIso, ends_at: endsAtIso, public_only: publicOnly, reason };
-    const res = await fetch(`${API_BASE_URL}/api/admin/rooms/${roomId}/blocks`, {
+    const res = await fetch(`${API_BASE_URL}/admin/rooms/${roomId}/blocks`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -3766,7 +3766,7 @@ async function createRoomBlock(roomId, startsAtIso, endsAtIso, publicOnly = true
 async function createTableBlock(tableId, startsAtIso, endsAtIso, publicOnly = true, reason = null) {
     if (!authToken) { showMessage('Please login', 'error'); return; }
     const payload = { table_id: tableId, starts_at: startsAtIso, ends_at: endsAtIso, public_only: publicOnly, reason };
-    const res = await fetch(`${API_BASE_URL}/api/admin/tables/${tableId}/blocks`, {
+    const res = await fetch(`${API_BASE_URL}/admin/tables/${tableId}/blocks`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -3777,14 +3777,14 @@ async function createTableBlock(tableId, startsAtIso, endsAtIso, publicOnly = tr
 
 async function deleteRoomBlock(blockId) {
     if (!authToken) { showMessage('Please login', 'error'); return; }
-    const res = await fetch(`${API_BASE_URL}/api/admin/room-blocks/${blockId}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${authToken}` } });
+    const res = await fetch(`${API_BASE_URL}/admin/room-blocks/${blockId}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${authToken}` } });
     if (!res.ok) { const e = await res.json().catch(()=>({detail:'error'})); throw new Error(e.detail||'Failed to delete room block'); }
     return res.json();
 }
 
 async function deleteTableBlock(blockId) {
     if (!authToken) { showMessage('Please login', 'error'); return; }
-    const res = await fetch(`${API_BASE_URL}/api/admin/table-blocks/${blockId}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${authToken}` } });
+    const res = await fetch(`${API_BASE_URL}/admin/table-blocks/${blockId}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${authToken}` } });
     if (!res.ok) { const e = await res.json().catch(()=>({detail:'error'})); throw new Error(e.detail||'Failed to delete table block'); }
     return res.json();
 }
