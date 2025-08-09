@@ -34,6 +34,7 @@ def get_current_user(
     
     payload = verify_token(credentials.credentials)
     if payload is None:
+        # Only treat as unauthorized; do not raise for non-auth routes
         raise credentials_exception
     
     user_id: str = payload.get("sub")

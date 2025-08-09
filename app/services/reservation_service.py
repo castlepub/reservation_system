@@ -276,6 +276,36 @@ class ReservationService:
         
         if reservation_data.party_size < 1:
             raise ValueError("Party size must be at least 1")
+
+        # Disallow past reservations and enforce minimum advance notice
+        from datetime import datetime as _dt_, timedelta as _td_
+        try:
+            requested_start = _dt_.combine(reservation_data.date, reservation_data.time)
+        except Exception:
+            # If time is a string, attempt parse 'HH:MM:SS' or 'HH:MM'
+            try:
+                t_str = str(reservation_data.time)
+                if len(t_str) == 5:
+                    from datetime import time as _time_
+                    hh, mm = map(int, t_str.split(":"))
+                    requested_start = _dt_.combine(reservation_data.date, _time_(hh, mm))
+                else:
+                    requested_start = _dt_.fromisoformat(f"{reservation_data.date}T{t_str}")
+            except Exception:
+                requested_start = None
+
+        now_utc = _dt_.utcfromtimestamp(_dt_.timestamp(_dt_.utcnow()))
+        if requested_start is not None:
+            # Treat naive datetime as local; compare with now in UTC conservatively
+            if requested_start < now_utc:
+                raise ValueError("Selected time is in the past. Please choose a future time.")
+
+            min_hours = int(getattr(settings, "MIN_RESERVATION_HOURS", 0) or 0)
+            earliest_allowed = now_utc + _td_(hours=min_hours)
+            if requested_start < earliest_allowed:
+                raise ValueError(
+                    f"Reservations must be made at least {min_hours} hour(s) in advance"
+                )
         
         # Validate working hours
         is_valid_time, error_message = self.working_hours_service.validate_reservation_time(
