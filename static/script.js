@@ -1964,6 +1964,7 @@ function updateRoomsSettingsDisplay(rooms) {
                     <span class="room-detail"><i class="fas fa-list-ol"></i> Order: ${room.display_order}</span>
                     ${fallbackInfo}
                 </div>
+                <div class="room-blocks" id="roomBlocks-${room.id}" style="margin-top:8px;"></div>
             </div>
             <div class="room-actions">
                 <button class="btn btn-sm btn-secondary" onclick="editRoom('${room.id}')">
@@ -1978,6 +1979,9 @@ function updateRoomsSettingsDisplay(rooms) {
             </div>
         `;
         container.appendChild(roomElement);
+
+        // Render current blocks for this room
+        renderRoomBlocks(`roomBlocks-${room.id}`, room.id);
     });
 }
 
@@ -2276,6 +2280,9 @@ function displayTables(tables, rooms) {
                             ${table.active ? 'Active' : 'Inactive'}
                         </span>
                     </div>
+                    <div class="detail-row">
+                        <div class="table-blocks" id="tableBlocks-${table.id}" style="width:100%;"></div>
+                    </div>
                 </div>
                 <div class="table-actions">
                     <button class="btn-small btn-secondary" onclick="editTable('${table.id}')">
@@ -2293,6 +2300,83 @@ function displayTables(tables, rooms) {
     });
     
     tablesGrid.innerHTML = html;
+
+    // After rendering, populate table block info
+    tables.forEach(table => {
+        renderTableBlocks(`tableBlocks-${table.id}`, table.id);
+    });
+}
+
+async function renderRoomBlocks(containerId, roomId) {
+    try {
+        const el = document.getElementById(containerId);
+        if (!el) return;
+        const resp = await fetch(`${API_BASE_URL}/admin/rooms/${roomId}/blocks`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        if (!resp.ok) { el.innerHTML = ''; return; }
+        const blocks = await resp.json();
+        if (!Array.isArray(blocks) || blocks.length === 0) { el.innerHTML = ''; return; }
+        el.innerHTML = blocks.map(b => {
+            const start = new Date(b.starts_at).toLocaleString();
+            const end = new Date(b.ends_at).toLocaleString();
+            const pub = b.public_only ? 'Public-only' : 'Full';
+            return `<div class="badge badge-warning" style="display:inline-flex;gap:6px;align-items:center;margin:2px 6px 0 0;">
+                        <i class="fas fa-lock"></i>
+                        <span>${start} → ${end} (${pub})</span>
+                        <button class="btn btn-xs btn-danger" onclick="confirmDeleteRoomBlock('${b.id}', '${containerId}', '${roomId}')">Unblock</button>
+                    </div>`;
+        }).join('');
+    } catch (e) {
+        // ignore
+    }
+}
+
+async function renderTableBlocks(containerId, tableId) {
+    try {
+        const el = document.getElementById(containerId);
+        if (!el) return;
+        const resp = await fetch(`${API_BASE_URL}/admin/tables/${tableId}/blocks`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        if (!resp.ok) { el.innerHTML = ''; return; }
+        const blocks = await resp.json();
+        if (!Array.isArray(blocks) || blocks.length === 0) { el.innerHTML = ''; return; }
+        el.innerHTML = blocks.map(b => {
+            const start = new Date(b.starts_at).toLocaleString();
+            const end = new Date(b.ends_at).toLocaleString();
+            const pub = b.public_only ? 'Public-only' : 'Full';
+            return `<div class="badge badge-warning" style="display:inline-flex;gap:6px;align-items:center;margin:2px 6px 0 0;">
+                        <i class="fas fa-lock"></i>
+                        <span>${start} → ${end} (${pub})</span>
+                        <button class="btn btn-xs btn-danger" onclick="confirmDeleteTableBlock('${b.id}', '${containerId}', '${tableId}')">Unblock</button>
+                    </div>`;
+        }).join('');
+    } catch (e) {
+        // ignore
+    }
+}
+
+async function confirmDeleteRoomBlock(blockId, containerId, roomId) {
+    if (!confirm('Remove this room block?')) return;
+    try {
+        await deleteRoomBlock(blockId);
+        renderRoomBlocks(containerId, roomId);
+        showMessage('Room block removed', 'success');
+    } catch (e) {
+        showMessage('Failed to remove block', 'error');
+    }
+}
+
+async function confirmDeleteTableBlock(blockId, containerId, tableId) {
+    if (!confirm('Remove this table block?')) return;
+    try {
+        await deleteTableBlock(blockId);
+        renderTableBlocks(containerId, tableId);
+        showMessage('Table block removed', 'success');
+    } catch (e) {
+        showMessage('Failed to remove block', 'error');
+    }
 }
 
 function showAddTableForm() {
